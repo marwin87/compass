@@ -39,3 +39,9 @@ def update(note_id: int, data: NoteIn) -> notes.Note:
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
+
+
+@router.delete("/{note_id}", status_code=204)
+def delete(note_id: int) -> None:
+    if not notes.delete_note(note_id):
+        raise HTTPException(status_code=404, detail="Note not found")

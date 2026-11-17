@@ -109,3 +109,25 @@ def update_note(note_id: int, title: str, body: str) -> Note | None:
     finally:
         conn.close()
     return Note(id=note_id, title=title, body=body, created_at=row[2])
+
+
+def delete_note(note_id: int) -> bool:
+    """Remove a note and its index entry; False when the id does not exist."""
+    conn = connect()
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT title, body FROM notes WHERE id = ?", (note_id,)
+            ).fetchone()
+            if row is None:
+                return False
+            conn.execute(
+                "INSERT INTO notes_fts(notes_fts, rowid, title, body) "
+                "VALUES ('delete', ?, ?, ?)",
+                (note_id, row[0], row[1]),
+            )
+            conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+    finally:
+        conn.close()
+    return True

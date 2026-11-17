@@ -21,9 +21,10 @@ INDEX_HTML = """<!doctype html>
   #vb { white-space: pre-wrap; }
   details { margin-bottom: 1rem; }
   form.add { display: grid; gap: .5rem; margin-top: .5rem; }
-  #err, #eerr { color: crimson; }
+  #err, #eerr, #derr { color: crimson; }
+  #status { color: green; min-height: 1.2em; }
   [hidden] { display: none !important; }
-  #eact, #confirm { display: flex; gap: .5rem; align-items: center; }
+  #eact, #confirm, #ract, #dconfirm { display: flex; gap: .5rem; align-items: center; }
   #editform { display: grid; gap: .5rem; }
 </style>
 </head>
@@ -34,13 +35,23 @@ INDEX_HTML = """<!doctype html>
 </header>
 
 <input id="q" type="search" placeholder="Szukaj… np. indeks" autocomplete="off" autofocus>
+<div id="status" role="status"></div>
 <ul id="list"></ul>
 
 <section id="view" hidden>
   <div id="read">
     <h2 id="vt"></h2>
     <div id="vb"></div>
-    <button type="button" id="edit">Edytuj</button>
+    <div id="ract">
+      <button type="button" id="edit">Edytuj</button>
+      <button type="button" id="del">Usuń</button>
+    </div>
+    <div id="dconfirm" hidden>
+      <span>Na pewno usunąć? Tego nie da się cofnąć.</span>
+      <button type="button" id="dyes">Tak, usuń</button>
+      <button type="button" id="dno">Wróć</button>
+    </div>
+    <span id="derr"></span>
   </div>
   <form id="editform" hidden>
     <input id="et" maxlength="200" required>
@@ -82,6 +93,13 @@ function show(n) {
   $("#editform").hidden = true;
   $("#read").hidden = false;
   $("#view").hidden = false;
+  askDelete(false);
+  $("#derr").textContent = "";
+}
+
+function askDelete(on) {
+  $("#dconfirm").hidden = !on;
+  $("#ract").hidden = on;
 }
 
 function askConfirm(on) {
@@ -121,6 +139,7 @@ async function load() {
 }
 
 $("#q").addEventListener("input", () => {
+  $("#status").textContent = "";
   clearTimeout(timer);
   timer = setTimeout(load, 100);
 });
@@ -136,6 +155,7 @@ $("#add").addEventListener("submit", async (e) => {
   if (r.status === 401) { location.href = "/login"; return; }
   if (!r.ok) { $("#err").textContent = "Nie udało się zapisać (tytuł 1–200 znaków)."; return; }
   const note = await r.json();
+  $("#status").textContent = "";
   $("#add").reset();
   $("#q").value = "";
   await load();
@@ -176,6 +196,23 @@ $("#eyes").addEventListener("click", async () => {
   const note = await r.json();
   await load();
   show(note);
+});
+
+$("#del").addEventListener("click", () => askDelete(true));
+$("#dno").addEventListener("click", () => askDelete(false));
+
+$("#dyes").addEventListener("click", async () => {
+  const r = await fetch("/api/notes/" + current.id, { method: "DELETE" });
+  if (r.status === 401) { location.href = "/login"; return; }
+  if (r.status !== 204 && r.status !== 404) {
+    $("#derr").textContent = "Nie udało się usunąć.";
+    askDelete(false);
+    return;
+  }
+  current = null;
+  $("#view").hidden = true;
+  await load();
+  $("#status").textContent = "Notatka usunięta";
 });
 
 load();

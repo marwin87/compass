@@ -119,6 +119,8 @@ def test_page_has_search_and_never_uses_inner_html(authed: TestClient) -> None:
     assert 'id="edit"' in page.text
     assert 'id="editform"' in page.text
     assert 'id="eyes"' in page.text
+    assert 'id="del"' in page.text
+    assert 'id="dyes"' in page.text
     assert "innerHTML" not in page.text  # note content must only go in via textContent
 
 
@@ -184,3 +186,43 @@ def test_edit_with_invalid_title_changes_nothing(authed: TestClient) -> None:
 def test_edit_requires_login() -> None:
     with TestClient(app, follow_redirects=False) as anon:
         assert anon.put("/api/notes/1", json={"title": "x"}).status_code == 401
+
+
+def delete(c: TestClient, note_id: int) -> int:
+    status: int = c.delete(f"/api/notes/{note_id}").status_code
+    return status
+
+
+def test_deleted_note_is_gone_everywhere(authed: TestClient) -> None:
+    gone = add(authed, "Indeks", "drzewo b-tree")
+    kept = add(authed, "Transakcje", "izolacja")
+
+    assert delete(authed, gone) == 204
+    assert authed.get(f"/api/notes/{gone}").status_code == 404
+    assert titles(authed) == ["Transakcje"]
+    assert titles(authed, "indeks") == []
+    assert titles(authed, "drzewo") == []
+    assert titles(authed, "transakcje izolacja") == ["Transakcje"]
+    assert authed.get(f"/api/notes/{kept}").status_code == 200
+
+
+def test_delete_twice_and_unknown_id_are_404(authed: TestClient) -> None:
+    note_id = add(authed, "Indeks")
+    assert delete(authed, note_id) == 204
+    assert delete(authed, note_id) == 404
+    assert delete(authed, 999) == 404
+
+
+def test_notes_work_after_a_delete_even_with_reused_id(authed: TestClient) -> None:
+    old = add(authed, "stara nazwa", "stara tresc")
+    delete(authed, old)
+    new = add(authed, "nowa nazwa", "nowa tresc")  # SQLite may reuse the freed id
+    assert titles(authed, "stara") == []
+    assert titles(authed, "nowa") == ["nowa nazwa"]
+    assert put(authed, new, "zmieniona", "tresc") == 200
+    assert titles(authed, "zmieniona") == ["zmieniona"]
+
+
+def test_delete_requires_login() -> None:
+    with TestClient(app, follow_redirects=False) as anon:
+        assert anon.delete("/api/notes/1").status_code == 401

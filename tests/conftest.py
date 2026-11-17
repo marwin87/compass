@@ -6,8 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Must be set before `compass.main` is imported (it builds the app at import time).
-os.environ.setdefault("COMPASS_PASSWORD", "test-password")
-os.environ.setdefault("COMPASS_SECRET_KEY", "test-secret-key")
+# Assigned, not defaulted: a developer's real .env must not leak into the tests.
+os.environ["COMPASS_PASSWORD"] = "test-password"
+os.environ["COMPASS_SECRET_KEY"] = "test-secret-key"
 
 
 @pytest.fixture(autouse=True)
