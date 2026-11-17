@@ -140,7 +140,7 @@ with a stubbed `window.fetch`:
    test script after it that writes results into `<pre id="result">`.
 2. Dump it with `chrome-headless-shell --no-sandbox --disable-gpu --virtual-time-budget=... --dump-dom`.
    Use `--screenshot` with `--window-size` for visuals (1333 px wide matches the reference design in
-   `prototypes/ui-change-screenshot.png`; also check about 390 px wide).
+   `docs/prototypes/ui-change-screenshot.png`; also check about 390 px wide).
 3. Check both languages and both themes. Poll for async results instead of fixed sleeps
    (`file.text()` and fetch mocks are asynchronous under virtual time).
 4. Compare against the reference screenshot for layout and color, not just by eye on the code.

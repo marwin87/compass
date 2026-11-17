@@ -1,6 +1,6 @@
 """The Settings page (served at `/settings`): appearance, data, keyboard shortcuts, about.
 
-Same rules as the notes page (see STYLE_GUIDE.md): DOM calls only, no external requests, every
+Same rules as the notes page (see docs/STYLE_GUIDE.md): DOM calls only, no external requests, every
 string in both languages. Each control applies at once and is saved through `saveSettings`
 (core.py); when a save fails the control goes back to its previous value. Adding a setting means a
 key in `settings.SPEC`, a control here, an i18n label and a test.
