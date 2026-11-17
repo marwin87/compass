@@ -1,7 +1,7 @@
 {
   "format": "compass-export",
-  "exported_at": "2026-11-17T12:00:00+00:00",
-  "count": 21,
+  "exported_at": "2026-11-17T18:00:00+00:00",
+  "count": 26,
   "categories": [
     "Algorytmy",
     "Bazy danych",
@@ -11,6 +11,66 @@
     "Rozmowa"
   ],
   "notes": [
+    {
+      "id": 26,
+      "title": "REST vs GraphQL: porównanie",
+      "body": "Porównanie dwóch popularnych stylów budowania API, przydatne na rozmowie.\n\n## W skrócie\n\n| Cecha | REST | GraphQL |\n| --- | --- | --- |\n| Endpointy | wiele (jeden na zasób) | jeden |\n| Kształt odpowiedzi | ustala serwer | ustala klient |\n| Over-fetching | częsty | unikany |\n| Cache HTTP | prosty | trudniejszy |\n| Narzędzia | dojrzałe | rozwijane |\n\n## Kiedy REST\n\nREST jest prosty i dobrze współpracuje z cache HTTP. Sprawdza się, gdy zasoby są oczywiste, a klienci mają podobne potrzeby.\n\n## Kiedy GraphQL\n\nGraphQL daje klientowi precyzyjną kontrolę nad danymi. Sprawdza się przy wielu różnych klientach (web, mobile) i złożonych relacjach.\n\n> [!IMPORTANT]\n> Na rozmowie nie wybieraj „lepszego”. Pokaż, że rozumiesz kompromisy i potrafisz uzasadnić wybór kontekstem projektu.\n\n## Pytania do przećwiczenia\n\n1. Jak rozwiążesz problem N+1 w GraphQL?\n2. Jak zabezpieczysz zbyt kosztowne zapytania?\n3. Jak wersjonujesz REST, a jak GraphQL?",
+      "tags": [
+        "api",
+        "architektura",
+        "rozmowa"
+      ],
+      "category": "Rozmowa",
+      "created_at": "2026-11-17T09:10:00+00:00"
+    },
+    {
+      "id": 25,
+      "title": "Python: dekoratory i generatory",
+      "body": "Dekoratory i generatory to dwa najczęściej pytane mechanizmy Pythona na rozmowach.\n\n## Dekoratory\n\nDekorator to funkcja, która przyjmuje funkcję i zwraca nową, rozszerzoną.\n\n```python\nimport functools\nimport time\n\ndef timed(fn):\n    @functools.wraps(fn)\n    def wrapper(*args, **kwargs):\n        start = time.perf_counter()\n        try:\n            return fn(*args, **kwargs)\n        finally:\n            print(f\"{fn.__name__}: {time.perf_counter() - start:.3f}s\")\n    return wrapper\n\n@timed\ndef slow(n):\n    return sum(range(n))\n```\n\n> [!NOTE]\n> `functools.wraps` zachowuje nazwę i docstring oryginalnej funkcji.\n\n## Generatory\n\nGenerator produkuje wartości **leniwie**, jedna po drugiej, zamiast budować całą listę w pamięci.\n\n```python\ndef evens(limit):\n    for n in range(limit):\n        if n % 2 == 0:\n            yield n\n\nprint(list(evens(10)))  # [0, 2, 4, 6, 8]\n```\n\n## Kiedy co\n\n- Dekorator: dodajesz zachowanie (logowanie, cache, uprawnienia) bez zmiany funkcji.\n- Generator: przetwarzasz duże lub nieskończone strumienie danych.",
+      "tags": [
+        "kod",
+        "python",
+        "rozmowa"
+      ],
+      "category": "Nauka",
+      "created_at": "2026-11-16T18:40:00+00:00"
+    },
+    {
+      "id": 24,
+      "title": "Cheatsheet: Git i Docker",
+      "body": "Szybka ściąga na co dzień.\n\n## Git\n\n```bash\ngit status\ngit switch -c feature/kategorie\ngit add -p\ngit commit -m \"feat(categories): add category filter\"\ngit rebase -i origin/main\ngit push --force-with-lease\n```\n\n> [!WARNING]\n> Nie używaj `git push --force` na wspólnych gałęziach. `--force-with-lease` jest bezpieczniejsze.\n\n## Docker\n\n```bash\ndocker compose up --build        # start i przebudowanie\ndocker compose down -v           # kasuje też wolumeny (dane!)\ndocker logs -f compass-1         # logi na żywo\ndocker image prune               # sprzątanie\n```\n\n## Różnice, które warto pamiętać\n\n| Polecenie | Co robi | Uwaga |\n| --- | --- | --- |\n| `git merge` | łączy historię | zostawia commit scalający |\n| `git rebase` | przepisuje historię | nie na opublikowanych gałęziach |\n| `docker stop` | zatrzymuje kontener | dane w wolumenie zostają |\n| `docker down -v` | usuwa kontenery i wolumeny | **kasuje dane** |",
+      "tags": [
+        "devops",
+        "docker",
+        "git"
+      ],
+      "category": "Nauka",
+      "created_at": "2026-11-16T08:15:00+00:00"
+    },
+    {
+      "id": 23,
+      "title": "B-drzewo od środka (długa notatka)",
+      "body": "B-drzewo to struktura, która sprawia, że baza znajduje wiersze bez przeglądania całej tabeli. Ta notatka jest długa celowo: ma pokazać spis treści i komfort czytania.\n\n## Po co indeks\n\nBez indeksu `SELECT ... WHERE email = 'ala@example.com'` musi przejrzeć każdy wiersz tabeli (*full table scan*). Przy milionie rekordów to setki milisekund; z indeksem zwykle ułamek milisekundy.\n\n> [!IMPORTANT]\n> Indeks przyspiesza odczyty, ale spowalnia zapisy i zajmuje miejsce. Dodawaj go tam, gdzie naprawdę szukasz.\n\n## Jak jest zbudowane B-drzewo\n\nDrzewo ma korzeń, węzły pośrednie i liście. Każdy węzeł mieści wiele kluczy, dlatego drzewo jest **płytkie**: nawet miliard wierszy to zwykle 3–4 poziomy.\n\n### Wyszukiwanie\n\n1. Zacznij w korzeniu.\n2. Wybierz gałąź, której zakres obejmuje szukany klucz.\n3. Powtarzaj, aż dojdziesz do liścia.\n\n### Wstawianie\n\nWstawienie dodaje klucz do liścia. Gdy liść się przepełni, **dzieli się na dwa**, a środkowy klucz idzie poziom wyżej.\n\n## Przykłady w SQL\n\n```sql\n-- indeks na jednej kolumnie\nCREATE INDEX idx_users_email ON users (email);\n\n-- indeks złożony: kolejność kolumn ma znaczenie\nCREATE INDEX idx_orders_user_date ON orders (user_id, created_at);\n\nEXPLAIN SELECT * FROM orders\nWHERE user_id = 42 AND created_at > '2026-01-01';\n```\n\n> [!TIP]\n> Użyj `EXPLAIN`, żeby sprawdzić, czy zapytanie faktycznie korzysta z indeksu.\n\n## Porównanie\n\n| Rodzaj zapytania | Z indeksem | Bez indeksu |\n| --- | --- | --- |\n| `WHERE id = 5` | bardzo szybko | skan całej tabeli |\n| `WHERE name LIKE 'A%'` | szybko | skan |\n| `WHERE name LIKE '%a'` | zwykle skan | skan |\n| `ORDER BY created_at` | szybko | sortowanie |\n\n## Najczęstsze błędy\n\n- Indeks na kolumnie o bardzo małej różnorodności (np. płeć).\n- Funkcja na kolumnie w `WHERE` (`WHERE lower(email) = ...`) wyłącza zwykły indeks.\n- Zbyt wiele indeksów na tabeli z intensywnymi zapisami.\n\n> [!SUCCESS]\n> Dobry indeks to taki, który widać w planie zapytania i który realnie skraca czas odpowiedzi.",
+      "tags": [
+        "bazy danych",
+        "sql",
+        "teoria",
+        "wydajność"
+      ],
+      "category": "Bazy danych",
+      "created_at": "2026-11-15T20:05:00+00:00"
+    },
+    {
+      "id": 22,
+      "title": "Przewodnik: Markdown w Compass",
+      "body": "Compass wyświetla notatki jako **Markdown**. Treść w bazie zostaje zwykłym tekstem, a stare notatki wyglądają tak samo jak dawniej.\n\n> [!TIP]\n> Przełącz na **Tryb czytania** (ikona książki w prawym górnym rogu notatki), żeby czytać w skupieniu. Escape wychodzi z trybu.\n\n## Formatowanie tekstu\n\nMożesz użyć **pogrubienia**, *kursywy*, ~~skreślenia~~ i `kodu w linii`. Linki wyglądają tak: [dokumentacja FastAPI](https://fastapi.tiangolo.com). Zwykły adres, np. https://www.sqlite.org, też zamieni się w link.\n\nPojedynczy enter zachowuje łamanie wiersza,\nwięc stare notatki zapisane „po staremu” czyta się jak wcześniej.\n\n## Listy\n\n- Lista punktowana\n  - zagnieżdżona\n    - i jeszcze głębiej\n- Drugi punkt\n\n1. Pierwszy krok\n2. Drugi krok\n   - z podpunktem\n3. Trzeci krok\n\n## Callouty\n\n> [!INFO]\n> Informacja: coś, co warto wiedzieć.\n\n> [!TIP]\n> Wskazówka: skrót `Ctrl K` (albo `⌘ K`) przenosi do wyszukiwarki.\n\n> [!WARNING]\n> Ostrzeżenie: import zastępuje wszystkie dane.\n\n> [!IMPORTANT]\n> Ważne: eksportuj notatki przed większymi zmianami.\n\n> [!SUCCESS]\n> Sukces: kopia zapasowa gotowa.\n\n> [!NOTE]\n> Notatka dodatkowa, mniej ważna.\n\n## Cytaty i kod\n\n> Prostota jest szczytem wyrafinowania.\n\n```python\ndef fib(n: int) -> int:\n    # liczby Fibonacciego, iteracyjnie\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n```\n\n## Tabela\n\n| Element | Składnia | Efekt |\n| --- | :---: | ---: |\n| Nagłówek | `## Tekst` | sekcja |\n| Pogrubienie | `**tekst**` | **tekst** |\n| Lista | `- punkt` | • punkt |\n\n---\n\nSpis treści pojawia się sam, gdy notatka ma co najmniej trzy nagłówki `##` lub `###`.",
+      "tags": [
+        "compass",
+        "wskazówki"
+      ],
+      "category": "Compass",
+      "created_at": "2026-11-15T12:00:00+00:00"
+    },
     {
       "id": 21,
       "title": "English note: how to learn faster",

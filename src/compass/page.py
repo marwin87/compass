@@ -12,6 +12,7 @@ import re
 from urllib.parse import quote
 
 from compass.i18n import STRINGS
+from compass.reader import READER_CSS, READER_PURE_JS, READER_UI_JS
 
 # The tab icon: the logo (compass on the brand gradient) as an inline SVG data URI, so the page
 # still makes no external request and needs no extra route.
@@ -205,7 +206,7 @@ dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
 .reveal .res{animation:fadein .2s ease-out both}
 @keyframes fadein{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 @keyframes shimmer{from{background-position:120% 0}to{background-position:-120% 0}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);animation:rise .2s ease-out}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;overflow:clip;box-shadow:var(--shadow);animation:rise .2s ease-out}
 @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .panel[data-mode=edit],.panel[data-mode=del],.panel[data-mode=confirm],.panel.pad{padding:24px 26px}
 .card:has(.panel[data-mode=read]){border-color:rgba(255,255,255,.08);background:radial-gradient(560px 340px at 100% 0%,rgba(112,92,255,.5),transparent 72%),radial-gradient(460px 320px at 85% 38%,rgba(66,104,240,.22),transparent 72%),linear-gradient(180deg,#1b1f46 0%,#161a38 38%,#12142a 100%)}
@@ -227,7 +228,6 @@ dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
 .hero .chip.on{background:var(--grad);border-color:transparent}
 .sheet{position:relative;margin-top:-16px;border-radius:22px 22px 0 0;border-top:1px solid rgba(255,255,255,.1);background:rgba(12,14,30,.6);backdrop-filter:blur(8px);min-height:120px}
 :root[data-theme=light] .sheet{background:var(--panel)}
-.panel .body{white-space:pre-wrap;font-size:15.5px;line-height:1.7;padding:24px 26px 28px;margin:0;color:var(--ink);opacity:.94;overflow-wrap:anywhere}
 .panel .actions{padding:14px 26px 26px}
 .panel .err{padding:0 26px}
 .panel[data-mode=edit] .err,.panel.pad .err{padding:0}
@@ -262,6 +262,7 @@ INDEX_HTML = (
 <style>"""
     + COMMON_CSS
     + APP_CSS
+    + READER_CSS
     + r"""</style>
 </head>
 <body>"""
@@ -285,8 +286,8 @@ INDEX_HTML = (
     <div class="spacer"></div>
     <div class="row">
       <div class="row langs" role="group" aria-label="[[lang_label]]">
-        <button type="button" class="btn icon" data-lang="pl">PL</button>
         <button type="button" class="btn icon" data-lang="en">EN</button>
+        <button type="button" class="btn icon" data-lang="pl">PL</button>
       </div>
       <button type="button" class="btn icon" id="theme" title="[[theme_title]]" aria-label="[[theme_title]]"><span class="ic" data-icon="moon"></span></button>
     </div>
@@ -297,6 +298,15 @@ INDEX_HTML = (
   </aside>
   <div class="scrim" id="scrim" hidden></div>
   <main>
+    <div class="readbar" id="readbar">
+      <span class="lbl"><span class="ic" data-icon="book" data-size="16"></span>[[reading_mode]]</span>
+      <div class="rtools">
+        <button type="button" class="btn" id="r-smaller" aria-label="[[font_smaller]]" title="[[font_smaller]]">A−</button>
+        <button type="button" class="btn" id="r-larger" aria-label="[[font_larger]]" title="[[font_larger]]">A+</button>
+        <button type="button" class="btn icon" id="r-width" aria-label="[[width_toggle]]" title="[[width_toggle]]"><span class="ic" data-icon="move-h" data-size="16"></span></button>
+        <button type="button" class="btn" id="r-exit" aria-label="[[reading_exit]]" title="[[reading_exit]]"><kbd>Esc</kbd>[[reading_exit]]</button>
+      </div>
+    </div>
     <div class="topbar">
       <button type="button" class="btn icon menubtn" id="menu" aria-label="[[menu_open]]"><span class="ic" data-icon="menu"></span></button>
       <div class="searchbar"><span class="ic" data-icon="search" data-size="20"></span><input id="q" placeholder="[[search_ph]]" autocomplete="off" autofocus><kbd id="shortcut">/</kbd></div>
@@ -333,6 +343,7 @@ INDEX_HTML = (
 const LANG = I18N.lang, T = I18N.strings;
 const tr = (key, vars = {}) => T[key].replace(/\{(\w+)\}/g, (_, k) => vars[k]);
 const $ = (s) => document.querySelector(s);
+/*READER_PURE*/
 function h(tag, props, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props || {})) {
@@ -389,6 +400,12 @@ const SVGNS = "http://www.w3.org/2000/svg";
 const ICONS = {
   compass: [["circle", {cx: 12, cy: 12, r: 10}], ["polygon", {points: "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"}]],
   plus: [["path", {d: "M5 12h14"}], ["path", {d: "M12 5v14"}]],
+  info: [["circle", {cx: 12, cy: 12, r: 10}], ["path", {d: "M12 16v-4"}], ["path", {d: "M12 8h.01"}]],
+  bulb: [["path", {d: "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"}], ["path", {d: "M9 18h6"}], ["path", {d: "M10 22h4"}]],
+  "alert-circle": [["circle", {cx: 12, cy: 12, r: 10}], ["path", {d: "M12 8v4"}], ["path", {d: "M12 16h.01"}]],
+  "check-circle": [["path", {d: "M22 11.08V12a10 10 0 1 1-5.93-9.14"}], ["polyline", {points: "22 4 12 14.01 9 11.01"}]],
+  list: [["path", {d: "M8 6h13"}], ["path", {d: "M8 12h13"}], ["path", {d: "M8 18h13"}], ["path", {d: "M3 6h.01"}], ["path", {d: "M3 12h.01"}], ["path", {d: "M3 18h.01"}]],
+  "move-h": [["path", {d: "m18 8 4 4-4 4"}], ["path", {d: "m6 8-4 4 4 4"}], ["path", {d: "M2 12h20"}]],
   alert: [["path", {d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"}], ["path", {d: "M12 9v4"}], ["path", {d: "M12 17h.01"}]],
   search: [["circle", {cx: 11, cy: 11, r: 8}], ["path", {d: "m21 21-4.3-4.3"}]],
   zap: [["polygon", {points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2"}]],
@@ -447,8 +464,9 @@ function toast(msg, kind = "", ms = 1800) {   // kind: "", "ok" or "bad"; errors
   const t = $("#toast"); t.textContent = msg; t.className = "toast show " + kind; clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
 }
 
+/*READER_UI*/
 // --- state and server calls
-const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: [], total: 0};
+const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: [], total: 0, reading: false};
 let seq = 0, timer;
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -576,6 +594,8 @@ function categoryBadge(id) {          // the default category is not shown on ca
   const c = state.categories.find((x) => x.id === id);
   return c && !c.default ? h("span", {class: "badge cat"}, c.name) : null;
 }
+// A card shows the start of the text without Markdown markers; the note itself is never changed.
+const snippet = (body) => body.replace(/^\s*>\s*\[!\w+\]\s*/gm, "").replace(/```\w*/g, " ").replace(/^\s*#{1,6}\s+/gm, "").replace(/\*\*|__|~~|`/g, "").replace(/\s+/g, " ").trim().slice(0, 160);
 function renderList() {
   const tk = tokens(), n = state.list.length;
   $("#results").classList.toggle("searching", !!state.q);   // one line of text per card, two while searching so the match shows
@@ -585,19 +605,21 @@ function renderList() {
     h("div", {class: "ico"}, icon(noteIcon(note), 20)),
     h("div", {},
       h("div", {class: "top"}, h("span", {class: "t"}, hlNodes(note.title, tk)), h("span", {class: "date"}, shortDate(note.created_at))),
-      h("div", {class: "s"}, hlNodes(note.body.replace(/\s+/g, " ").slice(0, 160), tk)),
+      h("div", {class: "s"}, hlNodes(snippet(note.body), tk)),
       h("div", {class: "meta"}, categoryBadge(note.category_id), note.tags.map((t) => h("span", {class: "chip mini" + (state.sel.has(t) ? " on" : ""), onclick: (e) => { e.stopPropagation(); toggleTag(t); }}, "#" + t)))),
     h("span", {class: "chev"}, icon("chevron-right", 16)))) : [h("div", {class: "empty"}, tr(none ? "empty_none" : "no_results"))]));
 }
 function renderDetail() {
   const d = $("#detail");
   if (state.mode === "new") {
+    exitReading();
     d.replaceChildren(h("div", {class: "card"}, newPanel({
       onCancel: () => { state.mode = "view"; setView("list"); load(); },
       onCreated: async (n) => { state.q = ""; $("#q").value = ""; state.sel.clear(); state.category = null; state.mode = "view"; state.cur = n.id; await loadCategories(); await loadTags(); await load(); toast(tr("toast_created")); }})));
     return;
   }
   const n = state.list.find((x) => x.id === state.cur);
+  if (!n) exitReading();
   if (!n) { d.replaceChildren(h("div", {class: "card"}, h("div", {class: "empty"}, tr("pick_or_add")))); return; }
   d.replaceChildren(h("div", {class: "card"}, notePanel(n, {
     onChange: async () => { await loadCategories(); await loadTags(); await load(true); toast(tr("toast_saved")); },
@@ -656,10 +678,11 @@ function categoryField(selectedId) {
 function noteForm(init, message) {
   const title = h("input", {value: init.title, maxlength: 200, placeholder: tr("label_title")});
   const body = h("textarea", {value: init.body, placeholder: tr("label_body"), maxlength: 20000});
+  const mdHint = h("div", {class: "hint2"}, tr("md_hint"));
   const tags = h("input", {value: init.tags.join(", "), placeholder: tr("label_tags"), autocomplete: "off"});
   const category = categoryField(init.category_id);
   const err = h("div", {class: "err"}, message);
-  const el = h("div", {class: "form"}, h("label", {}, tr("label_title")), title, h("label", {}, tr("label_body")), body, h("label", {}, tr("label_tags")), tags, suggestions(tags), h("label", {}, tr("label_category")), category.el, err);
+  const el = h("div", {class: "form"}, h("label", {}, tr("label_title")), title, h("label", {}, tr("label_body")), body, mdHint, h("label", {}, tr("label_tags")), tags, suggestions(tags), h("label", {}, tr("label_category")), category.el, err);
   return {el, err, focus: () => title.focus(), values() {
     const t = readTags(tags.value), ti = title.value.trim();
     err.textContent = !ti ? tr("empty_title") : t.error;
@@ -688,7 +711,7 @@ function notePanel(note, cb) {
     root.dataset.mode = mode;
     if (mode === "read") {
       const tk = tokens();
-      const edit = () => { draft = {title: note.title, body: note.body, tags: [...note.tags], category_id: note.category_id}; msg = ""; mode = "edit"; draw(); };
+      const edit = () => { exitReading(); draft = {title: note.title, body: note.body, tags: [...note.tags], category_id: note.category_id}; msg = ""; mode = "edit"; draw(); };
       const catBadge = h("span", {class: "badge cat"}, catName(note.category_id));
       root.replaceChildren(
         h("div", {class: "hero"},
@@ -699,12 +722,14 @@ function notePanel(note, cb) {
               h("span", {class: "datebadge"}, icon("calendar", 15), tr("created") + ": " + longDate(note.created_at)),
               catBadge),
             h("div", {class: "tools"},
+              h("button", {type: "button", class: "iconbtn readtoggle", "aria-label": tr("reading_mode"), "aria-pressed": "false", title: tr("reading_mode"), onclick: toggleReading}, icon("book", 17)),
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("copy"), title: tr("copy"), onclick: () => copyNote(note)}, icon("copy", 17)),
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("edit"), title: tr("edit"), onclick: edit}, icon("pencil", 17)),
               h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
           h("h2", {}, hlNodes(note.title, tk)),
           h("div", {class: "chips"}, note.tags.map((t) => h("button", {type: "button", class: "chip" + (state.sel.has(t) ? " on" : ""), onclick: () => toggleTag(t)}, "#" + t)))),
-        h("div", {class: "sheet"}, h("div", {class: "body"}, hlNodes(note.body, tk)), h("div", {class: "err"}, msg)));
+        h("div", {class: "sheet"}, readerBody(note, tk), h("div", {class: "err"}, msg)));
+      setTimeout(() => { watchToc(root); syncReadButton(); }, 0);   // after the panel is in the page
     } else if (mode === "del") {
       root.replaceChildren(h("h2", {}, note.title), h("div", {class: "confirm"}, h("span", {}, tr("confirm_delete")),
         h("button", {class: "btn danger", onclick: remove}, tr("yes_delete")), h("button", {class: "btn", onclick: back}, tr("back"))));
@@ -876,6 +901,11 @@ $("#theme").addEventListener("click", () => {
 });
 $("#f-all").addEventListener("click", () => { state.sel.clear(); state.category = null; state.mode = "view"; renderTagbar(); renderCategories(); load(); });
 $("#f-clear").addEventListener("click", () => resetFilters(true));
+applyReader();
+$("#r-smaller").addEventListener("click", () => { READER.size = Math.max(READ_SIZES[0], READER.size - 1); applyReader(); });
+$("#r-larger").addEventListener("click", () => { READER.size = Math.min(READ_SIZES[1], READER.size + 1); applyReader(); });
+$("#r-width").addEventListener("click", () => { READER.width = (READER.width + 1) % READ_WIDTHS.length; applyReader(); });
+$("#r-exit").addEventListener("click", exitReading);
 $("#tagmore").addEventListener("click", () => { tagsOpen = !tagsOpen; fitTags(); });
 const openMenu = (on) => { $("#app").classList.toggle("menu", on); $("#scrim").hidden = !on; };
 $("#menu").addEventListener("click", () => openMenu(true));
@@ -883,6 +913,7 @@ $("#scrim").addEventListener("click", () => openMenu(false));
 $("#shortcut").textContent = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘ K" : "Ctrl K";
 document.addEventListener("keydown", (e) => {
   if (document.querySelector("dialog[open]")) return;   // a dialog handles its own keys (Esc closes it natively)
+  if (state.reading) { if (e.key === "Escape") { e.preventDefault(); exitReading(); } return; }   // reading mode: Esc leaves it, the rest scrolls
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName), q = $("#q");
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); q.focus(); q.select(); }
   else if (e.key === "/" && !typing) { e.preventDefault(); q.focus(); }
@@ -908,6 +939,9 @@ load();
 """
 )
 
+INDEX_HTML = INDEX_HTML.replace("/*READER_PURE*/", READER_PURE_JS).replace(
+    "/*READER_UI*/", READER_UI_JS
+)
 
 LANG_SWITCH_JS = (
     'document.querySelectorAll("[data-lang]").forEach(function(b){'

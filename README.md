@@ -1,4 +1,8 @@
-# Compass
+<p align="center">
+  <img src="docs/compass-icon.svg" alt="Compass icon" width="96" height="96">
+</p>
+
+<h1 align="center">Compass</h1>
 
 A personal knowledge base: short notes in one place, found in a fraction of a second after a few typed letters. One instance serves one person.
 

@@ -11,6 +11,7 @@ The whole app UI is one server-rendered page, no build step and no framework.
 | Where | What |
 | --- | --- |
 | `src/compass/page.py` | `COMMON_CSS` (tokens, base, buttons, chips, forms, toast, login), `APP_CSS` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `INDEX_HTML` (markup + one `<script>`), `render_index(lang)` |
+| `src/compass/reader.py` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
 | `src/compass/i18n.py` | `STRINGS["pl"]` and `STRINGS["en"]`, `pick_lang` |
 | `src/compass/auth.py` | login page; reuses `COMMON_CSS` only |
 | `tests/test_i18n.py` | page smoke tests and i18n guards |
@@ -135,3 +136,35 @@ with a stubbed `window.fetch`:
 
 Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests && uv run pytest` and
 `docker build -t compass:dev .` before handing over.
+
+## 8. Note reader (Markdown) and reading mode
+
+- **Notes are plain text in the database and stay so.** They are only *displayed* through the Markdown
+  renderer; nothing is migrated or rewritten, and import/export/search see the original text. Edit mode
+  shows the raw text with a one-line Markdown hint.
+- **Backward compatibility:** a single line break is kept (`<br>`), blank lines separate paragraphs, so an
+  old plain note looks the way it always did. `-`/`1.` lines become lists, `#` + space a heading, `---` a rule.
+- **Safe by construction:** the parser (`mdParse`) produces an AST and `mdBlocksDom` builds DOM nodes. Raw HTML
+  in a note is shown as text; links are limited to `http(s)`, `mailto:`, `/` and `#` (anything else, e.g.
+  `javascript:`, is plain text); external links get `rel="noopener noreferrer"`; images are not loaded
+  (that would be an external request).
+- **Supported:** H1-H6, paragraphs, bold, italic, strikethrough, inline code, fenced code (with language),
+  ordered/unordered/nested lists, blockquotes, links and bare URLs, GFM tables (alignment, `\|`), rules,
+  callouts `> [!NOTE|INFO|TIP|WARNING|IMPORTANT|SUCCESS]` (`CAUTION` = warning). Callout labels are translated
+  (`callout_*`).
+- **Code blocks:** own tiny highlighter (`mdHighlight`: js/ts, python, sql, json, bash, yaml, css, html), language
+  from the fence or guessed (`hlDetect`), label in the corner, Copy button with an in-place confirmation,
+  horizontal scroll. Never highlight code over 30 000 characters. Add a language by adding to `HL_LANGS`.
+- **Tables** live in `.tablewrap` (own horizontal scroll, never wider than the panel). **Contents** (`.toc`) is built
+  from H2/H3 and shown only with 3 or more of them: collapsed above the text normally, open and sticky on the
+  right in reading mode on wide screens; the current section is highlighted while scrolling (one rAF per burst).
+- **Typography** is in `.md` (em-based so the reading font size scales it); colors use `--r-*` tokens, which also
+  have a light variant. Do not add reading progress, word counts or reading-time estimates (decided against).
+- **Reading mode** (`#app.reading`): hides sidebar, list, search and filters, centres the text at 680/760/880 px,
+  keeps Copy/Edit/Delete and shows `#readbar` (smaller/larger text, width, exit). Esc leaves it; shortcuts and
+  arrow navigation are off while it is active; editing leaves it. Size and width are stored in
+  `localStorage["reader"]`. `.card` uses `overflow:clip` (not `hidden`) so the sticky contents works.
+- **List snippets** strip Markdown markers (`snippet()`); the note itself is never changed.
+- **Testing:** `tests/test_reader.py` runs the pure parser/highlighter in Node (skipped without Node). The DOM
+  side is checked with the headless-Chromium method from section 7. Under virtual time `requestAnimationFrame`
+  and smooth scrolling do not progress between sleeps: use instant scrolling and screenshots for those.
