@@ -87,6 +87,9 @@ h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .row{display:flex;gap:8px;align-items:center}
 .row form{margin:0}
 a.btn{display:block;text-align:center;text-decoration:none}
+.msg{font-size:12px;min-height:1em;margin-top:2px}
+.msg.ok{color:var(--ok)}
+.msg.bad{color:var(--danger)}
 main{padding:22px 28px;max-width:1240px;width:100%}
 .searchbar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
 .searchbar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -140,7 +143,10 @@ INDEX_HTML = (
         <button type="button" class="btn icon" data-lang="en">EN</button>
       </div>
     </div>
+    <button type="button" class="btn wide" id="import" title="[[import_title]]">[[import]]</button>
+    <input type="file" id="importfile" accept=".json,application/json" hidden>
     <a class="btn wide" href="/api/export" download title="[[export_title]]">[[export]]</a>
+    <div id="importmsg" class="msg" role="status"></div>
     <form method="post" action="/logout"><button class="btn wide">[[logout]]</button></form>
   </aside>
   <main>
@@ -351,9 +357,46 @@ function newPanel(cb) {
   return root;
 }
 
+// --- import (the server validates the whole file and answers with a code we translate)
+const IMPORT_ERRORS = {
+  not_json: "import_err_not_json", not_an_export: "import_err_not_an_export",
+  unsupported_version: "import_err_unsupported_version", invalid_file: "import_err_invalid_file",
+  count_mismatch: "import_err_count_mismatch", invalid_note: "import_err_invalid_note",
+  file_too_large: "import_err_file_too_large",
+};
+const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", note: "field_note"};
+function importError(detail) {
+  const d = detail && typeof detail === "object" ? detail : {};
+  const key = IMPORT_ERRORS[d.code];
+  if (!key) return tr("import_err_failed");
+  const field = FIELD_NAMES[d.field] ? tr(FIELD_NAMES[d.field]) : "";
+  return tr(key, {version: d.version ?? "?", expected: d.expected ?? "?", actual: d.actual ?? "?", index: d.index ?? "?", field, mb: d.limit_mb ?? "?"});
+}
+async function importFile(file) {
+  const show = (text, ok) => { const m = $("#importmsg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "bad"); };
+  let r;
+  try {
+    r = await api("/api/import", {method: "POST", headers: {"content-type": "application/json"}, body: await file.text()});
+  } catch (e) {
+    if (e.message !== "not authenticated") show(tr("import_err_failed"), false);
+    return;
+  }
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) { show(importError(body.detail), false); return; }
+  show(tr("import_done", {n: body.imported, m: body.skipped}), true);
+  await loadTags();
+  await load();
+}
+
 // --- wiring
 $("#q").addEventListener("input", () => { state.q = $("#q").value; clearTimeout(timer); timer = setTimeout(() => { state.mode = "view"; load(); }, 100); });
 $("#new").addEventListener("click", openNew);
+$("#import").addEventListener("click", () => $("#importfile").click());
+$("#importfile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";          // so choosing the same file again fires another change
+  if (file) await importFile(file);
+});
 document.querySelectorAll("[data-lang]").forEach((b) => {
   b.classList.toggle("on", b.dataset.lang === LANG);
   b.addEventListener("click", () => { document.cookie = "lang=" + b.dataset.lang + "; path=/; max-age=31536000; SameSite=Lax"; location.reload(); });

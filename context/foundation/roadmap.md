@@ -43,16 +43,16 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 | ID    | Change ID    | Outcome (user can …)                                                                  | Prerequisites | PRD refs                                              | Status   |
 | ----- | ------------ | ------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------- | -------- |
 | S-01  | export-notes | download all my notes, with their tags and dates, as one file                         | —             | FR-009, Success Criteria §Secondary, §Guardrails      | done |
-| S-02  | import-notes | load notes from an exported file back into Compass without losing title, body, tags or dates | S-01   | FR-009, Success Criteria §Secondary, §Guardrails      | ready |
+| S-02  | import-notes | load notes from an exported file back into Compass without losing title, body, tags or dates | S-01   | FR-009, Success Criteria §Secondary, §Guardrails      | done |
 
 ## Baseline
 
 What's already in place in the codebase as of `2026-11-17` (auto-researched).
 Foundations below assume these are present and do NOT re-scaffold them.
 
-- **Frontend:** present — one page in a panel layout (tag sidebar with counts, ranked results, note card) built from DOM calls (`src/compass/page.py`): live search with match highlighting, add, view, edit and delete with confirmation, tags and a tag filter; a styled login page; the interface is available in Polish and English (language from the browser, PL/EN switch kept in a `lang` cookie; texts in `src/compass/i18n.py`); an Export notes button downloads all notes as a file; no import control yet. UI variants are kept as standalone prototypes in `prototypes/`.
-- **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, a JSON notes API (`/api/notes`: create, read, search, edit, delete, filter by tag), `/api/tags`; no export or import endpoint.
-- **Data:** present — SQLite file (`COMPASS_DB_PATH`) with `notes`, `tags`, `note_tags` and a folded search index (`notes_fts`) that is rebuilt on version change; export reads all notes in one query, nothing writes notes in bulk yet.
+- **Frontend:** present — one page in a panel layout (tag sidebar with counts, ranked results, note card) built from DOM calls (`src/compass/page.py`): live search with match highlighting, add, view, edit and delete with confirmation, tags and a tag filter; a styled login page; the interface is available in Polish and English (language from the browser, PL/EN switch kept in a `lang` cookie; texts in `src/compass/i18n.py`); Export notes and Import notes buttons (download the JSON backup, load it back with a translated summary or error). UI variants are kept as standalone prototypes in `prototypes/`.
+- **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, a JSON notes API (`/api/notes`: create, read, search, edit, delete, filter by tag), `/api/tags`, `/api/export` (JSON backup) and `/api/import` (loads it back, validated as a whole and skipping notes that already exist).
+- **Data:** present — SQLite file (`COMPASS_DB_PATH`) with `notes`, `tags`, `note_tags` and a folded search index (`notes_fts`) that is rebuilt on version change; export reads all notes in one query and import writes a whole file in one transaction (creation dates kept, new ids).
 - **Auth:** present — single-password login with a signed session cookie; everything except `/login` and `/health` requires it.
 - **Deploy / infra:** present — local Docker image with a data volume (`Dockerfile`, `docker-compose.yml`) and a CI workflow (checks plus an image build); no registry publishing.
 - **Observability:** absent — no logging or error tracking.
@@ -83,18 +83,16 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 - **Prerequisites:** S-01
 - **Parallel with:** —
 - **Blockers:** —
-- **Unknowns:**
-  - What happens to a note that already exists in Compass (skip it, add a copy, or overwrite)? — Owner: user. Block: no.
-  - Should import accept only files made by Compass, or also notes from other tools? — Owner: user. Block: no.
+- **Unknowns:** — (resolved: a note with the same title, body and creation date is skipped; only Compass export files are accepted; a file with any invalid note is rejected as a whole)
 - **Risk:** This is the milestone's quality bar: exporting and then importing the same file into an empty Compass must reproduce the notes, their tags and their search results. Duplicate notes and tag normalisation are the main traps.
-- **Status:** ready
+- **Status:** done
 
 ## Backlog Handoff
 
 | Roadmap ID | Change ID    | Suggested issue title                          | Ready for `/10x-plan` | Notes                         |
 | ---------- | ------------ | ---------------------------------------------- | --------------------- | ----------------------------- |
 | S-01       | export-notes | Download all notes as one file                 | done                  | Done                          |
-| S-02       | import-notes | Load notes from an exported file               | yes                   | Run `/10x-plan import-notes`  |
+| S-02       | import-notes | Load notes from an exported file               | done                  | Done                          |
 
 ## Open Roadmap Questions
 
@@ -124,5 +122,6 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 
 - **<Slice ID>: <Outcome>** — Archived <YYYY-MM-DD> → `context/archive/<YYYY-MM-DD-change-id>/`. Lesson: <pointer to lessons.md if any, or `—`>.
 - **S-01: Download all notes as one file** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/export-notes/`. `GET /api/export` (and an Export notes button in the side panel) downloads every note, newest first, with tags and creation dates as one JSON file `compass-export-<date>.json` (`format` `compass-export`, `version` 1, `exported_at`, `count`, `notes`); search and tag filters do not apply; an empty database gives a valid empty file; 5000 notes export in about 0.1 s. Lesson: —.
+- **S-02: Load notes from an exported file** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/import-notes/`. `POST /api/import` and an Import notes button load a Compass export file: the whole file is validated first and one invalid note rejects it (nothing is written); a note with the same title, body and creation date is skipped (counted as a multiset), existing notes are never changed; creation dates and tags are kept, ids are new, notes are added oldest first. Exporting and importing into an empty app reproduces notes, tags, order and search results; importing the same file twice adds nothing; 5000 notes import in about 0.15 s. Lesson: —.
 - **(outside the roadmap) UI redesign: panel layout, variant A** — Done 2026-11-17. Not a roadmap item (no PRD anchor, no change folder); recorded here so the history is complete. The notes page and the login page were redesigned from prototype variant A; the page makes no external requests (no web fonts). Lesson: —.
 - **(outside the roadmap) Interface languages: Polish and English** — Done 2026-11-17. Not a roadmap item (no PRD anchor, no change folder); recorded here so the history is complete. All UI text and the login page exist in both languages; the language follows the browser on the first visit and the PL/EN buttons remember the choice in a cookie. Notes, tags and search are not translated. Lesson: —.

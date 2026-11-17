@@ -2,24 +2,30 @@ import json
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints, field_validator
+from starlette.concurrency import run_in_threadpool
 
-from compass import notes
+from compass import notes, transfer
 
 router = APIRouter(prefix="/api/notes")
 tags_router = APIRouter(prefix="/api/tags")
 export_router = APIRouter(prefix="/api/export")
+import_router = APIRouter(prefix="/api/import")
 
-EXPORT_FORMAT = "compass-export"
-EXPORT_VERSION = 1
+MAX_IMPORT_BYTES = (
+    50 * 1024 * 1024
+)  # an export is a few MB; this only stops runaway uploads
 
 
 class NoteIn(BaseModel):
     title: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+        str,
+        StringConstraints(
+            strip_whitespace=True, min_length=1, max_length=notes.MAX_TITLE
+        ),
     ]
-    body: str = Field(default="", max_length=20000)
+    body: str = Field(default="", max_length=notes.MAX_BODY)
     # Full replacement: leaving it out clears the note's tags.
     tags: list[str] = Field(default_factory=list)
 
@@ -74,8 +80,8 @@ def export_notes() -> Response:
     now = datetime.now(UTC)
     items = notes.export_all()
     document = {
-        "format": EXPORT_FORMAT,
-        "version": EXPORT_VERSION,
+        "format": transfer.EXPORT_FORMAT,
+        "version": transfer.EXPORT_VERSION,
         "exported_at": now.isoformat(timespec="seconds"),
         "count": len(items),
         "notes": [
@@ -97,3 +103,33 @@ def export_notes() -> Response:
             "Cache-Control": "no-store",
         },
     )
+
+
+@import_router.post("")
+async def import_notes(request: Request) -> dict[str, int]:
+    """Load an export file (the JSON body). Everything is validated first; nothing is written
+    unless the whole file is valid. Notes already present are skipped."""
+    too_large = HTTPException(
+        status_code=413,
+        detail={
+            "code": "file_too_large",
+            "limit_mb": MAX_IMPORT_BYTES // (1024 * 1024),
+        },
+    )
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_IMPORT_BYTES:
+        raise too_large
+    raw = await request.body()
+    if len(raw) > MAX_IMPORT_BYTES:
+        raise too_large
+    try:
+        document = json.loads(raw)
+        parsed = await run_in_threadpool(transfer.parse_export, document)
+    except (ValueError, RecursionError):  # not JSON, or nested absurdly deep
+        raise HTTPException(status_code=422, detail={"code": "not_json"}) from None
+    except transfer.BadExport as problem:
+        raise HTTPException(
+            status_code=422, detail={"code": problem.code, **problem.info}
+        ) from None
+    imported, skipped = await run_in_threadpool(notes.import_notes, parsed)
+    return {"imported": imported, "skipped": skipped, "total": imported + skipped}

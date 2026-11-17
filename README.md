@@ -31,7 +31,21 @@ file, `compass-export-<date>.json`, whatever the search box or tag filter curren
 ```
 
 Notes are listed newest first, tags alphabetically, in UTF-8. The file holds all your notes in plain
-text, so keep it as safe as the database. Importing a file back is planned next.
+text, so keep it as safe as the database.
+
+## Import
+
+The **Import notes** button loads a file made by the Export button back into Compass:
+
+- only Compass export files are accepted (`"format": "compass-export"`, `"version": 1`, and a `count`
+  that matches the notes), anything else is refused with a message and changes nothing;
+- the whole file is checked first: one invalid note (empty title, a title over 200 characters, a body
+  over 20000, more than 10 tags or a tag over 30 characters, a bad date) rejects the entire file;
+- a note whose title, body and creation date match a note already in Compass is skipped and the existing
+  note is left untouched, so importing the same file twice adds nothing;
+- creation dates are kept, ids are new, and notes are added oldest first so the list looks the same;
+- a note you edited after exporting is no longer "the same", so an old file brings its old version back
+  as an extra note.
 
 ## Run with Docker
 

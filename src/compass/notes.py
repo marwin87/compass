@@ -1,5 +1,7 @@
 import sqlite3
+from collections import Counter
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,6 +13,8 @@ from compass.search import fuzzy_terms, rank_key, words
 LIMIT = 50
 CANDIDATES = 200  # notes fetched from the index (best bm25 first) before re-ranking
 BM25_WEIGHTS = "10.0, 1.0, 20.0"  # title, body, tags
+MAX_TITLE = 200
+MAX_BODY = 20000
 MAX_TAGS = 10
 MAX_TAG_LEN = 30
 COLUMNS = "n.id, n.title, n.body, n.created_at"
@@ -22,6 +26,17 @@ class Note(BaseModel):
     body: str
     created_at: str
     tags: list[str] = []
+
+
+@dataclass(frozen=True)
+class ParsedNote:
+    """A note read from an export file, already validated (see `transfer.parse_export`)."""
+
+    title: str
+    body: str
+    tags: tuple[str, ...]
+    created_at: str  # kept exactly as written in the file
+    when: datetime  # the same moment, timezone-aware, used only for ordering
 
 
 class TagCount(BaseModel):
@@ -263,3 +278,39 @@ def delete_note(note_id: int) -> bool:
     finally:
         conn.close()
     return True
+
+
+def import_notes(items: Sequence[ParsedNote]) -> tuple[int, int]:
+    """Write validated notes in one transaction; returns (imported, skipped).
+
+    A note whose (title, body, created_at) already exists is skipped, counted as a multiset: a
+    file with two identical notes next to one existing copy imports exactly one. Notes go in
+    oldest first (an export is newest first) so the new ids follow creation order.
+    """
+    # The file is newest first, so among equal times the later file position is the older note.
+    ordered = [p for _, p in sorted(enumerate(items), key=lambda e: (e[1].when, -e[0]))]
+    conn = connect()
+    imported = skipped = 0
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            existing = Counter(
+                conn.execute("SELECT title, body, created_at FROM notes")
+            )
+            for p in ordered:
+                key = (p.title, p.body, p.created_at)
+                if existing[key] > 0:
+                    existing[key] -= 1
+                    skipped += 1
+                    continue
+                cur = conn.execute(
+                    "INSERT INTO notes(title, body, created_at) VALUES (?, ?, ?)", key
+                )
+                note_id = cur.lastrowid
+                assert note_id is not None
+                _save_tags(conn, note_id, p.tags)
+                index_note(conn, note_id, p.title, p.body, p.tags)
+                imported += 1
+    finally:
+        conn.close()
+    return imported, skipped

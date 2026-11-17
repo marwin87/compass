@@ -57,6 +57,9 @@ def test_every_key_used_by_the_page_exists_in_both_languages() -> None:
     used = set(re.findall(r"\[\[(\w+)\]\]", INDEX_HTML))
     used |= set(re.findall(r"\btr\(\"(\w+)\"", INDEX_HTML))
     used |= set(re.findall(r"\bT\.(\w+)", INDEX_HTML))
+    used |= set(
+        re.findall(r'"((?:import_err|field)_\w+)"', INDEX_HTML)
+    )  # lookup tables
     used.discard("lang")  # filled in by the server
     assert used, "no translation keys found: the patterns need updating"
     for lang in LANGS:
@@ -75,6 +78,8 @@ def test_every_string_is_used_somewhere() -> None:
             or f'tr("{key}"' in text
             or f"T.{key}" in text
             or f'["{key}"]' in text
+            or f'"{key}"'
+            in text  # keys listed in the page's lookup tables (import errors, fields)
         )
         assert used, f"unused translation: {key}"
 
@@ -184,3 +189,51 @@ def test_export_button_is_present_in_both_languages(anon: TestClient) -> None:
         en = c.get("/").text
         assert 'href="/api/export"' in en and "Export notes" in en
         assert "Download all notes as a JSON file" in en and "Eksportuj" not in en
+
+
+def test_import_controls_are_present_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        pl = c.get("/").text
+        for marker in (
+            'id="import"',
+            'id="importfile"',
+            'id="importmsg"',
+            "Importuj notatki",
+        ):
+            assert marker in pl, marker
+        c.cookies.set("lang", "en")
+        en = c.get("/").text
+        for marker in (
+            'id="import"',
+            'id="importfile"',
+            'id="importmsg"',
+            "Import notes",
+        ):
+            assert marker in en, marker
+        assert "Importuj" not in en
+
+
+def test_every_import_error_code_has_a_message_in_both_languages() -> None:
+    import re as _re
+    from pathlib import Path
+
+    from compass import transfer
+
+    codes = {
+        "not_json",
+        "not_an_export",
+        "unsupported_version",
+        "invalid_file",
+        "count_mismatch",
+        "invalid_note",
+        "file_too_large",
+    }
+    for lang in LANGS:
+        for code in codes:
+            assert STRINGS[lang][f"import_err_{code}"], (lang, code)
+        for field in ("title", "body", "tags", "created_at", "note"):
+            assert STRINGS[lang][f"field_{field}"], (lang, field)
+    source = Path(transfer.__file__).read_text(encoding="utf-8")
+    raised = set(_re.findall(r'BadExport\(\s*"(\w+)"', source))
+    assert raised <= codes, raised - codes  # a new error code needs a translation
