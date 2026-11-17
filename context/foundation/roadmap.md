@@ -41,7 +41,7 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 
 | ID    | Change ID              | Outcome (user can …)                                              | Prerequisites | PRD refs                          | Status   |
 | ----- | ---------------------- | ----------------------------------------------------------------- | ------------- | --------------------------------- | -------- |
-| F-01  | runnable-app-skeleton  | (foundation) one runnable app with a persistent database file     | —             | Success Criteria §Guardrails      | ready    |
+| F-01  | runnable-app-skeleton  | (foundation) one runnable app with a persistent database file     | —             | Success Criteria §Guardrails      | in-progress |
 | F-02  | first-hosted-release   | (foundation) the app runs on the chosen host with a durable data volume | F-01    | Success Criteria §Guardrails      | proposed |
 | S-01  | password-login         | log in with a password, and nothing is reachable without it       | F-01          | FR-001                            | proposed |
 | S-02  | first-note-search      | save a note and find it again by a keyword in it                  | S-01, F-02    | US-01, FR-002, FR-003, FR-007     | proposed |
@@ -85,7 +85,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Kept to a minimal wiring of existing pieces; resist pre-building the data model or screens beyond what S-01 and S-02 need.
-- **Status:** ready
+- **Status:** in-progress
 
 ### F-02: First hosted release
 
