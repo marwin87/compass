@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.15-slim-bookworm AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
@@ -7,7 +7,7 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
-FROM python:3.12-slim-bookworm
+FROM python:3.15-slim-bookworm
 RUN useradd --system --uid 1000 --create-home app \
     && mkdir /data && chown app:app /data
 COPY --from=builder /app/.venv /app/.venv
