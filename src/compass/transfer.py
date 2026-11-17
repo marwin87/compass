@@ -7,10 +7,10 @@ those codes into translated messages.
 
 from datetime import UTC, datetime
 
+from compass import categories
 from compass.notes import MAX_BODY, MAX_TITLE, ParsedNote, normalize_tags
 
 EXPORT_FORMAT = "compass-export"
-EXPORT_VERSION = 1
 
 
 class BadExport(Exception):
@@ -53,19 +53,26 @@ def _parse_note(index: int, raw: object) -> ParsedNote:
         raise _bad(index, "created_at") from None
     if when.tzinfo is None:
         when = when.replace(tzinfo=UTC)
-    return ParsedNote(title.strip(), body, tuple(clean_tags), created_at, when)
+    category = raw.get("category")  # optional: absent or null means the default
+    if category is not None:
+        if not isinstance(category, str):
+            raise _bad(index, "category")
+        try:
+            category = " ".join(category.split()) or None
+            if category is not None:
+                categories.normalize(category)
+        except categories.CategoryError as problem:
+            if problem.code != "name_reserved":  # the default's own labels are fine
+                raise _bad(index, "category") from None
+    return ParsedNote(
+        title.strip(), body, tuple(clean_tags), created_at, when, category
+    )
 
 
 def parse_export(document: object) -> list[ParsedNote]:
     """Validate a whole export document and return its notes in file order (newest first)."""
     if not isinstance(document, dict) or document.get("format") != EXPORT_FORMAT:
         raise BadExport("not_an_export")
-    version = document.get("version")
-    if not _is_int(version) or version != EXPORT_VERSION:
-        raise BadExport(
-            "unsupported_version",
-            version=version if isinstance(version, int | str) else None,
-        )
     items = document.get("notes")
     if not isinstance(items, list):
         raise BadExport("invalid_file")

@@ -27,6 +27,7 @@ def create_app() -> FastAPI:
     app.include_router(api.tags_router)
     app.include_router(api.export_router)
     app.include_router(api.import_router)
+    app.include_router(api.categories_router)
     # Added last = outermost: the session must be loaded before the guard runs.
     app.middleware("http")(auth.guard)
     app.add_middleware(

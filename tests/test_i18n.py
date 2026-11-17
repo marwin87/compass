@@ -58,7 +58,7 @@ def test_every_key_used_by_the_page_exists_in_both_languages() -> None:
     used |= set(re.findall(r"\btr\(\"(\w+)\"", INDEX_HTML))
     used |= set(re.findall(r"\bT\.(\w+)", INDEX_HTML))
     used |= set(
-        re.findall(r'"((?:import_err|field)_\w+)"', INDEX_HTML)
+        re.findall(r'"((?:import_err|field|category_err)_\w+)"', INDEX_HTML)
     )  # lookup tables
     used.discard("lang")  # filled in by the server
     assert used, "no translation keys found: the patterns need updating"
@@ -223,7 +223,6 @@ def test_every_import_error_code_has_a_message_in_both_languages() -> None:
     codes = {
         "not_json",
         "not_an_export",
-        "unsupported_version",
         "invalid_file",
         "count_mismatch",
         "invalid_note",
@@ -232,8 +231,58 @@ def test_every_import_error_code_has_a_message_in_both_languages() -> None:
     for lang in LANGS:
         for code in codes:
             assert STRINGS[lang][f"import_err_{code}"], (lang, code)
-        for field in ("title", "body", "tags", "created_at", "note"):
+        for field in ("title", "body", "tags", "created_at", "category", "note"):
             assert STRINGS[lang][f"field_{field}"], (lang, field)
     source = Path(transfer.__file__).read_text(encoding="utf-8")
     raised = set(_re.findall(r'BadExport\(\s*"(\w+)"', source))
     assert raised <= codes, raised - codes  # a new error code needs a translation
+
+
+def test_category_controls_are_present_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        pl = c.get("/").text
+        for marker in (
+            'id="catbar"',
+            "Kategorie",
+            "Bez kategorii",
+            "Nowa kategoria",
+            "Nazwa nowej kategorii",
+        ):
+            assert marker in pl, marker
+        c.cookies.set("lang", "en")
+        en = c.get("/").text
+        for marker in (
+            'id="catbar"',
+            "Categories",
+            "Uncategorized",
+            "New category",
+            "New category name",
+        ):
+            assert marker in en, marker
+        assert "Kategorie" not in en and "Bez kategorii" not in en
+
+
+def test_every_category_error_code_has_a_message_in_both_languages() -> None:
+    from compass.api import CATEGORY_STATUS
+
+    for lang in LANGS:
+        for code in CATEGORY_STATUS:
+            if (
+                code == "invalid_category"
+            ):  # only a note form can send it, and the form always sends a real id
+                continue
+            assert STRINGS[lang][f"category_err_{code}"], (lang, code)
+
+
+def test_manage_dialog_is_present_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        pl = c.get("/").text
+        for marker in ('id="catdialog"', 'id="managecats"', "Zarządzaj kategoriami"):
+            assert marker in pl, marker
+        c.cookies.set("lang", "en")
+        en = c.get("/").text
+        for marker in ('id="catdialog"', 'id="managecats"', "Manage categories"):
+            assert marker in en, marker
+        assert "Zarządzaj" not in en

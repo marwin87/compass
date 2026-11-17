@@ -1,6 +1,5 @@
 {
   "format": "compass-export",
-  "version": 1,
   "exported_at": "2026-11-17T12:00:00+00:00",
   "count": 21,
   "notes": [
@@ -12,6 +11,7 @@
         "learning",
         "wskazówki"
       ],
+      "category": "Nauka",
       "created_at": "2026-11-14T13:33:00+00:00"
     },
     {
@@ -22,6 +22,7 @@
         "compass",
         "wskazówki"
       ],
+      "category": "Compass",
       "created_at": "2026-11-12T17:20:00+00:00"
     },
     {
@@ -31,6 +32,7 @@
       "tags": [
         "listy"
       ],
+      "category": "Dom",
       "created_at": "2026-11-10T10:07:00+00:00"
     },
     {
@@ -41,6 +43,7 @@
         "gotowanie",
         "przepisy"
       ],
+      "category": "Dom",
       "created_at": "2026-11-08T14:54:00+00:00"
     },
     {
@@ -50,6 +53,7 @@
       "tags": [
         "luźne"
       ],
+      "category": "Bazy danych",
       "created_at": "2026-11-06T18:41:00+00:00"
     },
     {
@@ -60,6 +64,7 @@
         "bazy danych",
         "sql"
       ],
+      "category": "Bazy danych",
       "created_at": "2026-11-04T11:28:00+00:00"
     },
     {
@@ -71,6 +76,7 @@
         "nauka",
         "podstawy"
       ],
+      "category": "Nauka",
       "created_at": "2026-11-02T15:15:00+00:00"
     },
     {
@@ -81,6 +87,7 @@
         "agile",
         "rozmowa"
       ],
+      "category": "Rozmowa",
       "created_at": "2026-10-31T19:02:00+00:00"
     },
     {
@@ -91,6 +98,7 @@
         "devops",
         "podstawy"
       ],
+      "category": "Rozmowa",
       "created_at": "2026-10-29T12:49:00+00:00"
     },
     {
@@ -101,6 +109,7 @@
         "git",
         "rozmowa"
       ],
+      "category": "Rozmowa",
       "created_at": "2026-10-27T16:36:00+00:00"
     },
     {
@@ -112,6 +121,7 @@
         "podstawy",
         "statystyka"
       ],
+      "category": "Nauka",
       "created_at": "2026-10-25T09:23:00+00:00"
     },
     {
@@ -123,6 +133,7 @@
         "statystyka",
         "teoria"
       ],
+      "category": "Nauka",
       "created_at": "2026-10-23T13:10:00+00:00"
     },
     {
@@ -133,6 +144,7 @@
         "rozmowa",
         "soft skills"
       ],
+      "category": "Rozmowa",
       "created_at": "2026-10-21T17:57:00+00:00"
     },
     {
@@ -143,6 +155,7 @@
         "rozmowa",
         "soft skills"
       ],
+      "category": "Rozmowa",
       "created_at": "2026-10-19T10:44:00+00:00"
     },
     {
@@ -154,6 +167,7 @@
         "podstawy",
         "sieci"
       ],
+      "category": "Rozmowa",
       "created_at": "2026-10-17T14:31:00+00:00"
     },
     {
@@ -165,6 +179,7 @@
         "architektura",
         "rozmowa"
       ],
+      "category": "Rozmowa",
       "created_at": "2026-10-15T18:18:00+00:00"
     },
     {
@@ -176,6 +191,7 @@
         "podstawy",
         "rozmowa"
       ],
+      "category": "Algorytmy",
       "created_at": "2026-10-13T11:05:00+00:00"
     },
     {
@@ -188,6 +204,7 @@
         "rozmowa",
         "teoria"
       ],
+      "category": "Algorytmy",
       "created_at": "2026-10-11T15:52:00+00:00"
     },
     {
@@ -199,6 +216,7 @@
         "sql",
         "teoria"
       ],
+      "category": "Bazy danych",
       "created_at": "2026-10-09T19:39:00+00:00"
     },
     {
@@ -211,6 +229,7 @@
         "sql",
         "teoria"
       ],
+      "category": "Bazy danych",
       "created_at": "2026-10-07T12:26:00+00:00"
     },
     {
@@ -223,6 +242,7 @@
         "sql",
         "wydajność"
       ],
+      "category": "Bazy danych",
       "created_at": "2026-10-05T16:13:00+00:00"
     }
   ]

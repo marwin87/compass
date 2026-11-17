@@ -27,6 +27,7 @@ milestone_status: open
 - **Source materials:** `context/foundation/prd.md` (v1)
 - **Done when:** every F-NN and S-NN below is `done`.
 - **Scope anchors:** FR-009 (export and import of data, the PRD's only requirement not covered by M-01); PRD Success Criteria §Secondary (import and export); PRD Success Criteria §Guardrails (no data loss: a restart or failure does not delete notes).
+  - MS-01: Every note belongs to a category, and the user can quickly filter the notes by category (added to M-02 by the user, 2026-11-17).
 
 ## Vision recap
 
@@ -44,15 +45,16 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 | ----- | ------------ | ------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------- | -------- |
 | S-01  | export-notes | download all my notes, with their tags and dates, as one file                         | —             | FR-009, Success Criteria §Secondary, §Guardrails      | done |
 | S-02  | import-notes | load notes from an exported file back into Compass without losing title, body, tags or dates | S-01   | FR-009, Success Criteria §Secondary, §Guardrails      | done |
+| S-03  | note-categories | put every note in a category and quickly filter my notes by category | — | MS-01 | done |
 
 ## Baseline
 
 What's already in place in the codebase as of `2026-11-17` (auto-researched).
 Foundations below assume these are present and do NOT re-scaffold them.
 
-- **Frontend:** present — one page in a panel layout (tag sidebar with counts, ranked results, note card) built from DOM calls (`src/compass/page.py`): live search with match highlighting, add, view, edit and delete with confirmation, tags and a tag filter; a styled login page; the interface is available in Polish and English (language from the browser, PL/EN switch kept in a `lang` cookie; texts in `src/compass/i18n.py`); Export notes and Import notes buttons (download the JSON backup, load it back with a translated summary or error). UI variants are kept as standalone prototypes in `prototypes/`.
-- **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, a JSON notes API (`/api/notes`: create, read, search, edit, delete, filter by tag), `/api/tags`, `/api/export` (JSON backup) and `/api/import` (loads it back, validated as a whole and skipping notes that already exist).
-- **Data:** present — SQLite file (`COMPASS_DB_PATH`) with `notes`, `tags`, `note_tags` and a folded search index (`notes_fts`) that is rebuilt on version change; export reads all notes in one query and import writes a whole file in one transaction (creation dates kept, new ids).
+- **Frontend:** present — one page in a panel layout (tag sidebar with counts, ranked results, note card) built from DOM calls (`src/compass/page.py`): live search with match highlighting, add, view, edit and delete with confirmation, tags and a tag filter; categories (a filter with counts in the side panel, a category field with quick add in the note forms, a "Zarządzaj" window to add, rename and delete them); a styled login page; the interface is available in Polish and English (language from the browser, PL/EN switch kept in a `lang` cookie; texts in `src/compass/i18n.py`); Export notes and Import notes buttons (download the JSON backup, load it back with a translated summary or error). UI variants are kept as standalone prototypes in `prototypes/`.
+- **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, a JSON notes API (`/api/notes`: create, read, search, edit, delete, filter by tag), `/api/tags`, `/api/categories` (list with counts, create, rename, delete), `/api/export` (JSON backup) and `/api/import` (loads it back, validated as a whole and skipping notes that already exist).
+- **Data:** present — SQLite file (`COMPASS_DB_PATH`) with `notes` (each in a category), `tags`, `note_tags`, `categories` and a folded search index (`notes_fts`) that is rebuilt on version change; export reads all notes in one query and import writes a whole file in one transaction (creation dates kept, new ids).
 - **Auth:** present — single-password login with a signed session cookie; everything except `/login` and `/health` requires it.
 - **Deploy / infra:** present — local Docker image with a data volume (`Dockerfile`, `docker-compose.yml`) and a CI workflow (checks plus an image build); no registry publishing.
 - **Observability:** absent — no logging or error tracking.
@@ -87,18 +89,31 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 - **Risk:** This is the milestone's quality bar: exporting and then importing the same file into an empty Compass must reproduce the notes, their tags and their search results. Duplicate notes and tag normalisation are the main traps.
 - **Status:** done
 
+### S-03: Put every note in a category and filter by it
+
+- **Outcome:** user can put every note in a category and quickly narrow the list to the notes of one category.
+- **Change ID:** note-categories
+- **PRD refs:** MS-01
+- **Prerequisites:** —
+- **Parallel with:** —
+- **Blockers:** —
+- **Unknowns:** — (resolved: a managed list of categories created, renamed and deleted in a window; the built-in default "Bez kategorii" / "Uncategorized" holds notes without a category and old ones; one category filter at a time; deleting is blocked while a category has notes)
+- **Risk:** It touches every place a note is created, edited, exported and imported, so the export file format and the import rules must stay compatible with files made before categories existed; "every note must have a category" also needs a rule for old notes and for import.
+- **Status:** done
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID    | Suggested issue title                          | Ready for `/10x-plan` | Notes                         |
 | ---------- | ------------ | ---------------------------------------------- | --------------------- | ----------------------------- |
 | S-01       | export-notes | Download all notes as one file                 | done                  | Done                          |
 | S-02       | import-notes | Load notes from an exported file               | done                  | Done                          |
+| S-03       | note-categories | Put every note in a category and filter by it | done                  | Done                          |
 
 ## Open Roadmap Questions
 
 1. **What is the expected query rate for the instance?** — Owner: user. Block: roadmap-wide (does not gate any slice).
 2. **What is the expected data volume?** — Owner: user. Block: roadmap-wide (does not gate any slice; larger data would affect export and import size).
-3. **Which formats should export and import support?** — Resolved in S-01: one JSON file (`compass-export`, version 1). S-02 reads exactly that file.
+3. **Which formats should export and import support?** — Resolved in S-01: one JSON file (`compass-export`). S-02 reads exactly that file. The format is not versioned (decided in S-03); `category` was added as an optional field.
 
 ## Parked
 
@@ -121,7 +136,9 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 (Empty on first generation. `/10x-archive` appends an entry here — and flips that item's `Status` to `done` — when a change whose `Change ID` matches the item is archived. Do NOT pre-populate. Format:)
 
 - **<Slice ID>: <Outcome>** — Archived <YYYY-MM-DD> → `context/archive/<YYYY-MM-DD-change-id>/`. Lesson: <pointer to lessons.md if any, or `—`>.
-- **S-01: Download all notes as one file** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/export-notes/`. `GET /api/export` (and an Export notes button in the side panel) downloads every note, newest first, with tags and creation dates as one JSON file `compass-export-<date>.json` (`format` `compass-export`, `version` 1, `exported_at`, `count`, `notes`); search and tag filters do not apply; an empty database gives a valid empty file; 5000 notes export in about 0.1 s. Lesson: —.
+- **S-01: Download all notes as one file** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/export-notes/`. `GET /api/export` (and an Export notes button in the side panel) downloads every note, newest first, with tags and creation dates as one JSON file `compass-export-<date>.json` (`format` `compass-export`, `exported_at`, `count`, `notes`; the `version` field was dropped in S-03); search and tag filters do not apply; an empty database gives a valid empty file; 5000 notes export in about 0.1 s. Lesson: —.
 - **S-02: Load notes from an exported file** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/import-notes/`. `POST /api/import` and an Import notes button load a Compass export file: the whole file is validated first and one invalid note rejects it (nothing is written); a note with the same title, body and creation date is skipped (counted as a multiset), existing notes are never changed; creation dates and tags are kept, ids are new, notes are added oldest first. Exporting and importing into an empty app reproduces notes, tags, order and search results; importing the same file twice adds nothing; 5000 notes import in about 0.15 s. Lesson: —.
 - **(outside the roadmap) UI redesign: panel layout, variant A** — Done 2026-11-17. Not a roadmap item (no PRD anchor, no change folder); recorded here so the history is complete. The notes page and the login page were redesigned from prototype variant A; the page makes no external requests (no web fonts). Lesson: —.
 - **(outside the roadmap) Interface languages: Polish and English** — Done 2026-11-17. Not a roadmap item (no PRD anchor, no change folder); recorded here so the history is complete. All UI text and the login page exist in both languages; the language follows the browser on the first visit and the PL/EN buttons remember the choice in a cookie. Notes, tags and search are not translated. Lesson: —.
+- **(outside the roadmap) Demo data file** — Done 2026-11-17. Not a roadmap item (no PRD anchor, no change folder); recorded here so the history is complete. `demo/compass-demo.json` is a ready-made export file with 21 sample notes that can be loaded at any time with Import notes (importing it again changes nothing); a test keeps it a valid export. Lesson: —.
+- **S-03: Put every note in a category and filter by it** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/note-categories/`. Every note belongs to exactly one category; the built-in default "Bez kategorii" / "Uncategorized" holds old notes and notes without a choice. Categories are managed in a "Zarządzaj" window (add, rename, delete; a category with notes cannot be deleted) and can also be added quickly from the add/edit note form; the side panel filters by one category at a time (with counts) and combines with search and tags; result cards show the category. `/api/categories` plus a `category_id` on notes and a `category_id` search filter. Export carries each note's `category` (`null` for the default); import creates missing categories and still accepts older files; the export format has no `version` any more. Demo file updated: every note has a category. Lesson: —.

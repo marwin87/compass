@@ -23,7 +23,17 @@ CREATE TABLE IF NOT EXISTS note_tags(
     PRIMARY KEY (note_id, tag_id)
 );
 CREATE INDEX IF NOT EXISTS note_tags_tag ON note_tags(tag_id);
+CREATE TABLE IF NOT EXISTS categories(
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    key TEXT NOT NULL UNIQUE,
+    is_default INTEGER NOT NULL DEFAULT 0
+);
 """
+
+# Every note belongs to one category; row 1 is the built-in default ("Bez kategorii" /
+# "Uncategorized"): its stored name is empty and the page shows the translated label.
+DEFAULT_CATEGORY_ID = 1
 
 # The search index holds *folded* text (see search.fold), one row per note, rowid = note id.
 # It is created (and old databases migrated) by _ensure_index, not by SCHEMA.
@@ -86,11 +96,39 @@ def _ensure_index(conn: sqlite3.Connection) -> None:
         raise
 
 
+def _ensure_categories(conn: sqlite3.Connection) -> None:
+    """Create the default category and, once, add `notes.category_id` (existing notes get 1).
+
+    The column has no REFERENCES clause: SQLite cannot add one together with NOT NULL DEFAULT
+    while foreign keys are on. Validity is enforced in `categories.py`, and a category can only
+    be deleted when no note uses it.
+    """
+    conn.execute(
+        "INSERT OR IGNORE INTO categories(id, name, key, is_default) VALUES (?, '', '', 1)",
+        (DEFAULT_CATEGORY_ID,),
+    )
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(notes)")}
+    if "category_id" not in columns:
+        try:
+            conn.execute(
+                "ALTER TABLE notes ADD COLUMN category_id INTEGER NOT NULL "
+                f"DEFAULT {DEFAULT_CATEGORY_ID}"
+            )
+        except sqlite3.OperationalError as problem:
+            if "duplicate column" not in str(
+                problem
+            ):  # another connection won the race
+                raise
+    conn.execute("CREATE INDEX IF NOT EXISTS notes_category ON notes(category_id)")
+    conn.commit()
+
+
 def connect() -> sqlite3.Connection:
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA foreign_keys = ON")  # off by default; cascades need it
     conn.executescript(SCHEMA)
+    _ensure_categories(conn)
     _ensure_index(conn)
     return conn

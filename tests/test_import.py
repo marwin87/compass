@@ -206,7 +206,6 @@ def test_hand_edited_tags_are_normalised_and_creation_date_is_kept_as_written(
 ) -> None:
     doc = {
         "format": "compass-export",
-        "version": 1,
         "count": 1,
         "notes": [
             {
@@ -232,7 +231,6 @@ def test_hand_edited_tags_are_normalised_and_creation_date_is_kept_as_written(
 def test_notes_without_ids_and_with_naive_dates_import(authed: TestClient) -> None:
     doc = {
         "format": "compass-export",
-        "version": 1,
         "count": 2,
         "notes": [
             {
@@ -259,9 +257,7 @@ def test_notes_are_inserted_oldest_first_whatever_the_file_order(
             ("najnowsza", "2026-03-03T00:00:00+00:00"),
         ]
     ]
-    do_import(
-        authed, {"format": "compass-export", "version": 1, "count": 3, "notes": notes}
-    )
+    do_import(authed, {"format": "compass-export", "count": 3, "notes": notes})
     assert [n["title"] for n in export(authed)["notes"]] == [
         "najnowsza",
         "środek",
@@ -284,7 +280,6 @@ def valid_note(**over: object) -> dict[str, object]:
 def doc_of(*notes: object, **over: object) -> Doc:
     doc: Doc = {
         "format": "compass-export",
-        "version": 1,
         "count": len(notes),
         "notes": list(notes),
     }
@@ -298,19 +293,16 @@ def doc_of(*notes: object, **over: object) -> Doc:
         ([], "not_an_export", {}),
         ("tekst", "not_an_export", {}),
         (
-            {"format": "inny", "version": 1, "count": 0, "notes": []},
+            {"format": "inny", "count": 0, "notes": []},
             "not_an_export",
             {},
         ),
-        ({"version": 1, "count": 0, "notes": []}, "not_an_export", {}),
-        (doc_of(version=2), "unsupported_version", {"version": 2}),
-        (doc_of(version="1"), "unsupported_version", {"version": "1"}),
-        (doc_of(version=True), "unsupported_version", {}),
-        ({"format": "compass-export", "version": 1, "count": 0}, "invalid_file", {}),
+        ({"count": 0, "notes": []}, "not_an_export", {}),
+        ({"format": "compass-export", "count": 0}, "invalid_file", {}),
         (doc_of(notes="nie lista", count=0), "invalid_file", {}),
         (doc_of(valid_note(), count=2), "count_mismatch", {"expected": 2, "actual": 1}),
         (
-            {"format": "compass-export", "version": 1, "notes": []},
+            {"format": "compass-export", "notes": []},
             "count_mismatch",
             {"expected": None, "actual": 0},
         ),
@@ -441,3 +433,84 @@ def test_importing_5000_notes_is_fast(authed: TestClient) -> None:
         f"import took {elapsed:.2f}s"
     )  # generous: real cost is a second or two
     assert titles(authed, "temat7")  # and the search index is filled
+
+
+def add_in(c: TestClient, title: str, category: str | None) -> None:
+    cid = None
+    if category:
+        r = c.post("/api/categories", json={"name": category})
+        cid = r.json()["id"] if r.status_code == 201 else r.json()["detail"]["id"]
+    r = c.post("/api/notes", json={"title": title, "category_id": cid})
+    assert r.status_code == 201
+
+
+def test_export_lists_category_names_and_null_for_the_default(
+    authed: TestClient,
+) -> None:
+    add_in(authed, "a", "Dom")
+    add_in(authed, "b", None)
+    authed.post("/api/categories", json={"name": "Pusta"})
+    doc = export(authed)
+    assert {n["title"]: n["category"] for n in doc["notes"]} == {"a": "Dom", "b": None}
+    assert "Pusta" not in json.dumps(doc)  # a category without notes is not exported
+
+
+def test_round_trip_reproduces_categories_and_counts(
+    authed: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    add_in(authed, "a", "Dom")
+    add_in(authed, "b", "Dom")
+    add_in(authed, "c", None)
+    doc = export(authed)
+    monkeypatch.setenv("COMPASS_DB_PATH", str(tmp_path / "fresh.db"))
+    with TestClient(app, follow_redirects=False) as fresh:
+        assert (
+            fresh.post("/login", data={"password": "test-password"}).status_code == 303
+        )
+        assert do_import(fresh, doc).json()["imported"] == 3
+        counts = {c["name"]: c["count"] for c in fresh.get("/api/categories").json()}
+        assert counts == {"Dom": 2, "": 1}
+        assert export(fresh)["notes"][0]["category"] is None
+
+
+def test_old_file_with_version_and_no_categories_goes_to_the_default(
+    authed: TestClient,
+) -> None:
+    doc = doc_of(valid_note(), version=1)
+    assert do_import(authed, doc).json()["imported"] == 1
+    assert export(authed)["notes"][0]["category"] is None
+
+
+def test_unknown_category_is_created_and_default_labels_map_to_the_default(
+    authed: TestClient,
+) -> None:
+    doc = doc_of(
+        valid_note(title="x", category="  Nowa   kategoria "),
+        valid_note(title="y", category="Uncategorized"),
+        valid_note(title="z", category="bez kategorii"),
+    )
+    assert do_import(authed, doc).status_code == 200
+    got = {n["title"]: n["category"] for n in export(authed)["notes"]}
+    assert got == {"x": "Nowa kategoria", "y": None, "z": None}
+
+
+@pytest.mark.parametrize("bad", [5, ["Dom"], "x" * 41])
+def test_bad_category_is_rejected_with_the_field(
+    authed: TestClient, bad: object
+) -> None:
+    r = do_import(authed, doc_of(valid_note(category=bad)))
+    assert r.status_code == 422
+    assert r.json()["detail"] == {
+        "code": "invalid_note",
+        "index": 1,
+        "field": "category",
+    }
+    assert export(authed)["count"] == 0
+
+
+def test_a_skipped_duplicate_keeps_its_category(authed: TestClient) -> None:
+    add_in(authed, "Nota", "Dom")
+    doc = export(authed)
+    doc["notes"][0]["category"] = "Inna"
+    assert do_import(authed, doc).json()["skipped"] == 1
+    assert export(authed)["notes"][0]["category"] == "Dom"

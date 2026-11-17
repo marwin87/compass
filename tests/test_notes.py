@@ -126,6 +126,9 @@ def test_page_has_the_notes_ui_and_never_uses_inner_html(authed: TestClient) -> 
         "Na pewno nadpisać?",  # edit needs a second confirmation
         "Na pewno usunąć?",  # so does delete
         'href="/api/export"',  # the backup download
+        'id="catbar"',  # category filter in the side panel
+        "Kategoria",  # the category field of the note forms
+        "Nowa kategoria",  # quick add from the form
     ):
         assert marker in page.text, marker
     assert "innerHTML" not in page.text  # note content must only go in via textContent

@@ -28,15 +28,15 @@ def export(c: TestClient, **params: str) -> dict[str, object]:
 def test_document_shape_and_constants(authed: TestClient) -> None:
     add(authed, "Indeks", "b-tree", ["sql", "teoria"])
     doc = export(authed)
-    assert list(doc) == ["format", "version", "exported_at", "count", "notes"]
+    assert list(doc) == ["format", "exported_at", "count", "notes"]
     assert doc["format"] == "compass-export"
-    assert doc["version"] == 1
+    assert "version" not in doc
     assert doc["count"] == 1 == len(doc["notes"])  # type: ignore[arg-type]
     exported_at = datetime.fromisoformat(str(doc["exported_at"]))
     assert exported_at.tzinfo is not None
     assert abs((datetime.now(UTC) - exported_at).total_seconds()) < 60
     note = doc["notes"][0]  # type: ignore[index]
-    assert list(note) == ["id", "title", "body", "tags", "created_at"]
+    assert list(note) == ["id", "title", "body", "tags", "category", "created_at"]
     assert note["tags"] == ["sql", "teoria"]
 
 
@@ -44,7 +44,9 @@ def test_each_note_matches_the_api(authed: TestClient) -> None:
     ids = [add(authed, f"n{i}", f"b{i}", ["a", "z"]) for i in range(3)]
     exported = {n["id"]: n for n in export(authed)["notes"]}  # type: ignore[attr-defined]
     for note_id in ids:
-        assert exported[note_id] == authed.get(f"/api/notes/{note_id}").json()
+        api = authed.get(f"/api/notes/{note_id}").json()
+        assert api.pop("category_id") == 1 and exported[note_id].pop("category") is None
+        assert exported[note_id] == api
 
 
 def test_every_note_is_exported_not_just_the_first_fifty(authed: TestClient) -> None:
@@ -72,7 +74,7 @@ def test_tags_are_alphabetical_and_empty_when_there_are_none(
 def test_empty_database_gives_a_valid_empty_file(authed: TestClient) -> None:
     doc = export(authed)
     assert doc["notes"] == [] and doc["count"] == 0
-    assert doc["format"] == "compass-export" and doc["version"] == 1
+    assert doc["format"] == "compass-export"
 
 
 def test_text_survives_unchanged_and_is_not_escaped(authed: TestClient) -> None:

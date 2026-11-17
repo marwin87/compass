@@ -38,3 +38,12 @@ def test_the_demo_file_imports_and_searches_well(authed: TestClient) -> None:
     assert (
         titles("sql")[0] != "Szybkie notatki o SQL"
     )  # notes tagged sql come before a title-only hit
+
+
+def test_the_demo_fills_several_categories_and_has_no_version() -> None:
+    document = json.loads(DEMO.read_text(encoding="utf-8"))
+    assert "version" not in document
+    names = {n["category"] for n in document["notes"]}
+    assert (
+        None not in names and len(names) >= 5
+    )  # every demo note is in a real category

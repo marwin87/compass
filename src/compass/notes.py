@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from compass import categories
 from compass.db import connect, index_note, unindex_note
 from compass.search import fuzzy_terms, rank_key, words
 
@@ -17,7 +18,7 @@ MAX_TITLE = 200
 MAX_BODY = 20000
 MAX_TAGS = 10
 MAX_TAG_LEN = 30
-COLUMNS = "n.id, n.title, n.body, n.created_at"
+COLUMNS = "n.id, n.title, n.body, n.created_at, n.category_id"
 
 
 class Note(BaseModel):
@@ -25,6 +26,7 @@ class Note(BaseModel):
     title: str
     body: str
     created_at: str
+    category_id: int
     tags: list[str] = []
 
 
@@ -37,6 +39,7 @@ class ParsedNote:
     tags: tuple[str, ...]
     created_at: str  # kept exactly as written in the file
     when: datetime  # the same moment, timezone-aware, used only for ordering
+    category: str | None = None  # a name; None means the default category
 
 
 class TagCount(BaseModel):
@@ -107,21 +110,25 @@ def _with_tags(conn: sqlite3.Connection, rows: Sequence[Sequence[Any]]) -> list[
             title=r[1],
             body=r[2],
             created_at=r[3],
+            category_id=r[4],
             tags=by_note[r[0]],
         )
         for r in rows
     ]
 
 
-def create_note(title: str, body: str, tags: Sequence[str] = ()) -> Note:
+def create_note(
+    title: str, body: str, tags: Sequence[str] = (), category_id: int | None = None
+) -> Note:
     clean = normalize_tags(tags)
     created_at = datetime.now(UTC).isoformat(timespec="seconds")
     conn = connect()
     try:
         with conn:
+            category = categories.resolve(conn, category_id)
             cur = conn.execute(
-                "INSERT INTO notes(title, body, created_at) VALUES (?, ?, ?)",
-                (title, body, created_at),
+                "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
+                (title, body, created_at, category),
             )
             note_id = cur.lastrowid
             assert note_id is not None
@@ -129,7 +136,14 @@ def create_note(title: str, body: str, tags: Sequence[str] = ()) -> Note:
             index_note(conn, note_id, title, body, clean)
     finally:
         conn.close()
-    return Note(id=note_id, title=title, body=body, created_at=created_at, tags=clean)
+    return Note(
+        id=note_id,
+        title=title,
+        body=body,
+        created_at=created_at,
+        category_id=category,
+        tags=clean,
+    )
 
 
 def get_note(note_id: int) -> Note | None:
@@ -157,16 +171,27 @@ def _tag_filter(tags: Iterable[str]) -> tuple[str, list[object]] | None:
     return sql, [*wanted, len(wanted)]
 
 
-def list_notes(q: str = "", tags: Iterable[str] = ()) -> list[Note]:
-    """Newest first without a query; otherwise the most relevant notes first."""
+def list_notes(
+    q: str = "", tags: Iterable[str] = (), category_id: int | None = None
+) -> list[Note]:
+    """Newest first without a query; otherwise the most relevant notes first.
+
+    The tag filter (all tags) and the category filter (one category) combine with the text by AND.
+    """
     tokens = words(q)
     tag_filter = _tag_filter(tags)
     conn = connect()
     try:
         if not tokens:
-            where, params = "", []
+            conditions: list[str] = []
+            params: list[object] = []
             if tag_filter:
-                where, params = f"WHERE n.id IN ({tag_filter[0]}) ", tag_filter[1]
+                conditions.append(f"n.id IN ({tag_filter[0]})")
+                params += tag_filter[1]
+            if category_id is not None:
+                conditions.append("n.category_id = ?")
+                params.append(category_id)
+            where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
             rows = conn.execute(
                 f"SELECT {COLUMNS} FROM notes n {where}ORDER BY n.id DESC LIMIT ?",
                 (*params, LIMIT),
@@ -180,6 +205,9 @@ def list_notes(q: str = "", tags: Iterable[str] = ()) -> list[Note]:
         if tag_filter:
             sql += f" AND rowid IN ({tag_filter[0]})"
             params += tag_filter[1]
+        if category_id is not None:
+            sql += " AND rowid IN (SELECT id FROM notes WHERE category_id = ?)"
+            params.append(category_id)
         sql += f" ORDER BY bm25(notes_fts, {BM25_WEIGHTS}) LIMIT ?"
         ids = [r[0] for r in conn.execute(sql, (*params, CANDIDATES))]
         if not ids:
@@ -203,7 +231,8 @@ def export_all() -> list[Note]:
     conn = connect()
     try:
         rows = conn.execute(
-            "SELECT n.id, n.title, n.body, n.created_at, group_concat(t.name, char(10)) "
+            "SELECT n.id, n.title, n.body, n.created_at, n.category_id, "
+            "group_concat(t.name, char(10)) "
             "FROM notes n "
             "LEFT JOIN note_tags nt ON nt.note_id = n.id "
             "LEFT JOIN tags t ON t.id = nt.tag_id "
@@ -217,7 +246,8 @@ def export_all() -> list[Note]:
             title=r[1],
             body=r[2],
             created_at=r[3],
-            tags=sorted(r[4].split("\n")) if r[4] else [],
+            category_id=r[4],
+            tags=sorted(r[5].split("\n")) if r[5] else [],
         )
         for r in rows
     ]
@@ -236,9 +266,13 @@ def list_tags() -> list[TagCount]:
 
 
 def update_note(
-    note_id: int, title: str, body: str, tags: Sequence[str] = ()
+    note_id: int,
+    title: str,
+    body: str,
+    tags: Sequence[str] = (),
+    category_id: int | None = None,
 ) -> Note | None:
-    """Replace title, body and tags, keeping the search index in step."""
+    """Replace title, body, tags and category (`None` = the default), keeping the index in step."""
     clean = normalize_tags(tags)
     conn = connect()
     try:
@@ -249,16 +283,24 @@ def update_note(
             ).fetchone()
             if row is None:
                 return None
+            category = categories.resolve(conn, category_id)
             conn.execute(
-                "UPDATE notes SET title = ?, body = ? WHERE id = ?",
-                (title, body, note_id),
+                "UPDATE notes SET title = ?, body = ?, category_id = ? WHERE id = ?",
+                (title, body, category, note_id),
             )
             _save_tags(conn, note_id, clean)
             _drop_unused_tags(conn)
             index_note(conn, note_id, title, body, clean)
     finally:
         conn.close()
-    return Note(id=note_id, title=title, body=body, created_at=row[0], tags=clean)
+    return Note(
+        id=note_id,
+        title=title,
+        body=body,
+        created_at=row[0],
+        category_id=category,
+        tags=clean,
+    )
 
 
 def delete_note(note_id: int) -> bool:
@@ -304,7 +346,8 @@ def import_notes(items: Sequence[ParsedNote]) -> tuple[int, int]:
                     skipped += 1
                     continue
                 cur = conn.execute(
-                    "INSERT INTO notes(title, body, created_at) VALUES (?, ?, ?)", key
+                    "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
+                    (*key, categories.ensure(conn, p.category)),
                 )
                 note_id = cur.lastrowid
                 assert note_id is not None

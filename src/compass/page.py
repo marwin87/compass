@@ -61,8 +61,8 @@ kbd{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;border:1p
 .panel .confirm.warn{background:var(--accent-soft);border-color:var(--accent)}
 .form{display:grid;gap:8px}
 .form label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
-.form input,.form textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--bg)}
-.form input:focus,.form textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.form input,.form textarea,.form select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--bg)}
+.form input:focus,.form textarea:focus,.form select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
 .form textarea{min-height:130px;resize:vertical}
 .err{color:var(--danger);font-size:13px;min-height:1em}
 .empty{color:var(--muted);text-align:center;padding:36px 10px}
@@ -97,6 +97,28 @@ main{padding:22px 28px;max-width:1240px;width:100%}
 .hint{color:var(--muted);font-size:12px;margin:8px 4px 16px;display:flex;gap:14px;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:minmax(280px,400px) 1fr;gap:18px;align-items:start}
 .count{color:var(--muted);font-size:12px;margin:0 4px 6px}
+.withbtn{display:flex;justify-content:space-between;align-items:center}
+.linkbtn{border:0;background:none;color:var(--accent);font-size:12px;padding:0;text-transform:none;letter-spacing:0}
+.linkbtn:hover{text-decoration:underline}
+dialog{border:1px solid var(--line);border-radius:16px;padding:20px;width:min(520px,calc(100% - 32px));background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.dlg-head h3{margin:0;font-size:18px}
+.catrows{list-style:none;margin:10px 0 0;padding:0;max-height:50vh;overflow:auto}
+.catrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.catrow .name{flex:1;min-width:120px;font-weight:600}
+.catrow .n{color:var(--muted);font-size:12px}
+.catrow input{flex:1;min-width:120px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--bg)}
+.small{font-size:12px}
+.catlist{display:flex;flex-direction:column;gap:2px}
+.cat{display:flex;justify-content:space-between;gap:8px;width:100%;border:0;background:none;color:var(--ink);padding:5px 8px;border-radius:8px;text-align:left}
+.cat:hover{background:var(--bg)}
+.cat.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.cat .n{color:var(--muted);font-size:12px;font-weight:400}
+.badge.cat{text-transform:none;letter-spacing:0;color:var(--accent);border-color:var(--accent)}
+.catfield{display:grid;gap:6px}
+.qrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.qrow input{flex:1;min-width:140px}
 .results{display:flex;flex-direction:column;gap:8px}
 .res{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;text-align:left;color:var(--ink);width:100%}
 .res:hover{border-color:#c9c6bf}
@@ -127,6 +149,8 @@ INDEX_HTML = (
     <div class="logo"><div class="dot">🧭</div>Compass</div>
     <div class="muted tagline">[[tagline]]</div>
     <button type="button" class="btn primary wide" id="new">[[new_note]]</button>
+    <h4 class="withbtn"><span>[[categories_h]]</span><button type="button" class="linkbtn" id="managecats" title="[[manage_title]]">[[manage_categories]]</button></h4>
+    <div class="catlist" id="catbar"></div>
     <h4>[[tags_h]]</h4>
     <div class="chips" id="tagbar"></div>
     <h4>[[how_h]]</h4>
@@ -160,6 +184,12 @@ INDEX_HTML = (
     </div>
   </main>
 </div>
+<dialog id="catdialog" aria-labelledby="catdialog-h">
+  <div class="dlg-head"><h3 id="catdialog-h">[[manage_title]]</h3><button type="button" class="btn icon" id="catclose" aria-label="[[manage_close]]">✕</button></div>
+  <div class="qrow"><input id="catnew" placeholder="[[category_new_ph]]" maxlength="60" autocomplete="off"><button type="button" class="btn primary" id="catadd">[[category_add]]</button></div>
+  <div class="err" id="catmsg" role="alert"></div>
+  <ul class="catrows" id="catrows"></ul>
+</dialog>
 <div class="toast" id="toast" role="status"></div>
 """
     + r"""<script>"""
@@ -222,7 +252,7 @@ function readTags(v) {               // "SQL, Soft  Skills" -> ["soft skills", "
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800); }
 
 // --- state and server calls
-const state = {q: "", sel: new Set(), cur: null, mode: "view", list: [], tags: []};
+const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: []};
 let seq = 0, timer;
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -233,6 +263,15 @@ const json = (method, body) => ({method, headers: {"content-type": "application/
 const tokens = () => words(state.q);
 const SAVE_ERROR = tr("save_error");
 
+const defaultId = () => (state.categories.find((c) => c.default) || {id: 1}).id;
+const catLabel = (c) => (c.default ? tr("category_default") : c.name);
+const catName = (id) => { const c = state.categories.find((x) => x.id === id); return c ? catLabel(c) : ""; };
+async function loadCategories() {
+  state.categories = await (await api("/api/categories")).json();
+  if (state.category !== null && !state.categories.some((c) => c.id === state.category)) state.category = null;
+  renderCategories();
+}
+
 async function loadTags() {
   state.tags = await (await api("/api/tags")).json();
   for (const t of [...state.sel]) if (!state.tags.some((x) => x.name === t)) state.sel.delete(t);
@@ -242,6 +281,7 @@ async function load(keepDetail = false) {
   const mine = ++seq, had = state.cur;
   const params = new URLSearchParams({q: state.q});
   for (const t of state.sel) params.append("tag", t);
+  if (state.category !== null) params.set("category_id", state.category);
   const list = await (await api("/api/notes?" + params)).json();
   if (mine !== seq) return;
   state.list = list;
@@ -249,35 +289,47 @@ async function load(keepDetail = false) {
   renderList();
   if (!keepDetail || had !== state.cur) renderDetail();
 }
+function toggleCategory(id) { state.category = state.category === id ? null : id; renderCategories(); load(); }
 function toggleTag(t) { state.sel.has(t) ? state.sel.delete(t) : state.sel.add(t); renderTagbar(); load(); }
 function openNew() { state.mode = "new"; state.cur = null; renderList(); renderDetail(); }
 function select(id) { state.cur = id; state.mode = "view"; renderList(); renderDetail(); }
 
 // --- rendering
+function renderCategories() {
+  const total = state.categories.reduce((sum, c) => sum + c.count, 0);
+  const entry = (label, count, on, handler) => h("button", {type: "button", class: "cat" + (on ? " on" : ""), onclick: handler}, h("span", {}, label), h("span", {class: "n"}, count));
+  $("#catbar").replaceChildren(
+    entry(tr("category_all"), total, state.category === null, () => { state.category = null; renderCategories(); load(); }),
+    ...state.categories.map((c) => entry(catLabel(c), c.count, state.category === c.id, () => toggleCategory(c.id))));
+}
 function renderTagbar() {
   $("#tagbar").replaceChildren(...state.tags.map((t) => h("button", {class: "chip" + (state.sel.has(t.name) ? " on" : ""), onclick: () => toggleTag(t.name)}, "#" + t.name, h("span", {class: "n"}, t.count))));
 }
+function categoryBadge(id) {          // the default category is not shown on cards (less noise)
+  const c = state.categories.find((x) => x.id === id);
+  return c && !c.default ? h("span", {class: "badge cat"}, c.name) : null;
+}
 function renderList() {
   const tk = tokens(), n = state.list.length;
-  $("#count").textContent = n === 50 ? tr("top50") : n + " " + T.count[new Intl.PluralRules(LANG).select(n)] + (state.sel.size ? " · " + [...state.sel].map((t) => "#" + t).join(" ") : "");
+  $("#count").textContent = n === 50 ? tr("top50") : n + " " + T.count[new Intl.PluralRules(LANG).select(n)] + (state.category !== null ? " · " + catName(state.category) : "") + (state.sel.size ? " · " + [...state.sel].map((t) => "#" + t).join(" ") : "");
   $("#results").replaceChildren(...(n ? state.list.map((note) => h("button", {class: "res" + (note.id === state.cur && state.mode === "view" ? " on" : ""), onclick: () => select(note.id)},
     h("div", {class: "t"}, hlNodes(note.title, tk)),
     h("div", {class: "s"}, hlNodes(note.body.replace(/\s+/g, " ").slice(0, 160), tk)),
-    h("div", {class: "meta"}, note.tags.map((t) => h("span", {class: "chip mini" + (state.sel.has(t) ? " on" : ""), onclick: (e) => { e.stopPropagation(); toggleTag(t); }}, "#" + t))))) : [h("div", {class: "empty"}, tr("no_results"))]));
+    h("div", {class: "meta"}, categoryBadge(note.category_id), note.tags.map((t) => h("span", {class: "chip mini" + (state.sel.has(t) ? " on" : ""), onclick: (e) => { e.stopPropagation(); toggleTag(t); }}, "#" + t))))) : [h("div", {class: "empty"}, tr("no_results"))]));
 }
 function renderDetail() {
   const d = $("#detail");
   if (state.mode === "new") {
     d.replaceChildren(h("div", {class: "card"}, newPanel({
       onCancel: () => { state.mode = "view"; load(); },
-      onCreated: async (n) => { state.q = ""; $("#q").value = ""; state.sel.clear(); state.mode = "view"; state.cur = n.id; await loadTags(); await load(); toast(tr("toast_created")); }})));
+      onCreated: async (n) => { state.q = ""; $("#q").value = ""; state.sel.clear(); state.category = null; state.mode = "view"; state.cur = n.id; await loadCategories(); await loadTags(); await load(); toast(tr("toast_created")); }})));
     return;
   }
   const n = state.list.find((x) => x.id === state.cur);
   if (!n) { d.replaceChildren(h("div", {class: "card"}, h("div", {class: "empty"}, tr("pick_or_add")))); return; }
   d.replaceChildren(h("div", {class: "card"}, notePanel(n, {
-    onChange: async () => { await loadTags(); await load(true); toast(tr("toast_saved")); },
-    onDeleted: async () => { state.cur = null; await loadTags(); await load(); toast(tr("toast_deleted")); }})));
+    onChange: async () => { await loadCategories(); await loadTags(); await load(true); toast(tr("toast_saved")); },
+    onDeleted: async () => { state.cur = null; await loadCategories(); await loadTags(); await load(); toast(tr("toast_deleted")); }})));
 }
 
 // --- forms and the note panel (edit and delete each need a second, explicit confirmation)
@@ -288,16 +340,58 @@ function suggestions(input) {
     input.focus();
   }}, t.name)));
 }
+const CATEGORY_ERRORS = {
+  name_invalid: "category_err_name_invalid", name_reserved: "category_err_name_reserved", name_taken: "category_err_name_taken",
+  default_category: "category_err_default_category", not_empty: "category_err_not_empty", not_found: "category_err_not_found",
+};
+function categoryError(detail) {
+  const d = detail && typeof detail === "object" ? detail : {};
+  const key = CATEGORY_ERRORS[d.code];
+  return key ? tr(key, {count: d.count ?? "?"}) : tr("category_err_failed");
+}
+// A <select> of the categories plus a quick way to add one without leaving the form.
+function categoryField(selectedId) {
+  const select = h("select", {"aria-label": tr("label_category")});
+  const fill = (id) => { select.replaceChildren(...state.categories.map((c) => h("option", {value: String(c.id)}, catLabel(c)))); select.value = String(id); };
+  fill(selectedId);
+  window.addEventListener("categorieschanged", function refresh() {   // the management window changed the list
+    if (!select.isConnected) { window.removeEventListener("categorieschanged", refresh); return; }
+    const keep = Number(select.value);
+    fill(state.categories.some((c) => c.id === keep) ? keep : defaultId());
+  });
+  const err = h("div", {class: "err"});
+  const name = h("input", {placeholder: tr("category_new_ph"), maxlength: 60, autocomplete: "off"});
+  const quick = h("div", {class: "qrow", hidden: true});
+  const close = () => { quick.hidden = true; name.value = ""; err.textContent = ""; };
+  async function add() {
+    err.textContent = "";
+    const r = await api("/api/categories", json("POST", {name: name.value}));
+    const body = (await r.json().catch(() => null)) || {};
+    if (r.status === 201) { await loadCategories(); fill(body.id); }
+    else if (r.status === 409 && body.detail && body.detail.code === "name_taken") fill(body.detail.id);   // already exists: just use it
+    else { err.textContent = categoryError(body.detail); return; }
+    close(); select.focus();
+  }
+  name.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); add(); }
+    else if (e.key === "Escape") { e.stopPropagation(); close(); select.focus(); }
+  });
+  quick.append(name, h("button", {type: "button", class: "btn primary", onclick: add}, tr("category_add")), h("button", {type: "button", class: "btn", onclick: () => { close(); select.focus(); }}, tr("cancel")));
+  const row = h("div", {class: "qrow"}, select, h("button", {type: "button", class: "btn", onclick: () => { quick.hidden = false; name.focus(); }}, tr("category_new")));
+  select.style.flex = "1";
+  return {el: h("div", {class: "catfield"}, row, quick, err), value: () => Number(select.value)};
+}
 function noteForm(init, message) {
   const title = h("input", {value: init.title, maxlength: 200, placeholder: tr("label_title")});
   const body = h("textarea", {value: init.body, placeholder: tr("label_body"), maxlength: 20000});
   const tags = h("input", {value: init.tags.join(", "), placeholder: tr("label_tags"), autocomplete: "off"});
+  const category = categoryField(init.category_id);
   const err = h("div", {class: "err"}, message);
-  const el = h("div", {class: "form"}, h("label", {}, tr("label_title")), title, h("label", {}, tr("label_body")), body, h("label", {}, tr("label_tags")), tags, suggestions(tags), err);
+  const el = h("div", {class: "form"}, h("label", {}, tr("label_title")), title, h("label", {}, tr("label_body")), body, h("label", {}, tr("label_tags")), tags, suggestions(tags), h("label", {}, tr("label_category")), category.el, err);
   return {el, err, focus: () => title.focus(), values() {
     const t = readTags(tags.value), ti = title.value.trim();
     err.textContent = !ti ? tr("empty_title") : t.error;
-    return err.textContent ? null : {title: ti, body: body.value, tags: t.tags};
+    return err.textContent ? null : {title: ti, body: body.value, tags: t.tags, category_id: category.value()};
   }};
 }
 function notePanel(note, cb) {
@@ -315,15 +409,16 @@ function notePanel(note, cb) {
     cb.onDeleted();       // a 404 means it is already gone, which is the state the user wanted
   }
   function draw() {
+    root.dataset.mode = mode;
     if (mode === "read") {
       const tk = tokens();
       root.replaceChildren(
-        h("div", {class: "meta"}, tr("created") + " " + note.created_at.slice(0, 10)),
+        h("div", {class: "meta"}, tr("created") + " " + note.created_at.slice(0, 10) + " · " + catName(note.category_id)),
         h("h2", {}, hlNodes(note.title, tk)),
         h("div", {class: "body"}, hlNodes(note.body, tk)),
         h("div", {class: "chips"}, note.tags.map((t) => h("button", {class: "chip" + (state.sel.has(t) ? " on" : ""), onclick: () => toggleTag(t)}, "#" + t))),
         h("div", {class: "actions"},
-          h("button", {class: "btn", onclick: () => { draft = {title: note.title, body: note.body, tags: [...note.tags]}; msg = ""; mode = "edit"; draw(); }}, tr("edit")),
+          h("button", {class: "btn", onclick: () => { draft = {title: note.title, body: note.body, tags: [...note.tags], category_id: note.category_id}; msg = ""; mode = "edit"; draw(); }}, tr("edit")),
           h("button", {class: "btn danger", onclick: () => { msg = ""; mode = "del"; draw(); }}, tr("delete"))),
         h("div", {class: "err"}, msg));
     } else if (mode === "del") {
@@ -344,7 +439,7 @@ function notePanel(note, cb) {
   return root;
 }
 function newPanel(cb) {
-  const f = noteForm({title: "", body: "", tags: []}, "");
+  const f = noteForm({title: "", body: "", tags: [], category_id: state.category ?? defaultId()}, "");
   const root = h("div", {class: "panel"}, h("h2", {}, tr("new_note_h")), f.el, h("div", {class: "row"},
     h("button", {class: "btn primary", onclick: async () => {
       const v = f.values(); if (!v) return;
@@ -357,20 +452,82 @@ function newPanel(cb) {
   return root;
 }
 
+// --- managing categories (a modal dialog; adding also exists as quick add in the note forms)
+const manage = {editing: null, deleting: null};
+const setCatMsg = (text) => { $("#catmsg").textContent = text; };
+async function categoriesChanged() {
+  await loadCategories();
+  window.dispatchEvent(new Event("categorieschanged"));   // open note forms refill their category lists
+  await load(true);
+  const panel = $("#detail .panel");
+  if (state.mode === "view" && panel && panel.dataset.mode === "read") renderDetail();   // never touches a form being filled in
+  renderManage();
+}
+async function categoryCall(path, method, body) {
+  const r = await api(path, body === undefined ? {method} : json(method, body));
+  const data = (await r.json().catch(() => null)) || {};   // 204 has no body
+  return {r, detail: data.detail};
+}
+function renderManage() {
+  $("#catrows").replaceChildren(...state.categories.map((c) => {
+    const li = h("li", {class: "catrow"});
+    if (c.default) {
+      li.append(h("span", {class: "name"}, catLabel(c)), h("span", {class: "n"}, c.count), h("span", {class: "muted small"}, tr("manage_default_note")));
+    } else if (manage.editing === c.id) {
+      const input = h("input", {value: c.name, maxlength: 60, "aria-label": tr("manage_rename")});
+      const save = async () => {
+        const {r, detail} = await categoryCall("/api/categories/" + c.id, "PUT", {name: input.value});
+        if (r.ok) { manage.editing = null; setCatMsg(""); await categoriesChanged(); }
+        else if (r.status === 404) { manage.editing = null; await categoriesChanged(); }
+        else setCatMsg(categoryError(detail));
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+      li.append(input, h("button", {type: "button", class: "btn primary", onclick: save}, tr("save")), h("button", {type: "button", class: "btn", onclick: () => { manage.editing = null; setCatMsg(""); renderManage(); }}, tr("cancel")));
+      setTimeout(() => input.focus());
+    } else if (manage.deleting === c.id) {
+      const remove = async () => {
+        const {r, detail} = await categoryCall("/api/categories/" + c.id, "DELETE");
+        manage.deleting = null;
+        if (r.status === 204 || r.status === 404) { setCatMsg(""); await categoriesChanged(); }   // already gone is fine
+        else { setCatMsg(categoryError(detail)); renderManage(); }
+      };
+      li.append(h("span", {class: "name"}, tr("manage_confirm_delete", {name: c.name})), h("button", {type: "button", class: "btn danger", onclick: remove}, tr("yes_delete")), h("button", {type: "button", class: "btn", onclick: () => { manage.deleting = null; renderManage(); }}, tr("back")));
+    } else {
+      li.append(h("span", {class: "name"}, c.name), h("span", {class: "n"}, c.count),
+        h("button", {type: "button", class: "btn", onclick: () => { manage.editing = c.id; manage.deleting = null; setCatMsg(""); renderManage(); }}, tr("manage_rename")),
+        h("button", {type: "button", class: "btn danger", onclick: () => { manage.deleting = c.id; manage.editing = null; setCatMsg(""); renderManage(); }}, tr("delete")));
+    }
+    return li;
+  }));
+}
+async function addCategory() {
+  const input = $("#catnew");
+  const {r, detail} = await categoryCall("/api/categories", "POST", {name: input.value});
+  if (r.status === 201) { input.value = ""; setCatMsg(""); await categoriesChanged(); input.focus(); }
+  else setCatMsg(categoryError(detail));    // here an existing name is an error (the note forms just select it)
+}
+function openManage() {
+  manage.editing = manage.deleting = null;
+  setCatMsg("");
+  renderManage();
+  $("#catdialog").showModal();
+  $("#catnew").focus();
+}
+
 // --- import (the server validates the whole file and answers with a code we translate)
 const IMPORT_ERRORS = {
   not_json: "import_err_not_json", not_an_export: "import_err_not_an_export",
-  unsupported_version: "import_err_unsupported_version", invalid_file: "import_err_invalid_file",
+  invalid_file: "import_err_invalid_file",
   count_mismatch: "import_err_count_mismatch", invalid_note: "import_err_invalid_note",
   file_too_large: "import_err_file_too_large",
 };
-const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", note: "field_note"};
+const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", category: "field_category", note: "field_note"};
 function importError(detail) {
   const d = detail && typeof detail === "object" ? detail : {};
   const key = IMPORT_ERRORS[d.code];
   if (!key) return tr("import_err_failed");
   const field = FIELD_NAMES[d.field] ? tr(FIELD_NAMES[d.field]) : "";
-  return tr(key, {version: d.version ?? "?", expected: d.expected ?? "?", actual: d.actual ?? "?", index: d.index ?? "?", field, mb: d.limit_mb ?? "?"});
+  return tr(key, {expected: d.expected ?? "?", actual: d.actual ?? "?", index: d.index ?? "?", field, mb: d.limit_mb ?? "?"});
 }
 async function importFile(file) {
   const show = (text, ok) => { const m = $("#importmsg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "bad"); };
@@ -384,6 +541,7 @@ async function importFile(file) {
   const body = await r.json().catch(() => ({}));
   if (!r.ok) { show(importError(body.detail), false); return; }
   show(tr("import_done", {n: body.imported, m: body.skipped}), true);
+  await loadCategories();
   await loadTags();
   await load();
 }
@@ -391,6 +549,11 @@ async function importFile(file) {
 // --- wiring
 $("#q").addEventListener("input", () => { state.q = $("#q").value; clearTimeout(timer); timer = setTimeout(() => { state.mode = "view"; load(); }, 100); });
 $("#new").addEventListener("click", openNew);
+$("#managecats").addEventListener("click", openManage);
+$("#catclose").addEventListener("click", () => $("#catdialog").close());
+$("#catadd").addEventListener("click", addCategory);
+$("#catnew").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addCategory(); } });
+$("#catdialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });   // click on the backdrop
 $("#import").addEventListener("click", () => $("#importfile").click());
 $("#importfile").addEventListener("change", async (e) => {
   const file = e.target.files[0];
@@ -406,16 +569,18 @@ $("#theme").addEventListener("click", () => {
   d.dataset.theme = dark ? "light" : "dark";
 });
 document.addEventListener("keydown", (e) => {
+  if ($("#catdialog").open) return;   // the dialog handles its own keys (Esc closes it natively)
   const typing = /INPUT|TEXTAREA/.test(document.activeElement.tagName), q = $("#q");
   if (e.key === "/" && !typing) { e.preventDefault(); q.focus(); }
   else if ((e.key === "n" || e.key === "N") && !typing) { e.preventDefault(); openNew(); }
-  else if (e.key === "Escape") { state.q = ""; q.value = ""; state.sel.clear(); state.mode = "view"; renderTagbar(); load(); q.focus(); }
+  else if (e.key === "Escape") { state.q = ""; q.value = ""; state.sel.clear(); state.category = null; state.mode = "view"; renderTagbar(); renderCategories(); load(); q.focus(); }
   else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && document.activeElement === q && state.list.length) {
     const i = state.list.findIndex((x) => x.id === state.cur);
     const next = state.list[Math.max(0, Math.min(state.list.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))];
     e.preventDefault(); select(next.id);
   }
 });
+loadCategories();
 loadTags();
 load();
 """

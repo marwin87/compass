@@ -6,12 +6,31 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 from starlette.concurrency import run_in_threadpool
 
-from compass import notes, transfer
+from compass import categories, notes, transfer
 
 router = APIRouter(prefix="/api/notes")
 tags_router = APIRouter(prefix="/api/tags")
 export_router = APIRouter(prefix="/api/export")
 import_router = APIRouter(prefix="/api/import")
+categories_router = APIRouter(prefix="/api/categories")
+
+CATEGORY_STATUS = {
+    "name_invalid": 422,
+    "name_reserved": 422,
+    "invalid_category": 422,
+    "name_taken": 409,
+    "default_category": 409,
+    "not_empty": 409,
+    "not_found": 404,
+}
+
+
+def _category_error(problem: categories.CategoryError) -> HTTPException:
+    return HTTPException(
+        status_code=CATEGORY_STATUS.get(problem.code, 400),
+        detail={"code": problem.code, **problem.info},
+    )
+
 
 MAX_IMPORT_BYTES = (
     50 * 1024 * 1024
@@ -28,6 +47,8 @@ class NoteIn(BaseModel):
     body: str = Field(default="", max_length=notes.MAX_BODY)
     # Full replacement: leaving it out clears the note's tags.
     tags: list[str] = Field(default_factory=list)
+    # Full replacement too: leaving it out puts the note in the default category.
+    category_id: int | None = None
 
     @field_validator("tags")
     @classmethod
@@ -37,14 +58,19 @@ class NoteIn(BaseModel):
 
 @router.post("", status_code=201)
 def create(data: NoteIn) -> notes.Note:
-    return notes.create_note(data.title, data.body, data.tags)
+    try:
+        return notes.create_note(data.title, data.body, data.tags, data.category_id)
+    except categories.CategoryError as problem:
+        raise _category_error(problem) from None
 
 
 @router.get("")
 def search(
-    q: str = "", tag: Annotated[list[str] | None, Query()] = None
+    q: str = "",
+    tag: Annotated[list[str] | None, Query()] = None,
+    category_id: int | None = None,
 ) -> list[notes.Note]:
-    return notes.list_notes(q, tag or [])
+    return notes.list_notes(q, tag or [], category_id)
 
 
 @router.get("/{note_id}")
@@ -57,7 +83,12 @@ def read(note_id: int) -> notes.Note:
 
 @router.put("/{note_id}")
 def update(note_id: int, data: NoteIn) -> notes.Note:
-    note = notes.update_note(note_id, data.title, data.body, data.tags)
+    try:
+        note = notes.update_note(
+            note_id, data.title, data.body, data.tags, data.category_id
+        )
+    except categories.CategoryError as problem:
+        raise _category_error(problem) from None
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
@@ -79,9 +110,11 @@ def export_notes() -> Response:
     """All notes as one downloadable JSON file; search and tag filters do not apply."""
     now = datetime.now(UTC)
     items = notes.export_all()
+    names = {
+        c.id: (None if c.default else c.name) for c in categories.list_categories()
+    }
     document = {
         "format": transfer.EXPORT_FORMAT,
-        "version": transfer.EXPORT_VERSION,
         "exported_at": now.isoformat(timespec="seconds"),
         "count": len(items),
         "notes": [
@@ -90,6 +123,7 @@ def export_notes() -> Response:
                 "title": n.title,
                 "body": n.body,
                 "tags": n.tags,
+                "category": names.get(n.category_id),
                 "created_at": n.created_at,
             }
             for n in items
@@ -133,3 +167,36 @@ async def import_notes(request: Request) -> dict[str, int]:
         ) from None
     imported, skipped = await run_in_threadpool(notes.import_notes, parsed)
     return {"imported": imported, "skipped": skipped, "total": imported + skipped}
+
+
+class CategoryIn(BaseModel):
+    name: str
+
+
+@categories_router.get("")
+def list_categories() -> list[categories.Category]:
+    return categories.list_categories()
+
+
+@categories_router.post("", status_code=201)
+def create_category(data: CategoryIn) -> categories.Category:
+    try:
+        return categories.create(data.name)
+    except categories.CategoryError as problem:
+        raise _category_error(problem) from None
+
+
+@categories_router.put("/{category_id}")
+def rename_category(category_id: int, data: CategoryIn) -> categories.Category:
+    try:
+        return categories.rename(category_id, data.name)
+    except categories.CategoryError as problem:
+        raise _category_error(problem) from None
+
+
+@categories_router.delete("/{category_id}", status_code=204)
+def delete_category(category_id: int) -> None:
+    try:
+        categories.delete(category_id)
+    except categories.CategoryError as problem:
+        raise _category_error(problem) from None
