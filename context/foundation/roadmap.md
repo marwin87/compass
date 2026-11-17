@@ -44,7 +44,7 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 | F-01  | runnable-app-skeleton  | (foundation) one runnable app with a persistent database file     | —             | Success Criteria §Guardrails      | done |
 | F-02  | local-docker-image     | (foundation) the app builds into a Docker image that runs locally with a durable data volume | F-01 | Success Criteria §Guardrails | done |
 | S-01  | password-login         | log in with a password, and nothing is reachable without it       | F-01          | FR-001                            | done |
-| S-02  | first-note-search      | save a note and find it again by a keyword in it                  | S-01, F-02    | US-01, FR-002, FR-003, FR-007     | proposed |
+| S-02  | first-note-search      | save a note and find it again by a keyword in it                  | S-01, F-02    | US-01, FR-002, FR-003, FR-007     | in-progress |
 | S-03  | edit-note              | correct an existing note                                          | S-02          | FR-004                            | proposed |
 | S-04  | delete-note            | remove a note I no longer need                                    | S-02          | FR-005                            | proposed |
 | S-05  | note-tags-filter       | tag a note and filter my notes by tag                             | S-02          | US-01, FR-006, FR-008             | proposed |
@@ -124,7 +124,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** This is the north star; it ships a plain keyword match first, with ranking and typo tolerance left to S-06, so the product idea is tested before the search is tuned.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-03: Edit a note
 

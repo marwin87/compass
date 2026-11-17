@@ -3,7 +3,7 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from compass import config
 
@@ -28,6 +28,8 @@ async def guard(
 ) -> Response:
     if request.url.path in PUBLIC_PATHS or request.session.get("auth"):
         return await call_next(request)
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
     return RedirectResponse("/login", status_code=303)
 
 

@@ -10,13 +10,6 @@ from compass.main import app, create_app
 PASSWORD = "test-password"
 
 
-@pytest.fixture(autouse=True)
-def db_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "sub" / "compass.db"
-    monkeypatch.setenv("COMPASS_DB_PATH", str(path))
-    return path
-
-
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     with TestClient(app, follow_redirects=False) as c:

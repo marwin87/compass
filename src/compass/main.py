@@ -5,8 +5,9 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from compass import auth, config
+from compass import api, auth, config
 from compass.db import connect
+from compass.page import INDEX_HTML
 
 SESSION_MAX_AGE = 30 * 24 * 3600
 
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
     config.password()  # fail fast when the password is not configured
     app = FastAPI(title="Compass", lifespan=lifespan)
     app.include_router(auth.router)
+    app.include_router(api.router)
     # Added last = outermost: the session must be loaded before the guard runs.
     app.middleware("http")(auth.guard)
     app.add_middleware(
@@ -32,10 +34,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
-        return (
-            "<!doctype html><title>Compass</title><h1>Compass</h1>"
-            '<form method="post" action="/logout"><button>Log out</button></form>'
-        )
+        return INDEX_HTML
 
     @app.get("/health")
     def health() -> dict[str, str]:
