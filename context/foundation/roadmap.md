@@ -28,6 +28,7 @@ milestone_status: open
 - **Done when:** every F-NN and S-NN below is `done`.
 - **Scope anchors:** FR-009 (export and import of data, the PRD's only requirement not covered by M-01); PRD Success Criteria §Secondary (import and export); PRD Success Criteria §Guardrails (no data loss: a restart or failure does not delete notes).
   - MS-01: Every note belongs to a category, and the user can quickly filter the notes by category (added to M-02 by the user, 2026-11-17).
+  - MS-02: A Settings page where configuration lives (appearance, data, shortcuts, about) and where server-side configuration such as API or LLM can be added later (added to M-02 by the user, 2026-11-17).
 
 ## Vision recap
 
@@ -46,15 +47,16 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 | S-01  | export-notes | download all my notes, with their tags and dates, as one file                         | —             | FR-009, Success Criteria §Secondary, §Guardrails      | done |
 | S-02  | import-notes | load notes from an exported file back into Compass without losing title, body, tags or dates | S-01   | FR-009, Success Criteria §Secondary, §Guardrails      | done |
 | S-03  | note-categories | put every note in a category and quickly filter my notes by category | — | MS-01 | done |
+| S-04  | settings-page | open a Settings page to change my preferences, manage my data and see information about the app | — | MS-02 | done |
 
 ## Baseline
 
 What's already in place in the codebase as of `2026-11-17` (auto-researched).
 Foundations below assume these are present and do NOT re-scaffold them.
 
-- **Frontend:** present — one page in a dark-first three-column layout (light theme available; sidebar, list, note panel with own scrolling; mobile drawer) built from DOM calls (`src/compass/page.py`, reader in `src/compass/reader.py`, rules in `STYLE_GUIDE.md`): live search with match highlighting and a sort control (relevance/newest, A–Z, Z–A, oldest, newest), add, view, edit and delete with confirmation, tags (with "show more") and a tag filter, categories (filter with counts, a category field with quick add in the forms, a "Zarządzaj" window); a Markdown note reader (headings, lists, tables, callouts, highlighted code with Copy, contents) with a reading mode; skeleton loading and error states; toasts for results; a popup that confirms the replacing import; a favicon; a styled login page; Polish and English (cookie `lang`, texts in `src/compass/i18n.py`); Export and Import buttons. UI variants are kept as standalone prototypes in `prototypes/`.
-- **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, a JSON notes API (`/api/notes`: create, read, search, edit, delete, filter by tag and category, sort by title or date), `/api/tags`, `/api/categories` (list with counts, create, rename, delete), `/api/export` (JSON backup) and `/api/import` (restores it one to one: validated as a whole, then replaces all notes, tags and categories).
-- **Data:** present — SQLite file (`COMPASS_DB_PATH`) with `notes` (each in a category), `tags`, `note_tags`, `categories` and a folded search index (`notes_fts`) that is rebuilt on version change; export reads all notes in one query and import writes a whole file in one transaction (creation dates kept, new ids).
+- **Frontend:** present — one page in a dark-first three-column layout (light theme available; sidebar, list, note panel with own scrolling; mobile drawer) built from DOM calls (`src/compass/page.py`, reader in `src/compass/reader.py`, rules in `STYLE_GUIDE.md`): live search with match highlighting and a sort control (relevance/newest, A–Z, Z–A, oldest, newest), add, view, edit and delete with confirmation, tags (with "show more") and a tag filter, categories (filter with counts, a category field with quick add in the forms, a "Zarządzaj" window); a Settings page (`/settings`: appearance, data tools, keyboard shortcuts, about) reached from the side panel, a Markdown note reader (headings, lists, tables, callouts, highlighted code with Copy, contents) with a reading mode; skeleton loading and error states; toasts for results; a popup that confirms the replacing import; a favicon; a styled login page; Polish and English (cookie `lang`, texts in `src/compass/i18n.py`); import, export, category management and clearing all data live in Settings → Data. UI variants are kept as standalone prototypes in `prototypes/`.
+- **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, a JSON notes API (`/api/notes`: create, read, search, edit, delete, filter by tag and category, sort by title or date), `/api/tags`, `/api/categories` (list with counts, create, rename, delete), `/api/settings` (server-side preferences: theme, reading size/width, list order), `/api/about`, `DELETE /api/data`, `/api/export` (JSON backup) and `/api/import` (restores it one to one: validated as a whole, then replaces all notes, tags and categories).
+- **Data:** present — SQLite file (`COMPASS_DB_PATH`) with `notes` (each in a category), `tags`, `note_tags`, `categories`, `settings` and a folded search index (`notes_fts`) that is rebuilt on version change; export reads all notes in one query and import writes a whole file in one transaction (creation dates kept, new ids).
 - **Auth:** present — single-password login with a signed session cookie; everything except `/login` and `/health` requires it.
 - **Deploy / infra:** present — local Docker image with a data volume (`Dockerfile`, `docker-compose.yml`) and a CI workflow (checks plus an image build); no registry publishing.
 - **Observability:** absent — no logging or error tracking.
@@ -101,6 +103,18 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 - **Risk:** It touches every place a note is created, edited, exported and imported, so the export file format and the import rules must stay compatible with files made before categories existed; "every note must have a category" also needs a rule for old notes and for import.
 - **Status:** done
 
+### S-04: Open a Settings page for preferences, data and about
+
+- **Outcome:** user can open a separate Settings page to change appearance (theme, language, reading text size and width, default sort), manage categories, import, export or clear the data, see the keyboard shortcuts and information about the app; preferences are stored on the server.
+- **Change ID:** settings-page
+- **PRD refs:** MS-02
+- **Prerequisites:** —
+- **Parallel with:** —
+- **Blockers:** —
+- **Unknowns:** — (resolved: import, export and category management move from the sidebar to Settings, the language and theme switches moved there too (changed only in Settings, no duplicates in the sidebar); preferences live in a server-side `settings` table, the language stays a cookie; no API/LLM placeholders until a real feature needs them)
+- **Risk:** Moving shared frontend helpers and the category/import flows touches code every screen depends on, so behaviour must stay identical; the settings store is the foundation later API and LLM configuration will build on.
+- **Status:** done
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID    | Suggested issue title                          | Ready for `/10x-plan` | Notes                         |
@@ -108,6 +122,7 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 | S-01       | export-notes | Download all notes as one file                 | done                  | Done                          |
 | S-02       | import-notes | Load notes from an exported file               | done                  | Done                          |
 | S-03       | note-categories | Put every note in a category and filter by it | done                  | Done                          |
+| S-04       | settings-page | Add a Settings page with a server-side settings store | done                  | Done                          |
 
 ## Open Roadmap Questions
 
@@ -145,3 +160,4 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 - **(outside the roadmap) UI redesign v2, favicon and toasts** — Done 2026-11-17. Not a roadmap item (no PRD anchor, no change folder). The notes page was rebuilt to the reference screenshot (`prototypes/ui-change-screenshot.png`): dark default with a light variant, three columns with their own scrolling, cards with topic icons, a note panel with a gradient header and the Copy/Edit/Delete icons at the top right, collapsible tag list, skeleton loading with a delayed show and an error state with retry, Ctrl/Cmd+K and arrow-key navigation from anywhere outside a form, a favicon, bottom toasts for import/export results, and a popup that confirms the replacing import; audited against the reference and fixed. `STYLE_GUIDE.md` records the frontend rules (linked from `AGENTS.md`). Lesson: —.
 - **(outside the roadmap) Note reader: Markdown and reading mode** — Done 2026-11-17. Not a roadmap item. Notes stay plain text in the database (no migration; import, export and search unchanged) and are displayed through a safe Markdown renderer (`src/compass/reader.py`: H1-H6, lists, nested lists, quotes, links, tables, callouts NOTE/INFO/TIP/WARNING/IMPORTANT/SUCCESS, code blocks with a built-in highlighter, language label and Copy, automatic contents for 3+ sections); old notes read as before (line breaks kept, raw HTML shown as text, only safe links). Reading mode hides the chrome, centres the text, has font size and width controls kept in `localStorage`, and Esc leaves it. No reading progress, word count or reading time by decision. The demo file gained five Markdown notes. Lesson: —.
 - **(outside the roadmap) Sorting the note list** — Done 2026-11-17. Not a roadmap item. `GET /api/notes?sort=title_asc|title_desc|date_asc|date_desc` (applied before the 50-result cut; titles ignore case and accents; dates compared as real moments) and a sort control above the list ("Trafność / najnowsze" keeps relevance while searching); the choice is remembered. Lesson: —.
+- **S-04: Open a Settings page for preferences, data and about** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/settings-page/`. A separate `/settings` page with Appearance (theme, language, reading text size and width, default list order), Data (manage categories, export, import with a confirmation popup, clear all data with a popup), Keyboard shortcuts and About (version, counts, database size and path). Preferences are stored on the server (`settings` table, `GET`/`PUT /api/settings` with a registry of validated keys) and embedded in the page, so the theme no longer flashes; the language stays a cookie. Shared frontend helpers moved to `core.py`; the sidebar gets a Settings button and loses EN/PL, the theme switch, import, export and the category manager (language and theme are changed only in Settings). `DELETE /api/data` and `GET /api/about` added. New settings (API, LLM) are added through the registry. Lesson: —.

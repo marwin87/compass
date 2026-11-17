@@ -1,0 +1,150 @@
+"""JavaScript shared by the notes page and the Settings page, and the server-side embedding of
+the language strings and the settings into a page.
+
+`CORE_JS` holds the generic helpers (`tr`, `$`, `h`, icons, `toast`, `api`, the category error
+table, `saveSettings`). It is inserted where a page has the `/*CORE*/` marker and, like the reader
+code, contains only DOM calls (never HTML strings) and makes no external request.
+"""
+
+import json
+from collections.abc import Mapping
+
+from compass import settings as store
+from compass.i18n import STRINGS
+
+CORE_JS = r"""
+/*I18N*/
+const LANG = I18N.lang, T = I18N.strings;
+const tr = (key, vars = {}) => T[key].replace(/\{(\w+)\}/g, (_, k) => vars[k]);
+const $ = (s) => document.querySelector(s);
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el[k] = v;
+    else if (k in el) el[k] = v;
+    else el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid);
+  return el;
+}
+// --- icons (Lucide-style line icons, drawn with DOM calls; no external requests)
+const SVGNS = "http://www.w3.org/2000/svg";
+const ICONS = {
+  compass: [["circle", {cx: 12, cy: 12, r: 10}], ["polygon", {points: "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"}]],
+  plus: [["path", {d: "M5 12h14"}], ["path", {d: "M12 5v14"}]],
+  info: [["circle", {cx: 12, cy: 12, r: 10}], ["path", {d: "M12 16v-4"}], ["path", {d: "M12 8h.01"}]],
+  bulb: [["path", {d: "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"}], ["path", {d: "M9 18h6"}], ["path", {d: "M10 22h4"}]],
+  "alert-circle": [["circle", {cx: 12, cy: 12, r: 10}], ["path", {d: "M12 8v4"}], ["path", {d: "M12 16h.01"}]],
+  "check-circle": [["path", {d: "M22 11.08V12a10 10 0 1 1-5.93-9.14"}], ["polyline", {points: "22 4 12 14.01 9 11.01"}]],
+  list: [["path", {d: "M8 6h13"}], ["path", {d: "M8 12h13"}], ["path", {d: "M8 18h13"}], ["path", {d: "M3 6h.01"}], ["path", {d: "M3 12h.01"}], ["path", {d: "M3 18h.01"}]],
+  "move-h": [["path", {d: "m18 8 4 4-4 4"}], ["path", {d: "m6 8-4 4 4 4"}], ["path", {d: "M2 12h20"}]],
+  alert: [["path", {d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"}], ["path", {d: "M12 9v4"}], ["path", {d: "M12 17h.01"}]],
+  search: [["circle", {cx: 11, cy: 11, r: 8}], ["path", {d: "m21 21-4.3-4.3"}]],
+  zap: [["polygon", {points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2"}]],
+  star: [["polygon", {points: "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"}]],
+  cog: [["path", {d: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"}], ["circle", {cx: 12, cy: 12, r: 3}]],
+  settings: [["path", {d: "M20 7h-9"}], ["path", {d: "M14 17H5"}], ["circle", {cx: 17, cy: 17, r: 3}], ["circle", {cx: 7, cy: 7, r: 3}]],
+  upload: [["path", {d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"}], ["polyline", {points: "17 8 12 3 7 8"}], ["line", {x1: 12, y1: 3, x2: 12, y2: 15}]],
+  download: [["path", {d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"}], ["polyline", {points: "7 10 12 15 17 10"}], ["line", {x1: 12, y1: 15, x2: 12, y2: 3}]],
+  logout: [["path", {d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"}], ["polyline", {points: "16 17 21 12 16 7"}], ["line", {x1: 21, y1: 12, x2: 9, y2: 12}]],
+  moon: [["path", {d: "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"}]],
+  sun: [["circle", {cx: 12, cy: 12, r: 4}], ["path", {d: "M12 2v2"}], ["path", {d: "M12 20v2"}], ["path", {d: "m4.93 4.93 1.41 1.41"}], ["path", {d: "m17.66 17.66 1.41 1.41"}], ["path", {d: "M2 12h2"}], ["path", {d: "M20 12h2"}], ["path", {d: "m6.34 17.66-1.41 1.41"}], ["path", {d: "m19.07 4.93-1.41 1.41"}]],
+  menu: [["path", {d: "M4 6h16"}], ["path", {d: "M4 12h16"}], ["path", {d: "M4 18h16"}]],
+  sort: [["path", {d: "m21 16-4 4-4-4"}], ["path", {d: "M17 20V4"}], ["path", {d: "m3 8 4-4 4 4"}], ["path", {d: "M7 4v16"}]],
+  x: [["path", {d: "M18 6 6 18"}], ["path", {d: "m6 6 12 12"}]],
+  "chevron-right": [["path", {d: "m9 18 6-6-6-6"}]],
+  "chevron-left": [["path", {d: "m15 18-6-6 6-6"}]],
+  "chevron-down": [["path", {d: "m6 9 6 6 6-6"}]],
+  pencil: [["path", {d: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"}], ["path", {d: "m15 5 4 4"}]],
+  copy: [["rect", {x: 8, y: 8, width: 14, height: 14, rx: 2}], ["path", {d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"}]],
+  trash: [["path", {d: "M3 6h18"}], ["path", {d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"}], ["path", {d: "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"}]],
+  calendar: [["rect", {x: 3, y: 4, width: 18, height: 18, rx: 2}], ["path", {d: "M16 2v4"}], ["path", {d: "M8 2v4"}], ["path", {d: "M3 10h18"}]],
+  layers: [["polygon", {points: "12 2 2 7 12 12 22 7 12 2"}], ["polyline", {points: "2 17 12 22 22 17"}], ["polyline", {points: "2 12 12 17 22 12"}]],
+  "filter-x": [["path", {d: "M13.013 3H2l8 9.46V19l4 2v-8.54l.9-1.055"}], ["path", {d: "m22 3-5 5"}], ["path", {d: "m17 3 5 5"}]],
+  message: [["path", {d: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z"}]],
+  branch: [["line", {x1: 6, y1: 3, x2: 6, y2: 15}], ["circle", {cx: 18, cy: 6, r: 3}], ["circle", {cx: 6, cy: 18, r: 3}], ["path", {d: "M18 9a9 9 0 0 1-9 9"}]],
+  code: [["polyline", {points: "16 18 22 12 16 6"}], ["polyline", {points: "8 6 2 12 8 18"}]],
+  book: [["path", {d: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"}], ["path", {d: "M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"}]],
+  database: [["ellipse", {cx: 12, cy: 5, rx: 9, ry: 3}], ["path", {d: "M3 5V19A9 3 0 0 0 21 19V5"}], ["path", {d: "M3 12A9 3 0 0 0 21 12"}]],
+  chart: [["path", {d: "M12 20V10"}], ["path", {d: "M18 20V4"}], ["path", {d: "M6 20v-4"}]],
+  binary: [["rect", {x: 14, y: 14, width: 4, height: 6, rx: 2}], ["rect", {x: 6, y: 4, width: 4, height: 6, rx: 2}], ["path", {d: "M6 20h4"}], ["path", {d: "M14 10h4"}], ["path", {d: "M6 14h2v6"}], ["path", {d: "M14 4h2v6"}]],
+  file: [["path", {d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"}], ["path", {d: "M14 2v4a2 2 0 0 0 2 2h4"}], ["path", {d: "M10 9H8"}], ["path", {d: "M16 13H8"}], ["path", {d: "M16 17H8"}]],
+};
+const WAVE_STOPS = {wv1: ["#7a63ff", .34, "#4a5be0", .06], wv2: ["#8f7bff", .26, "#5b6cf0", .05], wv3: ["#6f86ff", .22, "#6f5cff", .04]};
+function waveDefs(s) {              // the gradients the hero waves are filled with
+  const defs = s.querySelector("defs");
+  for (const [id, [c1, a1, c2, a2]] of Object.entries(WAVE_STOPS)) {
+    const g = document.createElementNS(SVGNS, "linearGradient");
+    g.setAttribute("id", id); g.setAttribute("x1", "1"); g.setAttribute("y1", "0"); g.setAttribute("x2", "0"); g.setAttribute("y2", "1");
+    for (const [o, c, a] of [[0, c1, a1], [1, c2, a2]]) { const st = document.createElementNS(SVGNS, "stop"); st.setAttribute("offset", o); st.setAttribute("stop-color", c); st.setAttribute("stop-opacity", a); g.append(st); }
+    defs.append(g);
+  }
+  return s;
+}
+function svg(spec, attrs) {
+  const s = document.createElementNS(SVGNS, "svg");
+  for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
+  for (const [tag, a] of spec) { const e = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); s.append(e); }
+  return s;
+}
+const icon = (name, size = 18) => svg(ICONS[name], {viewBox: "0 0 24 24", width: size, height: size, fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true"});
+const fillIcons = (root = document) => root.querySelectorAll("[data-icon]").forEach((el) => el.replaceChildren(icon(el.dataset.icon, +el.dataset.size || 18)));
+function toast(msg, kind = "", ms = 1800) {   // kind: "", "ok" or "bad"; errors stay longer
+  const t = $("#toast"); t.textContent = msg; t.className = "toast show " + kind; clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
+}
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (r.status === 401) { location.href = "/login"; throw new Error("not authenticated"); }
+  return r;
+}
+const json = (method, body) => ({method, headers: {"content-type": "application/json"}, body: JSON.stringify(body)});
+const CATEGORY_ERRORS = {
+  name_invalid: "category_err_name_invalid", name_reserved: "category_err_name_reserved", name_taken: "category_err_name_taken",
+  default_category: "category_err_default_category", not_empty: "category_err_not_empty", not_found: "category_err_not_found",
+};
+function categoryError(detail) {
+  const d = detail && typeof detail === "object" ? detail : {};
+  const key = CATEGORY_ERRORS[d.code];
+  return key ? tr(key, {count: d.count ?? "?"}) : tr("category_err_failed");
+}
+
+// --- placeholders: one shimmering block, used to build skeleton loading states
+const sk = (w, ht = 12, cls = "") => h("span", {class: "sk " + cls, style: "width:" + w + ";height:" + ht + "px"});
+// Sort orders of the note list ("" = relevance while searching, newest first otherwise) and their labels
+const SORT_LABELS = {"": "sort_default", title_asc: "sort_title_asc", title_desc: "sort_title_desc", date_desc: "sort_date_desc", date_asc: "sort_date_asc"};
+// --- settings: the values were embedded by the server (SETTINGS); changes are saved at once
+const READ_WIDTHS = [680, 760, 880], READ_SIZES = [15, 22];   // reading mode: text column widths (px) and text size range
+async function saveSettings(patch) {              // true when saved; on failure a toast says so and the caller reverts
+  try {
+    const r = await api("/api/settings", json("PUT", patch));
+    if (!r.ok) throw new Error("save");
+    Object.assign(SETTINGS, await r.json());
+    return true;
+  } catch (e) {
+    if (e.message !== "not authenticated") toast(tr("settings_save_error"), "bad");
+    return false;
+  }
+}
+"""
+
+
+def inject(page: str, lang: str, settings: Mapping[str, object] | None = None) -> str:
+    """Fill the I18N and SETTINGS constants and the theme of an already `fill`ed page."""
+    values = dict(store.defaults() if settings is None else settings)
+    payload = json.dumps({"lang": lang, "strings": STRINGS[lang]}, ensure_ascii=False)
+    blob = json.dumps(values, ensure_ascii=False)
+    script = (
+        "const I18N = "
+        + payload.replace("</", "<\\/")
+        + ";\nconst SETTINGS = "
+        + blob.replace("</", "<\\/")
+        + ";"
+    )
+    theme = values.get("theme")
+    theme = (
+        theme if theme in ("dark", "light") else "dark"
+    )  # never put anything else in an attribute
+    return page.replace("/*I18N*/", script).replace(
+        'data-theme="dark"', f'data-theme="{theme}"', 1
+    )

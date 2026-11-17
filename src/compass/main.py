@@ -5,10 +5,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from compass import api, auth, config
+from compass import api, auth, config, settings
 from compass.db import connect
 from compass.i18n import COOKIE, pick_lang
 from compass.page import render_index
+from compass.settings_page import render_settings
 
 SESSION_MAX_AGE = 30 * 24 * 3600
 
@@ -28,6 +29,9 @@ def create_app() -> FastAPI:
     app.include_router(api.export_router)
     app.include_router(api.import_router)
     app.include_router(api.categories_router)
+    app.include_router(api.settings_router)
+    app.include_router(api.about_router)
+    app.include_router(api.data_router)
     # Added last = outermost: the session must be loaded before the guard runs.
     app.middleware("http")(auth.guard)
     app.add_middleware(
@@ -42,7 +46,14 @@ def create_app() -> FastAPI:
         lang = pick_lang(
             request.cookies.get(COOKIE), request.headers.get("accept-language")
         )
-        return render_index(lang)
+        return render_index(lang, settings.current())
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_page(request: Request) -> str:
+        lang = pick_lang(
+            request.cookies.get(COOKIE), request.headers.get("accept-language")
+        )
+        return render_settings(lang, settings.current())
 
     @app.get("/health")
     def health() -> dict[str, str]:

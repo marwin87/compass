@@ -1,0 +1,438 @@
+"""The Settings page (served at `/settings`): appearance, data, keyboard shortcuts, about.
+
+Same rules as the notes page (see STYLE_GUIDE.md): DOM calls only, no external requests, every
+string in both languages. Each control applies at once and is saved through `saveSettings`
+(core.py); when a save fails the control goes back to its previous value. Adding a setting means a
+key in `settings.SPEC`, a control here, an i18n label and a test.
+"""
+
+from collections.abc import Mapping
+
+from compass import core
+from compass.page import COMMON_CSS, FAVICON_LINK, fill
+
+SETTINGS_CSS = r"""
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:radial-gradient(1000px 500px at 80% -10%,rgba(82,117,255,.11),transparent 70%),var(--bg);min-height:100vh}
+.sapp{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}
+.snav{position:sticky;top:0;align-self:start;height:100vh;padding:22px 16px;border-right:1px solid var(--line);background:var(--side);display:flex;flex-direction:column;gap:6px}
+.slogo{display:block;color:inherit;text-decoration:none;margin:0 0 18px}
+.slogo .tagline{font-size:12px;font-weight:400;color:var(--faint);line-height:1.2;margin-top:3px}
+.sback{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-size:13px;padding:4px 6px;margin:0 0 14px -6px;border-radius:8px}
+.sback:hover{color:var(--ink);background:rgba(255,255,255,.04)}
+.snav h1{font-size:22px;margin:12px 4px 14px;letter-spacing:-.01em}
+.snav nav{display:grid;gap:2px}
+.snav nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;color:var(--muted);text-decoration:none;border:1px solid transparent;transition:background var(--ease),color var(--ease)}
+.snav nav a:hover{background:rgba(255,255,255,.04);color:var(--ink)}
+.snav nav a.on{background:var(--accent-soft);color:var(--ink);border-color:rgba(99,125,255,.35);font-weight:600}
+.snav nav a .ic{color:var(--accent-light)}
+.scontent{padding:34px 36px 80px;max-width:900px;width:100%}
+.ssec{margin:0 0 36px;scroll-margin-top:24px}
+.ssec>h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin:0 4px 10px}
+.scard{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.sname{font-weight:600}
+.sdesc{color:var(--muted);font-size:13px;margin-top:2px;max-width:46ch}
+.sctl{flex:none;display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px;background:var(--bg)}
+.segbtn{display:inline-flex;align-items:center;gap:6px;border:0;background:none;border-radius:9px;padding:6px 12px;font-size:13px;color:var(--muted);transition:background var(--ease),color var(--ease)}
+.segbtn:hover{color:var(--ink)}
+.segbtn.on{background:var(--grad);color:#fff;font-weight:600}
+.stepval{min-width:56px;text-align:center;font-variant-numeric:tabular-nums;color:var(--ink)}
+.sselect{border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:8px 10px;font-size:13px;color:var(--ink);cursor:pointer}
+.sselect:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
+.krow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line)}
+.krow:last-child{border-bottom:0}
+.keys{display:flex;gap:6px;align-items:center;flex:none}
+.sk-row{padding:14px 20px;display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid var(--line)}
+.sk-row:last-child{border-bottom:0}
+.dl{display:grid;grid-template-columns:minmax(120px,200px) minmax(0,1fr);margin:0}
+.dl>div{display:contents}
+.dl dt,.dl dd{margin:0;padding:12px 20px;border-bottom:1px solid var(--line)}
+.dl>div:last-child dt,.dl>div:last-child dd{border-bottom:0}
+.dl dt{color:var(--muted)}
+.dl dd{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.aboutfail{padding:22px 20px;color:var(--muted);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+dialog{border:1px solid var(--line);border-radius:20px;padding:22px;width:min(520px,calc(100% - 32px));background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.dlg-head h3{margin:0;font-size:18px}
+.catrows{list-style:none;margin:12px 0 0;padding:0;max-height:50vh;overflow:auto}
+.catrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.catrow .name{flex:1;min-width:120px;font-weight:600}
+.catrow .n{color:var(--muted);font-size:12px}
+.catrow input,.qrow input{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:var(--bg)}
+.catrow input:focus,.qrow input:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
+.small{font-size:12px}
+#importdialog,#cleardialog{width:min(440px,calc(100% - 32px))}
+#importdialog h3,#cleardialog h3{margin:12px 0 6px;font-size:18px}
+#importdialog p,#cleardialog p{margin:0 0 14px;line-height:1.55}
+.warnicon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--danger-soft);color:var(--danger)}
+.fileline{display:flex;gap:8px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px;color:var(--muted);overflow:hidden}
+.fileline span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dlg-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.ssub{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin:22px 4px 10px}
+.scard.danger{border-color:rgba(248,113,113,.35)}
+a.btn{text-decoration:none}
+.qrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.catpad{padding:14px 20px 16px}
+.catpad .catrows{max-height:none;margin-top:10px}
+.catpad .qrow input{flex:1;min-width:160px}
+.catpad .err{margin-top:6px}
+@media (max-width:900px){
+  .sapp{grid-template-columns:minmax(0,1fr)}
+  .snav{min-width:0;position:sticky;top:0;z-index:10;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 14px;border-right:0;border-bottom:1px solid var(--line);gap:8px}
+  .sback{margin:0}
+  .slogo{margin:0 8px 0 0}
+  .slogo .tagline{display:none}
+  .slogo .logo{font-size:17px}
+  .slogo .dot{width:32px;height:32px;border-radius:10px}
+  .snav h1{display:none}
+  .snav nav{display:flex;gap:6px;overflow-x:auto;width:100%;scrollbar-width:none}
+  .snav nav a{flex:none;padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-size:13px}
+  .scontent{padding:20px 14px 60px}
+  .srow{flex-direction:column;align-items:flex-start;gap:12px}
+  .sdesc{max-width:none}
+  .dl{grid-template-columns:1fr}
+  .dl dt{border-bottom:0;padding-bottom:0}
+}
+"""
+
+_SECTIONS = (
+    ("appearance", "settings_nav_appearance", "sun"),
+    ("data", "settings_nav_data", "database"),
+    ("shortcuts", "settings_nav_shortcuts", "zap"),
+    ("about", "settings_nav_about", "info"),
+)
+
+SETTINGS_HTML = (
+    r"""<!doctype html>
+<html lang="[[lang]]" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[[settings_title]] · Compass</title>
+"""
+    + FAVICON_LINK
+    + r"""
+<style>"""
+    + COMMON_CSS
+    + SETTINGS_CSS
+    + r"""</style>
+</head>
+<body>
+<div class="sapp">
+  <aside class="snav">
+    <a class="slogo" href="/" aria-label="Compass"><div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass</div><div class="tagline">[[tagline]]</div></div></div></a>
+    <a class="sback" href="/"><span class="ic" data-icon="chevron-left" data-size="16"></span>[[settings_back]]</a>
+    <h1>[[settings_title]]</h1>
+    <nav id="snav" aria-label="[[settings_title]]">
+"""
+    + "".join(
+        f'      <a href="#{sid}" data-sec="{sid}"><span class="ic" data-icon="{ic}" data-size="16"></span>[[{key}]]</a>\n'
+        for sid, key, ic in _SECTIONS
+    )
+    + r"""    </nav>
+  </aside>
+  <main class="scontent">
+    <section class="ssec" id="appearance">
+      <h2>[[settings_nav_appearance]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[set_theme]]</div><div class="sdesc">[[set_theme_desc]]</div></div><div class="sctl" id="ctl-theme"></div></div>
+        <div class="srow"><div><div class="sname">[[set_lang]]</div><div class="sdesc">[[set_lang_desc]]</div></div><div class="sctl" id="ctl-lang"></div></div>
+        <div class="srow"><div><div class="sname">[[set_reader_size]]</div><div class="sdesc">[[set_reader_size_desc]]</div></div><div class="sctl" id="ctl-size"></div></div>
+        <div class="srow"><div><div class="sname">[[set_reader_width]]</div><div class="sdesc">[[set_reader_width_desc]]</div></div><div class="sctl" id="ctl-width"></div></div>
+        <div class="srow"><div><div class="sname">[[set_sort]]</div><div class="sdesc">[[set_sort_desc]]</div></div><div class="sctl" id="ctl-sort"></div></div>
+      </div>
+    </section>
+    <section class="ssec" id="data">
+      <h2>[[settings_nav_data]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[manage_title]]</div><div class="sdesc">[[data_categories_desc]]</div></div></div>
+        <div class="catpad">
+          <div class="qrow"><input id="catnew" placeholder="[[category_new_ph]]" maxlength="60" autocomplete="off" aria-label="[[category_new_ph]]"><button type="button" class="btn primary" id="catadd">[[category_add]]</button></div>
+          <div class="err" id="catmsg" role="alert"></div>
+          <ul class="catrows" id="catrows"></ul>
+        </div>
+      </div>
+      <h3 class="ssub">[[data_backup_h]]</h3>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[export]]</div><div class="sdesc">[[data_export_desc]]</div></div>
+          <div class="sctl"><a class="btn" id="exportlink" href="/api/export" download title="[[export_title]]"><span class="ic" data-icon="download" data-size="16"></span>[[export]]</a></div></div>
+        <div class="srow"><div><div class="sname">[[import]]</div><div class="sdesc">[[data_import_desc]]</div></div>
+          <div class="sctl"><button type="button" class="btn" id="import" title="[[import_title]]"><span class="ic" data-icon="upload" data-size="16"></span>[[import]]</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
+      </div>
+      <h3 class="ssub">[[data_danger_h]]</h3>
+      <div class="scard danger">
+        <div class="srow"><div><div class="sname">[[data_clear]]</div><div class="sdesc">[[data_clear_desc]]</div></div>
+          <div class="sctl"><button type="button" class="btn danger" id="clearbtn"><span class="ic" data-icon="trash" data-size="16"></span>[[data_clear]]</button></div></div>
+      </div>
+    </section>
+    <section class="ssec" id="shortcuts">
+      <h2>[[settings_nav_shortcuts]]</h2>
+      <div class="scard" id="shortcutlist"></div>
+    </section>
+    <section class="ssec" id="about">
+      <h2>[[settings_nav_about]]</h2>
+      <div class="scard" id="aboutcard" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+<dialog id="importdialog" aria-labelledby="importdialog-h" aria-describedby="importdialog-text">
+  <div class="warnicon"><span class="ic" data-icon="alert" data-size="22"></span></div>
+  <h3 id="importdialog-h">[[import_confirm_title]]</h3>
+  <p class="muted" id="importdialog-text">[[import_ask]]</p>
+  <div class="fileline"><span class="ic" data-icon="file" data-size="16"></span><span id="importfilename"></span></div>
+  <div class="dlg-actions"><button type="button" class="btn" id="importno">[[cancel]]</button><button type="button" class="btn danger" id="importyes">[[import_replace]]</button></div>
+</dialog>
+<dialog id="cleardialog" aria-labelledby="cleardialog-h" aria-describedby="cleardialog-text">
+  <div class="warnicon"><span class="ic" data-icon="alert" data-size="22"></span></div>
+  <h3 id="cleardialog-h">[[clear_title]]</h3>
+  <p class="muted" id="cleardialog-text">[[clear_ask]]</p>
+  <div class="dlg-actions"><button type="button" class="btn" id="clearno">[[cancel]]</button><button type="button" class="btn danger" id="clearyes">[[clear_yes]]</button></div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+<script>
+/*CORE*/
+/*SETTINGS_JS*/
+</script>
+</body>
+</html>
+"""
+)
+
+SETTINGS_JS = r"""
+// --- the Settings page: each control applies at once, saves, and goes back when the save fails
+const applyTheme = (t) => { document.documentElement.dataset.theme = t; };
+function segmented(options, value, onPick) {
+  const buttons = options.map(([v, ...label]) => h("button", {type: "button", class: "segbtn", "data-v": String(v), onclick: () => onPick(v)}, label));
+  const set = (val) => buttons.forEach((b) => { const on = b.dataset.v === String(val); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+  set(value);
+  return {el: h("div", {class: "seg", role: "group"}, buttons), set};
+}
+// Change one setting: show it, save it, and undo it when the server refuses.
+async function change(key, value, show) {
+  const before = SETTINGS[key];
+  if (value === before) return;
+  show(value);
+  if (await saveSettings({[key]: value})) toast(tr("settings_saved"), "ok", 1200);
+  else show(before);
+}
+
+// Appearance
+const themeSeg = segmented([["dark", icon("moon", 15), tr("theme_dark")], ["light", icon("sun", 15), tr("theme_light")]], SETTINGS.theme,
+  (v) => change("theme", v, (x) => { applyTheme(x); themeSeg.set(x); }));
+$("#ctl-theme").append(themeSeg.el);
+
+const langSeg = segmented([["en", "EN"], ["pl", "PL"]], LANG, (v) => { if (v === LANG) return; document.cookie = "lang=" + v + "; path=/; max-age=31536000; SameSite=Lax"; location.reload(); });
+$("#ctl-lang").append(langSeg.el);
+
+const sizeVal = h("span", {class: "stepval"});
+const showSize = (n) => { sizeVal.textContent = n + " px"; $("#size-minus").disabled = n <= READ_SIZES[0]; $("#size-plus").disabled = n >= READ_SIZES[1]; };
+const stepSize = (d) => change("reader_size", Math.min(READ_SIZES[1], Math.max(READ_SIZES[0], SETTINGS.reader_size + d)), showSize);
+$("#ctl-size").append(
+  h("button", {type: "button", class: "btn", id: "size-minus", "aria-label": tr("font_smaller"), title: tr("font_smaller"), onclick: () => stepSize(-1)}, "A−"), sizeVal,
+  h("button", {type: "button", class: "btn", id: "size-plus", "aria-label": tr("font_larger"), title: tr("font_larger"), onclick: () => stepSize(1)}, "A+"));
+showSize(SETTINGS.reader_size);
+
+const WIDTH_LABELS = ["width_narrow", "width_medium", "width_wide"];
+const widthSeg = segmented(WIDTH_LABELS.map((key, i) => [i, tr(key)]), SETTINGS.reader_width, (v) => change("reader_width", v, (x) => widthSeg.set(x)));
+$("#ctl-width").append(widthSeg.el);
+
+const sortSel = h("select", {class: "sselect", "aria-label": tr("set_sort")}, Object.entries(SORT_LABELS).map(([value, key]) => h("option", {value}, tr(key))));
+sortSel.value = SETTINGS.sort;
+sortSel.addEventListener("change", () => change("sort", sortSel.value, (x) => { sortSel.value = x; }));
+$("#ctl-sort").append(sortSel);
+
+// Keyboard shortcuts
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+const SHORTCUTS = [
+  [["/"], "sc_search"], [[MAC ? "⌘" : "Ctrl", "K"], "sc_search_any"], [["N"], "sc_new"], [["↑", "↓"], "sc_move"],
+  [["Esc"], "sc_clear"], [["Esc"], "sc_reading_exit"],
+];
+$("#shortcutlist").append(...SHORTCUTS.map(([keys, label]) => h("div", {class: "krow"}, h("span", {}, tr(label)), h("span", {class: "keys"}, keys.map((k) => h("kbd", {}, k))))),
+  h("div", {class: "krow"}, h("span", {}, tr("sc_reading_open")), h("span", {class: "keys"}, icon("book", 16))));
+
+// About
+const humanSize = (n) => (n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB");
+async function loadAbout() {
+  const card = $("#aboutcard");
+  card.replaceChildren(...[0, 1, 2].map(() => h("div", {class: "sk-row"}, sk("30%", 14), sk("20%", 14))));
+  let d;
+  try {
+    const r = await api("/api/about");
+    if (!r.ok) throw new Error("about");
+    d = await r.json();
+  } catch (e) {
+    if (e.message === "not authenticated") return;
+    card.replaceChildren(h("div", {class: "aboutfail"}, h("span", {}, tr("about_failed")), h("button", {type: "button", class: "btn", onclick: loadAbout}, tr("retry"))));
+    return;
+  }
+  const row = (key, value) => h("div", {}, h("dt", {}, tr(key)), h("dd", {}, String(value)));
+  card.replaceChildren(h("dl", {class: "dl"}, row("about_version", d.version), row("about_notes", d.notes), row("about_categories", d.categories), row("about_tags", d.tags),
+    row("about_db_size", humanSize(d.db_size_bytes)), row("about_db_path", d.db_path)));
+}
+loadAbout();
+
+
+// Data: the category manager (inline), export, import (confirmed in a popup), clearing everything
+let categories = [];
+const catLabel = (c) => (c.default ? tr("category_default") : c.name);
+const manage = {editing: null, deleting: null};
+const setCatMsg = (text) => { $("#catmsg").textContent = text; };
+async function loadCategories() {
+  try {
+    const r = await api("/api/categories");
+    if (!r.ok) throw new Error("categories");
+    categories = await r.json();
+  } catch (e) {
+    if (e.message !== "not authenticated") setCatMsg(tr("category_err_failed"));
+    return;
+  }
+  renderManage();
+}
+const refreshData = () => Promise.all([loadCategories(), loadAbout()]);   // counts change after every data operation
+async function categoryCall(path, method, body) {
+  const r = await api(path, body === undefined ? {method} : json(method, body));
+  const data = (await r.json().catch(() => null)) || {};   // 204 has no body
+  return {r, detail: data.detail};
+}
+function renderManage() {
+  $("#catrows").replaceChildren(...categories.map((c) => {
+    const li = h("li", {class: "catrow"});
+    if (c.default) {
+      li.append(h("span", {class: "name"}, catLabel(c)), h("span", {class: "n"}, c.count), h("span", {class: "muted small"}, tr("manage_default_note")));
+    } else if (manage.editing === c.id) {
+      const input = h("input", {value: c.name, maxlength: 60, "aria-label": tr("manage_rename")});
+      const save = async () => {
+        const {r, detail} = await categoryCall("/api/categories/" + c.id, "PUT", {name: input.value});
+        if (r.ok) { manage.editing = null; setCatMsg(""); await refreshData(); }
+        else if (r.status === 404) { manage.editing = null; await refreshData(); }
+        else setCatMsg(categoryError(detail));
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+      li.append(input, h("button", {type: "button", class: "btn primary", onclick: save}, tr("save")), h("button", {type: "button", class: "btn", onclick: () => { manage.editing = null; setCatMsg(""); renderManage(); }}, tr("cancel")));
+      setTimeout(() => input.focus());
+    } else if (manage.deleting === c.id) {
+      const remove = async () => {
+        const {r, detail} = await categoryCall("/api/categories/" + c.id, "DELETE");
+        manage.deleting = null;
+        if (r.status === 204 || r.status === 404) { setCatMsg(""); await refreshData(); }   // already gone is fine
+        else { setCatMsg(categoryError(detail)); renderManage(); }
+      };
+      li.append(h("span", {class: "name"}, tr("manage_confirm_delete", {name: c.name})), h("button", {type: "button", class: "btn danger", onclick: remove}, tr("yes_delete")), h("button", {type: "button", class: "btn", onclick: () => { manage.deleting = null; renderManage(); }}, tr("back")));
+    } else {
+      li.append(h("span", {class: "name"}, c.name), h("span", {class: "n"}, c.count),
+        h("button", {type: "button", class: "btn", onclick: () => { manage.editing = c.id; manage.deleting = null; setCatMsg(""); renderManage(); }}, tr("manage_rename")),
+        h("button", {type: "button", class: "btn danger", onclick: () => { manage.deleting = c.id; manage.editing = null; setCatMsg(""); renderManage(); }}, tr("delete")));
+    }
+    return li;
+  }));
+}
+async function addCategory() {
+  const input = $("#catnew");
+  const {r, detail} = await categoryCall("/api/categories", "POST", {name: input.value});
+  if (r.status === 201) { input.value = ""; setCatMsg(""); await refreshData(); input.focus(); }
+  else setCatMsg(categoryError(detail));    // here an existing name is an error (the note forms just select it)
+}
+
+// Import: the server validates the whole file and answers with a code we translate
+const IMPORT_ERRORS = {
+  not_json: "import_err_not_json", not_an_export: "import_err_not_an_export",
+  invalid_file: "import_err_invalid_file",
+  count_mismatch: "import_err_count_mismatch", invalid_note: "import_err_invalid_note",
+  file_too_large: "import_err_file_too_large",
+};
+const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", category: "field_category", note: "field_note"};
+function importError(detail) {
+  const d = detail && typeof detail === "object" ? detail : {};
+  const key = IMPORT_ERRORS[d.code];
+  if (!key) return tr("import_err_failed");
+  const field = FIELD_NAMES[d.field] ? tr(FIELD_NAMES[d.field]) : "";
+  return tr(key, {expected: d.expected ?? "?", actual: d.actual ?? "?", index: d.index ?? "?", field, mb: d.limit_mb ?? "?"});
+}
+async function importFile(file) {
+  const show = (text, ok) => toast(text, ok ? "ok" : "bad", ok ? 3500 : 6000);
+  let r;
+  try {
+    r = await api("/api/import", {method: "POST", headers: {"content-type": "application/json"}, body: await file.text()});
+  } catch (e) {
+    if (e.message !== "not authenticated") show(tr("import_err_failed"), false);
+    return;
+  }
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) { show(importError(body.detail), false); return; }
+  show(tr("import_done", {n: body.imported}), true);
+  await refreshData();
+}
+
+
+let pending = null;
+$("#import").addEventListener("click", () => $("#importfile").click());
+$("#importfile").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";          // so choosing the same file again fires another change
+  if (!file) return;
+  pending = file;     // importing replaces everything, so ask first, in a popup
+  $("#importfilename").textContent = file.name;
+  $("#importdialog").showModal();
+  $("#importno").focus();     // the safe choice has the focus
+});
+$("#importyes").addEventListener("click", async () => {
+  const file = pending; pending = null; $("#importdialog").close();
+  if (file) await importFile(file);
+});
+$("#importno").addEventListener("click", () => $("#importdialog").close());
+$("#importdialog").addEventListener("close", () => { pending = null; });   // Esc, Cancel or the backdrop: nothing happens
+$("#importdialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });   // click on the backdrop
+$("#exportlink").addEventListener("click", () => toast(tr("export_started"), "ok"));
+$("#catadd").addEventListener("click", addCategory);
+$("#catnew").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addCategory(); } });
+
+// Clear everything: a second, explicit confirmation, then the server removes all notes, tags and categories
+$("#clearbtn").addEventListener("click", () => { $("#cleardialog").showModal(); $("#clearno").focus(); });
+$("#clearno").addEventListener("click", () => $("#cleardialog").close());
+$("#cleardialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+$("#clearyes").addEventListener("click", async () => {
+  $("#cleardialog").close();
+  try {
+    const r = await api("/api/data", {method: "DELETE"});
+    if (r.status !== 204) throw new Error("clear");
+    toast(tr("data_cleared"), "ok", 3500);
+    await refreshData();
+  } catch (e) {
+    if (e.message !== "not authenticated") toast(tr("data_clear_failed"), "bad", 6000);
+  }
+});
+loadCategories();
+
+// Navigation: the link of the section being read is highlighted. A section near the end of the page cannot be
+// scrolled to the top, so a clicked link keeps the highlight until the user scrolls by hand.
+const NAV = [...document.querySelectorAll("#snav a")], SECS = NAV.map((a) => document.getElementById(a.dataset.sec));
+let navQueued = false, navLock = null;
+const showNav = (cur) => NAV.forEach((a, i) => a.classList.toggle("on", i === cur));
+function updateNav() {
+  navQueued = false;
+  if (navLock !== null) return;
+  let cur = 0;
+  SECS.forEach((s, i) => { if (s.getBoundingClientRect().top <= 140) cur = i; });
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) cur = SECS.length - 1;
+  showNav(cur);
+}
+NAV.forEach((a, i) => a.addEventListener("click", () => { navLock = i; showNav(i); }));
+const unlockNav = () => { if (navLock !== null) { navLock = null; updateNav(); } };
+["wheel", "touchmove", "keydown", "mousedown"].forEach((ev) => addEventListener(ev, (e) => { if (!(e.target.closest && e.target.closest("#snav"))) unlockNav(); }, {passive: true}));
+addEventListener("scroll", () => { if (!navQueued) { navQueued = true; requestAnimationFrame(updateNav); } }, {passive: true});
+updateNav();
+fillIcons();
+"""
+
+SETTINGS_HTML = SETTINGS_HTML.replace("/*CORE*/", core.CORE_JS).replace(
+    "/*SETTINGS_JS*/", SETTINGS_JS
+)
+
+
+def render_settings(lang: str, settings: Mapping[str, object] | None = None) -> str:
+    return core.inject(fill(SETTINGS_HTML, lang), lang, settings)

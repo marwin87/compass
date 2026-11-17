@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS note_tags(
     PRIMARY KEY (note_id, tag_id)
 );
 CREATE INDEX IF NOT EXISTS note_tags_tag ON note_tags(tag_id);
+CREATE TABLE IF NOT EXISTS settings(
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS categories(
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,

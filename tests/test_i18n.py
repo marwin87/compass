@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from compass.i18n import DEFAULT_LANG, LANGS, STRINGS, pick_lang
 from compass.main import app
 from compass.page import INDEX_HTML, render_index
+from compass.settings_page import SETTINGS_HTML
 
 
 @pytest.mark.parametrize(
@@ -54,9 +55,10 @@ def test_placeholders_match_between_languages() -> None:
 
 
 def test_every_key_used_by_the_page_exists_in_both_languages() -> None:
-    used = set(re.findall(r"\[\[(\w+)\]\]", INDEX_HTML))
-    used |= set(re.findall(r"\btr\(\"(\w+)\"", INDEX_HTML))
-    used |= set(re.findall(r"\bT\.(\w+)", INDEX_HTML))
+    pages = INDEX_HTML + SETTINGS_HTML
+    used = set(re.findall(r"\[\[(\w+)\]\]", pages))
+    used |= set(re.findall(r"\btr\(\"(\w+)\"", pages))
+    used |= set(re.findall(r"\bT\.(\w+)", pages))
     used |= set(
         re.findall(r'"((?:import_err|field|category_err)_\w+)"', INDEX_HTML)
     )  # lookup tables
@@ -71,7 +73,7 @@ def test_every_string_is_used_somewhere() -> None:
 
     from compass import auth
 
-    text = INDEX_HTML + auth.LOGIN_TEMPLATE + inspect.getsource(auth)
+    text = INDEX_HTML + SETTINGS_HTML + auth.LOGIN_TEMPLATE + inspect.getsource(auth)
     for key in STRINGS["pl"]:
         used = (
             f"[[{key}]]" in text
@@ -97,13 +99,13 @@ def test_english_page_has_no_polish_ui_text() -> None:
         "Brak wyników",
     ):
         assert polish not in page, polish
-    assert '<html lang="en">' in page
+    assert '<html lang="en" data-theme="dark">' in page
     assert "Tags (comma-separated)" in page
 
 
 def test_polish_page_is_the_default_and_has_no_english_ui_text() -> None:
     page = render_index("pl")
-    assert '<html lang="pl">' in page
+    assert '<html lang="pl" data-theme="dark">' in page
     for english in ("Log out", "New note", "Overwrite the note?", "No results."):
         assert english not in page, english
 
@@ -182,11 +184,11 @@ def test_wrong_password_message_is_localised(anon: TestClient) -> None:
 def test_export_button_is_present_in_both_languages(anon: TestClient) -> None:
     with anon as c:
         login_cookie(c)
-        pl = c.get("/").text
+        pl = c.get("/settings").text
         assert 'href="/api/export"' in pl and "Eksportuj notatki" in pl
         assert "Pobierz wszystkie notatki jako plik JSON" in pl
         c.cookies.set("lang", "en")
-        en = c.get("/").text
+        en = c.get("/settings").text
         assert 'href="/api/export"' in en and "Export notes" in en
         assert "Download all notes as a JSON file" in en and "Eksportuj" not in en
 
@@ -194,19 +196,21 @@ def test_export_button_is_present_in_both_languages(anon: TestClient) -> None:
 def test_import_controls_are_present_in_both_languages(anon: TestClient) -> None:
     with anon as c:
         login_cookie(c)
-        pl = c.get("/").text
+        pl = c.get("/settings").text
         for marker in (
             'id="import"',
             'id="importfile"',
-            'id="toast"',  # results and errors are shown in the toast at the bottom
+            'id="importdialog"',
+            'id="toast"',
             "Importuj notatki",
         ):
             assert marker in pl, marker
         c.cookies.set("lang", "en")
-        en = c.get("/").text
+        en = c.get("/settings").text
         for marker in (
             'id="import"',
             'id="importfile"',
+            'id="importdialog"',
             'id="toast"',
             "Import notes",
         ):
@@ -275,17 +279,44 @@ def test_every_category_error_code_has_a_message_in_both_languages() -> None:
             assert STRINGS[lang][f"category_err_{code}"], (lang, code)
 
 
-def test_manage_dialog_is_present_in_both_languages(anon: TestClient) -> None:
+def test_category_manager_and_clear_data_live_in_settings(anon: TestClient) -> None:
     with anon as c:
         login_cookie(c)
-        pl = c.get("/").text
-        for marker in ('id="catdialog"', 'id="managecats"', "Zarządzaj kategoriami"):
+        pl = c.get("/settings").text
+        for marker in (
+            'id="catrows"',
+            'id="catnew"',
+            'id="cleardialog"',
+            "Zarządzaj kategoriami",
+            "Wyczyść wszystkie dane",
+        ):
             assert marker in pl, marker
         c.cookies.set("lang", "en")
-        en = c.get("/").text
-        for marker in ('id="catdialog"', 'id="managecats"', "Manage categories"):
+        en = c.get("/settings").text
+        for marker in (
+            'id="catrows"',
+            'id="catnew"',
+            'id="cleardialog"',
+            "Manage categories",
+            "Clear all data",
+        ):
             assert marker in en, marker
         assert "Zarządzaj" not in en
+
+
+def test_the_notes_page_no_longer_has_the_data_tools(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        page = c.get("/").text
+    assert 'href="/settings#data"' in page and 'href="/settings"' in page  # the ways in
+    for gone in (
+        'id="import"',
+        'id="importdialog"',
+        'id="catdialog"',
+        'href="/api/export"',
+        'id="cleardialog"',
+    ):
+        assert gone not in page, gone
 
 
 def test_redesigned_page_controls_exist_in_both_languages(anon: TestClient) -> None:
@@ -336,3 +367,60 @@ def test_sort_control_is_present_in_both_languages(anon: TestClient) -> None:
             "Nazwa A–Z" in STRINGS["pl"]["sort_title_asc"]
             and "Title A–Z" == STRINGS["en"]["sort_title_asc"]
         )
+
+
+def test_the_page_embeds_the_settings_and_the_theme(anon: TestClient) -> None:
+    from compass.page import render_index
+
+    page = render_index(
+        "pl",
+        {"theme": "light", "reader_size": 20, "reader_width": 2, "sort": "title_asc"},
+    )
+    assert '<html lang="pl" data-theme="light">' in page
+    assert (
+        'const SETTINGS = {"theme": "light", "reader_size": 20, "reader_width": 2, "sort": "title_asc"};'
+        in page
+    )
+    assert page.count("</script>") == 1
+    default = render_index("en")
+    assert (
+        'data-theme="dark"' in default and '"reader_size": 17' in default
+    )  # no settings given: defaults
+
+
+def test_a_hostile_setting_value_cannot_end_the_script(anon: TestClient) -> None:
+    from compass.page import render_index
+
+    page = render_index(
+        "pl", {"theme": "dark", "sort": "</script><script>alert(1)</script>"}
+    )
+    assert page.count("</script>") == 1 and "<\\/script>" in page
+
+
+def test_the_served_page_follows_the_stored_theme(authed: TestClient) -> None:
+    assert 'data-theme="dark"' in authed.get("/").text
+    authed.put("/api/settings", json={"theme": "light", "reader_size": 21})
+    page = authed.get("/").text
+    assert '<html lang="pl" data-theme="light">' in page and '"reader_size": 21' in page
+
+
+def test_the_theme_attribute_only_ever_holds_a_known_theme() -> None:
+    from compass.page import render_index
+
+    page = render_index("pl", {"theme": '"><script>alert(1)</script>'})
+    assert (
+        '<html lang="pl" data-theme="dark">' in page
+        and "alert(1)</script>" not in page.split("<style>")[0]
+    )
+
+
+def test_language_and_theme_are_changed_only_in_settings(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        notes = c.get("/").text
+        settings = c.get("/settings").text
+    assert (
+        'data-lang="' not in notes and 'id="theme"' not in notes
+    )  # no duplicates in the sidebar
+    assert 'href="/settings"' in notes
+    assert "ctl-lang" in settings and "ctl-theme" in settings

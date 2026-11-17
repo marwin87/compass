@@ -299,17 +299,16 @@ function mdBlocksDom(blocks, ctx) {
   });
 }
 
-// Reading settings (kept in localStorage) and the reading mode itself
-const READER = {size: 17, width: 1};
-const READ_WIDTHS = [680, 760, 880], READ_SIZES = [15, 22];
-try { Object.assign(READER, JSON.parse(localStorage.getItem("reader") || "{}")); } catch (e) { /* defaults */ }
-READER.size = Math.min(READ_SIZES[1], Math.max(READ_SIZES[0], +READER.size || 17));
-READER.width = READ_WIDTHS[READER.width] ? READER.width : 1;
-function applyReader() {
+// Reading settings (they come from the server settings) and the reading mode itself
+const READER = {size: SETTINGS.reader_size, width: SETTINGS.reader_width};
+let readerSave = 0;
+function applyReader(save = true) {
   const app = $("#app");
   app.style.setProperty("--read-size", READER.size + "px");
   app.style.setProperty("--read-w", READ_WIDTHS[READER.width] + "px");
-  try { localStorage.setItem("reader", JSON.stringify(READER)); } catch (e) { /* private mode */ }
+  if (!save) return;
+  clearTimeout(readerSave);                       // several clicks on A+ become one request
+  readerSave = setTimeout(() => saveSettings({reader_size: READER.size, reader_width: READER.width}), 400);
 }
 let tocWatch = null;
 function watchToc(root) {                         // highlight the section being read; cheap, one rAF per scroll burst

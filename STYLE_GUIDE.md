@@ -10,6 +10,9 @@ The whole app UI is one server-rendered page, no build step and no framework.
 
 | Where | What |
 | --- | --- |
+| `src/compass/core.py` | `CORE_JS`: the helpers both pages share (`tr`, `$`, `h`, icons, `toast`, `api`, `sk`, `SORT_LABELS`, `categoryError`, `saveSettings`) and `inject()`, which fills the I18N and SETTINGS constants and `data-theme` on the server |
+| `src/compass/settings.py` | the settings registry (`SPEC`: key, default, validator) stored in the `settings` table; `current()`, `update()` |
+| `src/compass/settings_page.py` | the Settings page (`/settings`): Appearance, Data, Shortcuts, About |
 | `src/compass/page.py` | `COMMON_CSS` (tokens, base, buttons, chips, forms, toast, login), `APP_CSS` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `INDEX_HTML` (markup + one `<script>`), `render_index(lang)` |
 | `src/compass/reader.py` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
 | `src/compass/i18n.py` | `STRINGS["pl"]` and `STRINGS["en"]`, `pick_lang` |
@@ -52,8 +55,8 @@ State lives in one `state` object; render functions rebuild their part of the DO
 
 ## 4. Design tokens and look
 
-Dark is the default theme; the light theme is `:root[data-theme=light]`. The choice is stored in
-`localStorage` (wrapped in try/catch). Colors come from tokens, never from literals in rules
+Dark is the default theme; the light theme is `:root[data-theme=light]`. The choice is stored on the server
+(setting `theme`) and put on `<html data-theme>` by the server, so there is no flash. Colors come from tokens, never from literals in rules
 (exceptions: the note hero gradient and the wave art).
 
 | Token | Use |
@@ -107,8 +110,8 @@ Dark is the default theme; the light theme is `:root[data-theme=light]`. The cho
   textareas or selects, and never while the dialog is open.
 - **Sorting:** the `#sort` select above the list (`SORT_LABELS`): default (newest first, or by relevance while
   searching), title A-Z / Z-A, oldest / newest first. A chosen order overrides relevance, is sent as `sort=` to
-  `/api/notes` (server sorts before cutting to 50; titles ignore case and accents), is kept in
-  `localStorage["sort"]` and is highlighted while active. New sort options need the API `Literal`, `SORTS` in
+  `/api/notes` (server sorts before cutting to 50; titles ignore case and accents), is stored as the setting
+  `sort` and is highlighted while active. New sort options need the API `Literal`, `SORTS` in
   `notes.py`, an `i18n` key and a test in `tests/test_sort.py`.
 - **Hiding:** use the `hidden` attribute; a global `[hidden]{display:none!important}` exists because
   `display:flex/grid` on a class would otherwise override it.
@@ -120,6 +123,9 @@ Dark is the default theme; the light theme is `:root[data-theme=light]`. The cho
 - In a flex column, give containers that use `overflow:hidden` a `flex:none` or they collapse to 0
   height (this hid the sidebar tags once).
 - A 204 response has no body: parse JSON defensively (`.catch(() => null)`).
+- Scroll-spy navigation (Settings): a section near the end of the page cannot be scrolled to the top, so a
+  highlight computed only from the scroll position picks the wrong link after a click. A clicked link sets the
+  highlight at once and keeps it (`navLock`) until the user scrolls by hand (wheel, touch, key, mouse down).
 - Cards are re-created on every render, so state that must survive (focus, scroll) has to be restored
   explicitly (`scrollIntoView({block:"nearest"})` after keyboard selection).
 - File inputs: clear `value` after reading so the same file can be chosen twice. Import replaces all data
@@ -167,9 +173,33 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
   have a light variant. Do not add reading progress, word counts or reading-time estimates (decided against).
 - **Reading mode** (`#app.reading`): hides sidebar, list, search and filters, centres the text at 680/760/880 px,
   keeps Copy/Edit/Delete and shows `#readbar` (smaller/larger text, width, exit). Esc leaves it; shortcuts and
-  arrow navigation are off while it is active; editing leaves it. Size and width are stored in
-  `localStorage["reader"]`. `.card` uses `overflow:clip` (not `hidden`) so the sticky contents works.
+  arrow navigation are off while it is active; editing leaves it. Size and width are the settings
+  `reader_size` and `reader_width` (several clicks are saved as one request). `.card` uses `overflow:clip` (not `hidden`) so the sticky contents works.
 - **List snippets** strip Markdown markers (`snippet()`); the note itself is never changed.
 - **Testing:** `tests/test_reader.py` runs the pure parser/highlighter in Node (skipped without Node). The DOM
   side is checked with the headless-Chromium method from section 7. Under virtual time `requestAnimationFrame`
   and smooth scrolling do not progress between sleeps: use instant scrolling and screenshots for those.
+
+## 9. Settings page and the settings registry
+
+- **Where things live:** `/settings` is a separate page with sections (left nav, a chip row on phones):
+  Appearance, Data, Keyboard shortcuts, About. Theme and language are changed only there (one place, no duplicates); the notes page has just a
+  Settings button in the sidebar footer; import, export, clear-all and the category manager are in Settings -> Data
+  (the notes page's "Zarzadzaj" link goes to `/settings#data`). Quick add of a category stays in the note forms.
+- **Server-side settings, not `localStorage`:** preferences are rows in the `settings` table, read through
+  `settings.current()` and written with `PUT /api/settings` (a partial update, validated as a whole, 422
+  `invalid_setting` with the key). The server embeds them as `const SETTINGS` and puts the theme on `<html>`,
+  so pages need no extra request. The language is the exception: it stays the `lang` cookie (the login page and
+  the first render need it before any setting is available).
+- **Adding a setting:** 1) a key in `settings.SPEC` with a default and a validator, 2) a control on the Settings
+  page (and use of `SETTINGS.<key>` where it matters), 3) an i18n label and description in both languages,
+  4) a test in `tests/test_settings.py`. A test fails when a registry key has no control on the page. Secrets
+  (API keys and the like) must never be returned by `GET /api/settings`: make them write-only when the first one
+  is added, and prefer environment variables in Docker.
+- **Controls:** every control applies at once, saves through `saveSettings(patch)` (it toasts on failure) and goes
+  back to its previous value when the save fails (`change()` on the Settings page). No Save button.
+- **Pages share code through `core.py`:** never copy a helper into a second page. New shared helpers go to
+  `CORE_JS`; page-specific code stays in its module. Both pages are embedded at import time so the i18n tests see
+  all of their strings.
+- **Data section rules:** import and clear-all always ask in a popup (safe button focused first); results and
+  errors are toasts; after any data operation the category list and the About counts are reloaded.

@@ -6,13 +6,17 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 from starlette.concurrency import run_in_threadpool
 
-from compass import categories, notes, transfer
+from compass import about as about_info
+from compass import categories, notes, settings, transfer
 
 router = APIRouter(prefix="/api/notes")
 tags_router = APIRouter(prefix="/api/tags")
 export_router = APIRouter(prefix="/api/export")
 import_router = APIRouter(prefix="/api/import")
 categories_router = APIRouter(prefix="/api/categories")
+settings_router = APIRouter(prefix="/api/settings")
+about_router = APIRouter(prefix="/api/about")
+data_router = APIRouter(prefix="/api/data")
 
 CATEGORY_STATUS = {
     "name_invalid": 422,
@@ -203,3 +207,30 @@ def delete_category(category_id: int) -> None:
         categories.delete(category_id)
     except categories.CategoryError as problem:
         raise _category_error(problem) from None
+
+
+@settings_router.get("")
+def read_settings() -> dict[str, object]:
+    return settings.current()
+
+
+@settings_router.put("")
+def write_settings(patch: dict[str, object]) -> dict[str, object]:
+    """Partial update of known settings; one invalid key rejects the whole request."""
+    try:
+        return settings.update(patch)
+    except settings.SettingError as problem:
+        raise HTTPException(
+            status_code=422, detail={"code": "invalid_setting", "key": problem.key}
+        ) from None
+
+
+@about_router.get("")
+def read_about() -> dict[str, object]:
+    return about_info.about()
+
+
+@data_router.delete("", status_code=204)
+def clear_data() -> None:
+    """Remove every note, tag and category (the default one stays); settings are kept."""
+    notes.replace_all([], [])

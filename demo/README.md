@@ -12,10 +12,10 @@
   - *Python: dekoratory i generatory*: Python code with callouts;
   - *REST vs GraphQL: porównanie*: a comparison table and a numbered list.
 
-Load it any time with the **Import** button in the side panel. Import replaces everything in Compass
+Load it any time with **Settings → Data → Import**. Import replaces everything in Compass
 with the file (after a confirmation), so it also works as a reset to the demo state and importing it
 again gives the same result. Export first if you have notes you want to keep.
 
 Things worth trying after the import: search `zlozonosc` (no Polish letters), `indkes` (a typo),
-`sql` (exact tag first, then titles), filter by the `rozmowa` tag, click a category in the side panel,
+`sql` (exact tag first, then titles), filter by the `rozmowa` tag, click a category in the side panel (manage them in Settings → Data),
 and open a Markdown note in **Reading mode** (the book icon at the top right of the note).

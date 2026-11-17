@@ -125,7 +125,7 @@ def test_page_has_the_notes_ui_and_never_uses_inner_html(authed: TestClient) -> 
         "Tagi (po przecinku)",  # tag input in the add and edit forms
         "Na pewno nadpisać?",  # edit needs a second confirmation
         "Na pewno usunąć?",  # so does delete
-        'href="/api/export"',  # the backup download
+        'href="/settings"',  # the way to import, export and manage categories
         'id="catbar"',  # category filter in the side panel
         "Kategoria",  # the category field of the note forms
         "Nowa kategoria",  # quick add from the form
