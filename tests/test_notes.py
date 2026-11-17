@@ -116,4 +116,71 @@ def test_page_has_search_and_never_uses_inner_html(authed: TestClient) -> None:
     assert page.status_code == 200
     assert 'id="q"' in page.text
     assert 'id="add"' in page.text
+    assert 'id="edit"' in page.text
+    assert 'id="editform"' in page.text
+    assert 'id="eyes"' in page.text
     assert "innerHTML" not in page.text  # note content must only go in via textContent
+
+
+def put(c: TestClient, note_id: int, title: str, body: str = "") -> int:
+    status: int = c.put(
+        f"/api/notes/{note_id}", json={"title": title, "body": body}
+    ).status_code
+    return status
+
+
+def test_edit_replaces_text_and_keeps_created_at(authed: TestClient) -> None:
+    note_id = add(authed, "Stary tytul", "stara tresc")
+    created = authed.get(f"/api/notes/{note_id}").json()["created_at"]
+
+    assert put(authed, note_id, "Nowy tytul", "nowa tresc") == 200
+    got = authed.get(f"/api/notes/{note_id}").json()
+    assert (got["title"], got["body"], got["created_at"]) == (
+        "Nowy tytul",
+        "nowa tresc",
+        created,
+    )
+
+
+def test_edit_updates_search_index_for_title_and_body(authed: TestClient) -> None:
+    note_id = add(authed, "Stary tytul", "stara tresc")
+    put(authed, note_id, "Nowy tytul", "nowa tresc")
+    assert titles(authed, "stary") == []
+    assert titles(authed, "stara") == []
+    assert titles(authed, "nowy") == ["Nowy tytul"]
+    assert titles(authed, "nowa") == ["Nowy tytul"]
+
+
+def test_edit_only_title_or_only_body(authed: TestClient) -> None:
+    note_id = add(authed, "Tytul", "tresc")
+    put(authed, note_id, "Inny", "tresc")
+    assert titles(authed, "tytul") == []
+    assert titles(authed, "tresc") == ["Inny"]
+    put(authed, note_id, "Inny", "reszta")
+    assert titles(authed, "tresc") == []
+    assert titles(authed, "reszta") == ["Inny"]
+
+
+def test_edit_keeps_position_and_does_not_duplicate(authed: TestClient) -> None:
+    first = add(authed, "pierwsza")
+    add(authed, "druga")
+    put(authed, first, "pierwsza poprawiona")
+    put(authed, first, "pierwsza poprawiona jeszcze raz")
+    assert titles(authed) == ["druga", "pierwsza poprawiona jeszcze raz"]
+    assert titles(authed, "pierwsza") == ["pierwsza poprawiona jeszcze raz"]
+
+
+def test_edit_unknown_id_is_404(authed: TestClient) -> None:
+    assert put(authed, 999, "x") == 404
+
+
+def test_edit_with_invalid_title_changes_nothing(authed: TestClient) -> None:
+    note_id = add(authed, "Tytul", "tresc")
+    assert put(authed, note_id, "   ") == 422
+    assert authed.get(f"/api/notes/{note_id}").json()["title"] == "Tytul"
+    assert titles(authed, "tytul") == ["Tytul"]
+
+
+def test_edit_requires_login() -> None:
+    with TestClient(app, follow_redirects=False) as anon:
+        assert anon.put("/api/notes/1", json={"title": "x"}).status_code == 401

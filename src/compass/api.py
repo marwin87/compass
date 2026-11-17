@@ -31,3 +31,11 @@ def read(note_id: int) -> notes.Note:
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
+
+
+@router.put("/{note_id}")
+def update(note_id: int, data: NoteIn) -> notes.Note:
+    note = notes.update_note(note_id, data.title, data.body)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return note

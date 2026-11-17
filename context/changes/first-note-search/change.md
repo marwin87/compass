@@ -1,7 +1,7 @@
 ---
 change_id: first-note-search
 title: Save a note and find it by a keyword
-status: implementing
+status: done
 created: 2026-11-17
 updated: 2026-11-17
 roadmap: S-02

@@ -21,7 +21,10 @@ INDEX_HTML = """<!doctype html>
   #vb { white-space: pre-wrap; }
   details { margin-bottom: 1rem; }
   form.add { display: grid; gap: .5rem; margin-top: .5rem; }
-  #err { color: crimson; }
+  #err, #eerr { color: crimson; }
+  [hidden] { display: none !important; }
+  #eact, #confirm { display: flex; gap: .5rem; align-items: center; }
+  #editform { display: grid; gap: .5rem; }
 </style>
 </head>
 <body>
@@ -34,8 +37,25 @@ INDEX_HTML = """<!doctype html>
 <ul id="list"></ul>
 
 <section id="view" hidden>
-  <h2 id="vt"></h2>
-  <div id="vb"></div>
+  <div id="read">
+    <h2 id="vt"></h2>
+    <div id="vb"></div>
+    <button type="button" id="edit">Edytuj</button>
+  </div>
+  <form id="editform" hidden>
+    <input id="et" maxlength="200" required>
+    <textarea id="eb" rows="8" maxlength="20000"></textarea>
+    <div id="eact">
+      <button type="submit">Zapisz</button>
+      <button type="button" id="ecancel">Anuluj</button>
+    </div>
+    <div id="confirm" hidden>
+      <span>Na pewno nadpisać? Poprzednia wersja przepadnie.</span>
+      <button type="button" id="eyes">Tak, nadpisz</button>
+      <button type="button" id="eno">Wróć</button>
+    </div>
+    <span id="eerr"></span>
+  </form>
 </section>
 
 <details id="addbox">
@@ -53,10 +73,20 @@ const $ = (s) => document.querySelector(s);
 let timer;
 let seq = 0;
 
+let current = null;
+
 function show(n) {
+  current = n;
   $("#vt").textContent = n.title;
   $("#vb").textContent = n.body;
+  $("#editform").hidden = true;
+  $("#read").hidden = false;
   $("#view").hidden = false;
+}
+
+function askConfirm(on) {
+  $("#confirm").hidden = !on;
+  $("#eact").hidden = on;
 }
 
 function render(notes) {
@@ -108,6 +138,42 @@ $("#add").addEventListener("submit", async (e) => {
   const note = await r.json();
   $("#add").reset();
   $("#q").value = "";
+  await load();
+  show(note);
+});
+
+$("#edit").addEventListener("click", () => {
+  $("#et").value = current.title;
+  $("#eb").value = current.body;
+  $("#eerr").textContent = "";
+  askConfirm(false);
+  $("#read").hidden = true;
+  $("#editform").hidden = false;
+  $("#et").focus();
+});
+
+$("#ecancel").addEventListener("click", () => show(current));
+$("#eno").addEventListener("click", () => askConfirm(false));
+
+$("#editform").addEventListener("submit", (e) => {
+  e.preventDefault();
+  $("#eerr").textContent = "";
+  askConfirm(true);
+});
+
+$("#eyes").addEventListener("click", async () => {
+  const r = await fetch("/api/notes/" + current.id, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title: $("#et").value, body: $("#eb").value }),
+  });
+  if (r.status === 401) { location.href = "/login"; return; }
+  if (!r.ok) {
+    $("#eerr").textContent = "Nie udało się zapisać (tytuł 1–200 znaków).";
+    askConfirm(false);
+    return;
+  }
+  const note = await r.json();
   await load();
   show(note);
 });

@@ -76,3 +76,36 @@ def list_notes(q: str = "") -> list[Note]:
     finally:
         conn.close()
     return [Note(id=r[0], title=r[1], body=r[2], created_at=r[3]) for r in rows]
+
+
+def update_note(note_id: int, title: str, body: str) -> Note | None:
+    """Replace title and body, keeping the FTS index in step.
+
+    The external-content index only forgets old words when told the OLD values
+    via the 'delete' command, so the old row is read inside the same transaction.
+    """
+    conn = connect()
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT title, body, created_at FROM notes WHERE id = ?", (note_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            conn.execute(
+                "UPDATE notes SET title = ?, body = ? WHERE id = ?",
+                (title, body, note_id),
+            )
+            conn.execute(
+                "INSERT INTO notes_fts(notes_fts, rowid, title, body) "
+                "VALUES ('delete', ?, ?, ?)",
+                (note_id, row[0], row[1]),
+            )
+            conn.execute(
+                "INSERT INTO notes_fts(rowid, title, body) VALUES (?, ?, ?)",
+                (note_id, title, body),
+            )
+    finally:
+        conn.close()
+    return Note(id=note_id, title=title, body=body, created_at=row[2])

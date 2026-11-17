@@ -113,7 +113,7 @@ API tests (Phase 1) carry the behaviour; Phase 2 adds a smoke test for the page 
 - [x] 2.2 ruff, format check and mypy pass
 - [x] 2.3 `docker build -t compass:dev .` passes
 #### Manual
-- [ ] 2.4 A saved note is found by the first letters of a title word and a body word
-- [ ] 2.5 Results update while typing; clicking a result shows the note
-- [ ] 2.6 HTML in a note is shown as text
-- [ ] 2.7 Notes survive `down`/`up --build` and are wiped by `down -v`
+- [x] 2.4 A saved note is found by the first letters of a title word and a body word
+- [x] 2.5 Results update while typing; clicking a result shows the note
+- [x] 2.6 HTML in a note is shown as text
+- [x] 2.7 Notes survive `down`/`up --build` and are wiped by `down -v`
