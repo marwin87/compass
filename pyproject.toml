@@ -14,11 +14,21 @@ dev = [
     "httpx>=0.28.1",
     "mypy>=2.4.1",
     "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.5",
 ]
 
 [tool.mypy]
 strict = true
+
+[tool.coverage.run]
+source = ["compass"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80          # measured 98% when this was added; raise it as coverage grows
+show_missing = true
+skip_covered = true
 
 
 [build-system]

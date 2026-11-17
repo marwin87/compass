@@ -80,7 +80,7 @@ The database file defaults to `data/compass.db`; override it with `COMPASS_DB_PA
 ## Checks
 
 ```bash
-uv run pytest
+uv run pytest                 # add --cov for the coverage report (CI fails below 80%)
 uv run ruff check . && uv run ruff format --check .
 uv run mypy src tests
 ```
