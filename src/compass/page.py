@@ -86,6 +86,7 @@ h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .spacer{flex:1}
 .row{display:flex;gap:8px;align-items:center}
 .row form{margin:0}
+a.btn{display:block;text-align:center;text-decoration:none}
 main{padding:22px 28px;max-width:1240px;width:100%}
 .searchbar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
 .searchbar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -139,6 +140,7 @@ INDEX_HTML = (
         <button type="button" class="btn icon" data-lang="en">EN</button>
       </div>
     </div>
+    <a class="btn wide" href="/api/export" download title="[[export_title]]">[[export]]</a>
     <form method="post" action="/logout"><button class="btn wide">[[logout]]</button></form>
   </aside>
   <main>

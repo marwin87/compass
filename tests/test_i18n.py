@@ -172,3 +172,15 @@ def test_wrong_password_message_is_localised(anon: TestClient) -> None:
         en = c.post("/login", data={"password": "nope"})
         assert en.status_code == 401 and "Wrong password." in en.text
         assert "Nieprawidłowe" not in en.text
+
+
+def test_export_button_is_present_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        pl = c.get("/").text
+        assert 'href="/api/export"' in pl and "Eksportuj notatki" in pl
+        assert "Pobierz wszystkie notatki jako plik JSON" in pl
+        c.cookies.set("lang", "en")
+        en = c.get("/").text
+        assert 'href="/api/export"' in en and "Export notes" in en
+        assert "Download all notes as a JSON file" in en and "Eksportuj" not in en

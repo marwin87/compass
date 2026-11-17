@@ -125,6 +125,7 @@ def test_page_has_the_notes_ui_and_never_uses_inner_html(authed: TestClient) -> 
         "Tagi (po przecinku)",  # tag input in the add and edit forms
         "Na pewno nadpisać?",  # edit needs a second confirmation
         "Na pewno usunąć?",  # so does delete
+        'href="/api/export"',  # the backup download
     ):
         assert marker in page.text, marker
     assert "innerHTML" not in page.text  # note content must only go in via textContent

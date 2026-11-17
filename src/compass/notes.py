@@ -183,6 +183,31 @@ def list_notes(q: str = "", tags: Iterable[str] = ()) -> list[Note]:
     return candidates[:LIMIT]
 
 
+def export_all() -> list[Note]:
+    """Every note with its tags, newest first, in one consistent query (no limit, no ranking)."""
+    conn = connect()
+    try:
+        rows = conn.execute(
+            "SELECT n.id, n.title, n.body, n.created_at, group_concat(t.name, char(10)) "
+            "FROM notes n "
+            "LEFT JOIN note_tags nt ON nt.note_id = n.id "
+            "LEFT JOIN tags t ON t.id = nt.tag_id "
+            "GROUP BY n.id ORDER BY n.id DESC"
+        ).fetchall()
+    finally:
+        conn.close()
+    return [
+        Note(
+            id=r[0],
+            title=r[1],
+            body=r[2],
+            created_at=r[3],
+            tags=sorted(r[4].split("\n")) if r[4] else [],
+        )
+        for r in rows
+    ]
+
+
 def list_tags() -> list[TagCount]:
     conn = connect()
     try:

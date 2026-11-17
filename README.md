@@ -20,6 +20,19 @@ The interface is available in Polish and English. The first visit follows the br
 (anything else shows Polish); the **PL / EN** buttons switch it and remember the choice in a `lang`
 cookie. Your notes, tags and search are not translated and work the same in both languages.
 
+## Export
+
+The **Export notes** button (or `GET /api/export` while logged in) downloads every note as one JSON
+file, `compass-export-<date>.json`, whatever the search box or tag filter currently shows:
+
+```json
+{"format": "compass-export", "version": 1, "exported_at": "2026-11-17T15:10:19+00:00", "count": 2,
+ "notes": [{"id": 2, "title": "…", "body": "…", "tags": ["a", "b"], "created_at": "2026-11-17T15:10:19+00:00"}]}
+```
+
+Notes are listed newest first, tags alphabetically, in UTF-8. The file holds all your notes in plain
+text, so keep it as safe as the database. Importing a file back is planned next.
+
 ## Run with Docker
 
 ```bash
