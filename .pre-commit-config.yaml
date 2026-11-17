@@ -1,0 +1,56 @@
+default_install_hook_types: [ pre-commit, pre-push ]
+
+repos:
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - "--baseline"
+          - ".secrets.baseline"
+          - "--exclude-files"
+          - "^context/"
+          - "--exclude-files"
+          - "^frontend/messages/.*\\.json$"
+          - "--exclude-files"
+          - "^backend/alembic/versions/"
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [ commit-msg ]
+
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project backend black "$@"; else uv run --project backend black "$@"; fi' --
+        language: system
+        types: [ python ]
+        files: ^backend/
+        stages: [ pre-commit ]
+
+      - id: ruff
+        name: ruff
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project backend ruff check --fix "$@"; else uv run --project backend ruff check --fix "$@"; fi' --
+        language: system
+        types: [ python ]
+        files: ^backend/
+        stages: [ pre-commit ]
+
+      - id: mypy
+        name: mypy
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory backend mypy app; else uv run --directory backend mypy app; fi'
+        language: system
+        pass_filenames: false
+        files: ^backend/
+        stages: [ pre-commit ]
+
+      - id: pytest
+        name: pytest
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory backend pytest -q; else uv run --directory backend pytest -q; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [ pre-push ]
