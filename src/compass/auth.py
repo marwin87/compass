@@ -1,4 +1,5 @@
 import hmac
+import html
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
@@ -6,24 +7,47 @@ from fastapi import APIRouter, Form, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from compass import config
-from compass.page import COMMON_CSS
+from compass.i18n import COOKIE, LANGS, STRINGS, pick_lang
+from compass.page import COMMON_CSS, LANG_SWITCH_JS, fill
 
 PUBLIC_PATHS = {"/login", "/health"}
 
 router = APIRouter()
 
 
-def _login_page(error: str = "") -> str:
+def _lang(request: Request) -> str:
+    return pick_lang(
+        request.cookies.get(COOKIE), request.headers.get("accept-language")
+    )
+
+
+LOGIN_TEMPLATE = (
+    '<!doctype html><html lang="[[lang]]"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    "<title>[[login_title]]</title><style>" + COMMON_CSS + "</style></head><body>"
+    '<div class="login"><div style="width:min(380px,100%)">'
+    '<form class="card form" method="post" action="/login">'
+    '<div class="logo"><div class="dot">🧭</div>Compass</div>'
+    '<p class="muted">[[login_intro]]</p>'
+    '<input type="password" name="password" placeholder="[[password_ph]]" autofocus required>'
+    '<div class="err"><!--error--></div>'
+    '<button class="btn primary">[[login_btn]]</button></form>'
+    '<div class="langs" role="group" aria-label="[[lang_label]]" '
+    'style="justify-content:center;margin-top:14px"><!--langs--></div></div></div>'
+    "<script>" + LANG_SWITCH_JS + "</script></body></html>"
+)
+
+
+def _login_page(lang: str, error: str = "") -> str:
+    buttons = "".join(
+        f'<button type="button" class="btn icon{" on" if code == lang else ""}" '
+        f'data-lang="{code}">{code.upper()}</button>'
+        for code in LANGS
+    )
     return (
-        '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>Compass - logowanie</title><style>{COMMON_CSS}</style></head><body>"
-        '<div class="login"><form class="card form" method="post" action="/login">'
-        '<div class="logo"><div class="dot">🧭</div>Compass</div>'
-        '<p class="muted">Zaloguj się hasłem, żeby zobaczyć swoje notatki.</p>'
-        '<input type="password" name="password" placeholder="Hasło" autofocus required>'
-        f'<div class="err">{error}</div>'
-        '<button class="btn primary">Zaloguj</button></form></div></body></html>'
+        fill(LOGIN_TEMPLATE, lang)
+        .replace("<!--error-->", html.escape(error))
+        .replace("<!--langs-->", buttons)
     )
 
 
@@ -38,8 +62,8 @@ async def guard(
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_form() -> str:
-    return _login_page()
+def login_form(request: Request) -> str:
+    return _login_page(_lang(request))
 
 
 @router.post("/login", response_model=None)
@@ -47,7 +71,8 @@ def login(request: Request, password: Annotated[str, Form()]) -> Response:
     if hmac.compare_digest(password.encode(), config.password().encode()):
         request.session["auth"] = True
         return RedirectResponse("/", status_code=303)
-    return HTMLResponse(_login_page("Nieprawidłowe hasło."), status_code=401)
+    lang = _lang(request)
+    return HTMLResponse(_login_page(lang, STRINGS[lang]["wrong_pw"]), status_code=401)
 
 
 @router.post("/logout")

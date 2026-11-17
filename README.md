@@ -14,6 +14,12 @@ Everything except `/login` and `/health` requires logging in. The app refuses to
 cp .env.example .env   # then set COMPASS_PASSWORD and COMPASS_SECRET_KEY
 ```
 
+## Language
+
+The interface is available in Polish and English. The first visit follows the browser's language
+(anything else shows Polish); the **PL / EN** buttons switch it and remember the choice in a `lang`
+cookie. Your notes, tags and search are not translated and work the same in both languages.
+
 ## Run with Docker
 
 ```bash

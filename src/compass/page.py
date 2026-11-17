@@ -2,7 +2,15 @@
 
 Built from DOM calls only: note text and tags are inserted with `textContent` / `value`,
 never as HTML. The server ranks the results; the highlighting here is cosmetic.
+UI text lives in `i18n.py`: `[[key]]` markers are filled in on the server, the script reads the
+same strings from the embedded `I18N` object.
 """
+
+import html
+import json
+import re
+
+from compass.i18n import STRINGS
 
 COMMON_CSS = r"""
 :root{
@@ -31,6 +39,8 @@ kbd{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;border:1p
 .btn.danger{border-color:var(--danger);color:var(--danger)}
 .btn.danger:hover{background:var(--danger-soft)}
 .btn.icon{padding:6px 9px}
+.btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.langs{display:flex;gap:4px}
 .chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:2px 10px;font-size:12px}
 .chip:hover{border-color:var(--accent)}
 .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -96,7 +106,7 @@ main{padding:22px 28px;max-width:1240px;width:100%}
 
 INDEX_HTML = (
     r"""<!doctype html>
-<html lang="pl">
+<html lang="[[lang]]">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -111,26 +121,30 @@ INDEX_HTML = (
 <div class="app">
   <aside>
     <div class="logo"><div class="dot">🧭</div>Compass</div>
-    <div class="muted tagline">Twoja baza wiedzy</div>
-    <button type="button" class="btn primary wide" id="new">＋ Nowa notatka</button>
-    <h4>Tagi</h4>
+    <div class="muted tagline">[[tagline]]</div>
+    <button type="button" class="btn primary wide" id="new">[[new_note]]</button>
+    <h4>[[tags_h]]</h4>
     <div class="chips" id="tagbar"></div>
-    <h4>Jak szukam</h4>
+    <h4>[[how_h]]</h4>
     <ul class="legend muted">
-      <li>dokładny tag, potem tytuł, potem treść</li>
-      <li>kilka słów: więcej trafień wyżej</li>
-      <li>literówki i brak polskich liter są wybaczane</li>
+      <li>[[legend1]]</li>
+      <li>[[legend2]]</li>
+      <li>[[legend3]]</li>
     </ul>
     <div class="spacer"></div>
     <div class="row">
-      <button type="button" class="btn icon" id="theme" title="Jasny / ciemny">◐</button>
-      <form method="post" action="/logout"><button class="btn">Wyloguj</button></form>
+      <button type="button" class="btn icon" id="theme" title="[[theme_title]]">◐</button>
+      <div class="row langs" role="group" aria-label="[[lang_label]]">
+        <button type="button" class="btn icon" data-lang="pl">PL</button>
+        <button type="button" class="btn icon" data-lang="en">EN</button>
+      </div>
     </div>
+    <form method="post" action="/logout"><button class="btn wide">[[logout]]</button></form>
   </aside>
   <main>
-    <div class="searchbar">🔎<input id="q" placeholder="Szukaj… np. indeks, zlozonosc, sql" autocomplete="off" autofocus><kbd>/</kbd></div>
+    <div class="searchbar">🔎<input id="q" placeholder="[[search_ph]]" autocomplete="off" autofocus><kbd>/</kbd></div>
     <div class="hint">
-      <span><kbd>↑</kbd><kbd>↓</kbd> wybór</span><span><kbd>N</kbd> nowa</span><span><kbd>Esc</kbd> czyść</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd> [[hint_select]]</span><span><kbd>N</kbd> [[hint_new]]</span><span><kbd>Esc</kbd> [[hint_clear]]</span>
     </div>
     <div class="grid">
       <div><div class="count" id="count"></div><div class="results" id="results"></div></div>
@@ -142,6 +156,9 @@ INDEX_HTML = (
 """
     + r"""<script>"""
     + r"""
+/*I18N*/
+const LANG = I18N.lang, T = I18N.strings;
+const tr = (key, vars = {}) => T[key].replace(/\{(\w+)\}/g, (_, k) => vars[k]);
 const $ = (s) => document.querySelector(s);
 function h(tag, props, ...kids) {
   const el = document.createElement(tag);
@@ -191,7 +208,7 @@ function hlNodes(text, tokens) {     // marks prefix and typo hits; builds text 
 }
 function readTags(v) {               // "SQL, Soft  Skills" -> ["soft skills", "sql"]; limits match the server
   const tags = [...new Set(v.split(",").map((t) => t.trim().toLowerCase().replace(/\s+/g, " ")).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pl"));
-  const error = tags.some((t) => t.length > 30) ? "Tag może mieć najwyżej 30 znaków." : tags.length > 10 ? "Najwyżej 10 tagów na notatkę." : "";
+  const error = tags.some((t) => t.length > 30) ? tr("tag_long", {n: 30}) : tags.length > 10 ? tr("tag_many", {n: 10}) : "";
   return {tags, error};
 }
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800); }
@@ -206,7 +223,7 @@ async function api(path, opts) {
 }
 const json = (method, body) => ({method, headers: {"content-type": "application/json"}, body: JSON.stringify(body)});
 const tokens = () => words(state.q);
-const SAVE_ERROR = "Nie udało się zapisać (tytuł 1–200 znaków, tagi do 30 znaków).";
+const SAVE_ERROR = tr("save_error");
 
 async function loadTags() {
   state.tags = await (await api("/api/tags")).json();
@@ -234,25 +251,25 @@ function renderTagbar() {
 }
 function renderList() {
   const tk = tokens(), n = state.list.length;
-  $("#count").textContent = n === 50 ? "pierwsze 50 wyników" : n + " " + (n === 1 ? "wynik" : "wyników") + (state.sel.size ? " · " + [...state.sel].map((t) => "#" + t).join(" ") : "");
+  $("#count").textContent = n === 50 ? tr("top50") : n + " " + T.count[new Intl.PluralRules(LANG).select(n)] + (state.sel.size ? " · " + [...state.sel].map((t) => "#" + t).join(" ") : "");
   $("#results").replaceChildren(...(n ? state.list.map((note) => h("button", {class: "res" + (note.id === state.cur && state.mode === "view" ? " on" : ""), onclick: () => select(note.id)},
     h("div", {class: "t"}, hlNodes(note.title, tk)),
     h("div", {class: "s"}, hlNodes(note.body.replace(/\s+/g, " ").slice(0, 160), tk)),
-    h("div", {class: "meta"}, note.tags.map((t) => h("span", {class: "chip mini" + (state.sel.has(t) ? " on" : ""), onclick: (e) => { e.stopPropagation(); toggleTag(t); }}, "#" + t))))) : [h("div", {class: "empty"}, "Brak wyników.")]));
+    h("div", {class: "meta"}, note.tags.map((t) => h("span", {class: "chip mini" + (state.sel.has(t) ? " on" : ""), onclick: (e) => { e.stopPropagation(); toggleTag(t); }}, "#" + t))))) : [h("div", {class: "empty"}, tr("no_results"))]));
 }
 function renderDetail() {
   const d = $("#detail");
   if (state.mode === "new") {
     d.replaceChildren(h("div", {class: "card"}, newPanel({
       onCancel: () => { state.mode = "view"; load(); },
-      onCreated: async (n) => { state.q = ""; $("#q").value = ""; state.sel.clear(); state.mode = "view"; state.cur = n.id; await loadTags(); await load(); toast("Notatka zapisana"); }})));
+      onCreated: async (n) => { state.q = ""; $("#q").value = ""; state.sel.clear(); state.mode = "view"; state.cur = n.id; await loadTags(); await load(); toast(tr("toast_created")); }})));
     return;
   }
   const n = state.list.find((x) => x.id === state.cur);
-  if (!n) { d.replaceChildren(h("div", {class: "card"}, h("div", {class: "empty"}, "Wybierz notatkę z listy albo dodaj nową."))); return; }
+  if (!n) { d.replaceChildren(h("div", {class: "card"}, h("div", {class: "empty"}, tr("pick_or_add")))); return; }
   d.replaceChildren(h("div", {class: "card"}, notePanel(n, {
-    onChange: async () => { await loadTags(); await load(true); toast("Zapisano zmiany"); },
-    onDeleted: async () => { state.cur = null; await loadTags(); await load(); toast("Notatka usunięta"); }})));
+    onChange: async () => { await loadTags(); await load(true); toast(tr("toast_saved")); },
+    onDeleted: async () => { state.cur = null; await loadTags(); await load(); toast(tr("toast_deleted")); }})));
 }
 
 // --- forms and the note panel (edit and delete each need a second, explicit confirmation)
@@ -264,14 +281,14 @@ function suggestions(input) {
   }}, t.name)));
 }
 function noteForm(init, message) {
-  const title = h("input", {value: init.title, maxlength: 200, placeholder: "Tytuł"});
-  const body = h("textarea", {value: init.body, placeholder: "Treść", maxlength: 20000});
-  const tags = h("input", {value: init.tags.join(", "), placeholder: "Tagi (po przecinku)", autocomplete: "off"});
+  const title = h("input", {value: init.title, maxlength: 200, placeholder: tr("label_title")});
+  const body = h("textarea", {value: init.body, placeholder: tr("label_body"), maxlength: 20000});
+  const tags = h("input", {value: init.tags.join(", "), placeholder: tr("label_tags"), autocomplete: "off"});
   const err = h("div", {class: "err"}, message);
-  const el = h("div", {class: "form"}, h("label", {}, "Tytuł"), title, h("label", {}, "Treść"), body, h("label", {}, "Tagi (po przecinku)"), tags, suggestions(tags), err);
+  const el = h("div", {class: "form"}, h("label", {}, tr("label_title")), title, h("label", {}, tr("label_body")), body, h("label", {}, tr("label_tags")), tags, suggestions(tags), err);
   return {el, err, focus: () => title.focus(), values() {
     const t = readTags(tags.value), ti = title.value.trim();
-    err.textContent = !ti ? "Podaj tytuł (1–200 znaków)." : t.error;
+    err.textContent = !ti ? tr("empty_title") : t.error;
     return err.textContent ? null : {title: ti, body: body.value, tags: t.tags};
   }};
 }
@@ -286,33 +303,33 @@ function notePanel(note, cb) {
   }
   async function remove() {
     const r = await api("/api/notes/" + note.id, {method: "DELETE"});
-    if (r.status !== 204 && r.status !== 404) { msg = "Nie udało się usunąć."; mode = "read"; draw(); return; }
+    if (r.status !== 204 && r.status !== 404) { msg = tr("delete_failed"); mode = "read"; draw(); return; }
     cb.onDeleted();       // a 404 means it is already gone, which is the state the user wanted
   }
   function draw() {
     if (mode === "read") {
       const tk = tokens();
       root.replaceChildren(
-        h("div", {class: "meta"}, "Utworzono " + note.created_at.slice(0, 10)),
+        h("div", {class: "meta"}, tr("created") + " " + note.created_at.slice(0, 10)),
         h("h2", {}, hlNodes(note.title, tk)),
         h("div", {class: "body"}, hlNodes(note.body, tk)),
         h("div", {class: "chips"}, note.tags.map((t) => h("button", {class: "chip" + (state.sel.has(t) ? " on" : ""), onclick: () => toggleTag(t)}, "#" + t))),
         h("div", {class: "actions"},
-          h("button", {class: "btn", onclick: () => { draft = {title: note.title, body: note.body, tags: [...note.tags]}; msg = ""; mode = "edit"; draw(); }}, "Edytuj"),
-          h("button", {class: "btn danger", onclick: () => { msg = ""; mode = "del"; draw(); }}, "Usuń")),
+          h("button", {class: "btn", onclick: () => { draft = {title: note.title, body: note.body, tags: [...note.tags]}; msg = ""; mode = "edit"; draw(); }}, tr("edit")),
+          h("button", {class: "btn danger", onclick: () => { msg = ""; mode = "del"; draw(); }}, tr("delete"))),
         h("div", {class: "err"}, msg));
     } else if (mode === "del") {
-      root.replaceChildren(h("h2", {}, note.title), h("div", {class: "confirm"}, h("span", {}, "Na pewno usunąć? Tego nie da się cofnąć."),
-        h("button", {class: "btn danger", onclick: remove}, "Tak, usuń"), h("button", {class: "btn", onclick: back}, "Wróć")));
+      root.replaceChildren(h("h2", {}, note.title), h("div", {class: "confirm"}, h("span", {}, tr("confirm_delete")),
+        h("button", {class: "btn danger", onclick: remove}, tr("yes_delete")), h("button", {class: "btn", onclick: back}, tr("back"))));
     } else if (mode === "edit") {
       const f = noteForm(draft, msg);
       root.replaceChildren(f.el, h("div", {class: "row"},
-        h("button", {class: "btn primary", onclick: () => { const v = f.values(); if (v) { draft = v; msg = ""; mode = "confirm"; draw(); } }}, "Zapisz"),
-        h("button", {class: "btn", onclick: back}, "Anuluj")));
+        h("button", {class: "btn primary", onclick: () => { const v = f.values(); if (v) { draft = v; msg = ""; mode = "confirm"; draw(); } }}, tr("save")),
+        h("button", {class: "btn", onclick: back}, tr("cancel"))));
       f.focus();
     } else {
-      root.replaceChildren(h("h2", {}, draft.title), h("div", {class: "confirm warn"}, h("span", {}, "Na pewno nadpisać? Poprzednia wersja przepadnie."),
-        h("button", {class: "btn primary", onclick: save}, "Tak, nadpisz"), h("button", {class: "btn", onclick: () => { mode = "edit"; draw(); }}, "Wróć")));
+      root.replaceChildren(h("h2", {}, draft.title), h("div", {class: "confirm warn"}, h("span", {}, tr("confirm_save")),
+        h("button", {class: "btn primary", onclick: save}, tr("yes_overwrite")), h("button", {class: "btn", onclick: () => { mode = "edit"; draw(); }}, tr("back"))));
     }
   }
   draw();
@@ -320,14 +337,14 @@ function notePanel(note, cb) {
 }
 function newPanel(cb) {
   const f = noteForm({title: "", body: "", tags: []}, "");
-  const root = h("div", {class: "panel"}, h("h2", {}, "Nowa notatka"), f.el, h("div", {class: "row"},
+  const root = h("div", {class: "panel"}, h("h2", {}, tr("new_note_h")), f.el, h("div", {class: "row"},
     h("button", {class: "btn primary", onclick: async () => {
       const v = f.values(); if (!v) return;
       const r = await api("/api/notes", json("POST", v));
       if (!r.ok) { f.err.textContent = SAVE_ERROR; return; }
       cb.onCreated(await r.json());
-    }}, "Zapisz"),
-    h("button", {class: "btn", onclick: cb.onCancel}, "Anuluj")));
+    }}, tr("save")),
+    h("button", {class: "btn", onclick: cb.onCancel}, tr("cancel"))));
   setTimeout(() => f.focus());
   return root;
 }
@@ -335,6 +352,10 @@ function newPanel(cb) {
 // --- wiring
 $("#q").addEventListener("input", () => { state.q = $("#q").value; clearTimeout(timer); timer = setTimeout(() => { state.mode = "view"; load(); }, 100); });
 $("#new").addEventListener("click", openNew);
+document.querySelectorAll("[data-lang]").forEach((b) => {
+  b.classList.toggle("on", b.dataset.lang === LANG);
+  b.addEventListener("click", () => { document.cookie = "lang=" + b.dataset.lang + "; path=/; max-age=31536000; SameSite=Lax"; location.reload(); });
+});
 $("#theme").addEventListener("click", () => {
   const d = document.documentElement, dark = d.dataset.theme ? d.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   d.dataset.theme = dark ? "light" : "dark";
@@ -358,3 +379,27 @@ load();
 </html>
 """
 )
+
+
+LANG_SWITCH_JS = (
+    'document.querySelectorAll("[data-lang]").forEach(function(b){'
+    'b.addEventListener("click",function(){document.cookie="lang="+b.dataset.lang+'
+    '"; path=/; max-age=31536000; SameSite=Lax";location.reload();});});'
+)
+
+
+def fill(template: str, lang: str) -> str:
+    """Replace `[[key]]` markers with the escaped UI strings of `lang` (a missing key is an error)."""
+    strings = {**STRINGS[lang], "lang": lang}
+    return re.sub(
+        r"\[\[(\w+)\]\]",
+        lambda m: html.escape(strings[m.group(1)], quote=True),
+        template,
+    )
+
+
+def render_index(lang: str) -> str:
+    payload = json.dumps({"lang": lang, "strings": STRINGS[lang]}, ensure_ascii=False)
+    return fill(INDEX_HTML, lang).replace(
+        "/*I18N*/", "const I18N = " + payload.replace("</", "<\\/") + ";"
+    )

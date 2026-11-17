@@ -1,13 +1,14 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from compass import api, auth, config
 from compass.db import connect
-from compass.page import INDEX_HTML
+from compass.i18n import COOKIE, pick_lang
+from compass.page import render_index
 
 SESSION_MAX_AGE = 30 * 24 * 3600
 
@@ -34,8 +35,11 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        return INDEX_HTML
+    def index(request: Request) -> str:
+        lang = pick_lang(
+            request.cookies.get(COOKIE), request.headers.get("accept-language")
+        )
+        return render_index(lang)
 
     @app.get("/health")
     def health() -> dict[str, str]:
