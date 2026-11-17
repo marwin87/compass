@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from urllib.parse import quote
 
 from compass import core
+from compass.editor import EDITOR_CSS, EDITOR_PURE_JS, EDITOR_UI_JS
 from compass.i18n import STRINGS
 from compass.reader import READER_CSS, READER_PURE_JS, READER_UI_JS
 
@@ -252,6 +253,7 @@ INDEX_HTML = (
     + COMMON_CSS
     + APP_CSS
     + READER_CSS
+    + EDITOR_CSS
     + r"""</style>
 </head>
 <body>"""
@@ -314,6 +316,7 @@ INDEX_HTML = (
     + r"""
 /*CORE*/
 /*READER_PURE*/
+/*EDITOR_PURE*/
 
 // --- text helpers, used only to highlight matches (the server does the searching and ranking)
 const fold1 = (c) => (c.length > 1 ? c : c === "ł" || c === "Ł" ? "l" : c.normalize("NFD")[0].toLowerCase());
@@ -361,6 +364,7 @@ const shortDate = (iso) => new Date(iso).toLocaleDateString(LANG, {day: "numeric
 const longDate = (iso) => new Date(iso).toLocaleDateString(LANG, {day: "numeric", month: "short", year: "numeric"});
 
 /*READER_UI*/
+/*EDITOR_UI*/
 // --- state and server calls
 const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: [], total: 0, reading: false, sort: ""};
 let seq = 0, timer;
@@ -555,10 +559,11 @@ function noteForm(init, message) {
   const title = h("input", {value: init.title, maxlength: 200, placeholder: tr("label_title")});
   const body = h("textarea", {value: init.body, placeholder: tr("label_body"), maxlength: 20000});
   const mdHint = h("div", {class: "hint2"}, tr("md_hint"));
+  const editor = markdownEditor(body);        // the toolbar and the preview tab around the same textarea
   const tags = h("input", {value: init.tags.join(", "), placeholder: tr("label_tags"), autocomplete: "off"});
   const category = categoryField(init.category_id);
   const err = h("div", {class: "err"}, message);
-  const el = h("div", {class: "form"}, h("label", {}, tr("label_title")), title, h("label", {}, tr("label_body")), body, mdHint, h("label", {}, tr("label_tags")), tags, suggestions(tags), h("label", {}, tr("label_category")), category.el, err);
+  const el = h("div", {class: "form"}, h("label", {}, tr("label_title")), title, h("label", {}, tr("label_body")), editor.el, mdHint, h("label", {}, tr("label_tags")), tags, suggestions(tags), h("label", {}, tr("label_category")), category.el, err);
   return {el, err, focus: () => title.focus(), values() {
     const t = readTags(tags.value), ti = title.value.trim();
     err.textContent = !ti ? tr("empty_title") : t.error;
@@ -695,6 +700,8 @@ INDEX_HTML = (
     INDEX_HTML.replace("/*CORE*/", core.CORE_JS)
     .replace("/*READER_PURE*/", READER_PURE_JS)
     .replace("/*READER_UI*/", READER_UI_JS)
+    .replace("/*EDITOR_PURE*/", EDITOR_PURE_JS)
+    .replace("/*EDITOR_UI*/", EDITOR_UI_JS)
 )
 
 LANG_SWITCH_JS = (

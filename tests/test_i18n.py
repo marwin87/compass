@@ -424,3 +424,20 @@ def test_language_and_theme_are_changed_only_in_settings(anon: TestClient) -> No
     )  # no duplicates in the sidebar
     assert 'href="/settings"' in notes
     assert "ctl-lang" in settings and "ctl-theme" in settings
+
+
+def test_the_note_forms_get_the_markdown_editor(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        for lang in LANGS:
+            c.cookies.set("lang", lang)
+            page = c.get("/").text
+            for marker in (
+                "markdownEditor",
+                "edWrap",
+                "edTable",
+                "edCallout",
+                "execCommand",
+            ):
+                assert marker in page, (lang, marker)
+            assert STRINGS[lang]["editor_preview"] in page

@@ -15,6 +15,7 @@ The whole app UI is one server-rendered page, no build step and no framework.
 | `src/compass/settings_page.py` | the Settings page (`/settings`): Appearance, Data, Shortcuts, About |
 | `src/compass/page.py` | `COMMON_CSS` (tokens, base, buttons, chips, forms, toast, login), `APP_CSS` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `INDEX_HTML` (markup + one `<script>`), `render_index(lang)` |
 | `src/compass/reader.py` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
+| `src/compass/editor.py` | the Markdown helper of the note forms: `EDITOR_PURE_JS` (pure text-editing functions, tested in Node), `EDITOR_UI_JS` (toolbar, callout menu, Write/Preview tabs), `EDITOR_CSS`. Embedded into `INDEX_HTML` at import time |
 | `src/compass/i18n.py` | `STRINGS["pl"]` and `STRINGS["en"]`, `pick_lang` |
 | `src/compass/auth.py` | login page; reuses `COMMON_CSS` only |
 | `tests/test_i18n.py` | page smoke tests and i18n guards |
@@ -203,3 +204,25 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
   all of their strings.
 - **Data section rules:** import and clear-all always ask in a popup (safe button focused first); results and
   errors are toasts; after any data operation the category list and the About counts are reloaded.
+
+## 10. The Markdown editor of the note forms
+
+- **The note stays a plain textarea.** The toolbar only edits its text; saving sends exactly `textarea.value`.
+  No library and no WYSIWYG: a rich editor would keep its own document model and could silently rewrite
+  Markdown it does not know (our callouts), and it would break the no-external-request, DOM-only rules.
+- **Pure functions, one replacement each:** every button is `ed*(text, selStart, selEnd, ...)` returning
+  `{from, to, insert, selFrom, selTo}` (replace `text[from:to]`, then select `[selFrom, selTo)` of the new text).
+  They are unit-tested in Node (`tests/test_editor.py`), including that the reader's parser understands what they
+  insert. Add a button = a pure function + a test + an icon + an i18n label.
+- **Toggling, not just inserting:** bold/italic/strike/code unwrap when already wrapped, headings/lists/quotes
+  remove their marker when every selected line has it, switching bullets and numbers replaces the marker, and
+  italic never unwraps the `*` of a `**bold**`.
+- **Applying edits:** `applyEdit` uses `document.execCommand("insertText")` so Ctrl+Z keeps working (it is
+  deprecated but universal), with `setRangeText` as the fallback. Toolbar buttons prevent `mousedown` so the
+  textarea keeps its focus and selection.
+- **Preview** (the Write/Preview tabs) uses the reader's own `mdParse` and `mdBlocksDom`, so it always looks like
+  the saved note; raw HTML is shown as text there too.
+- **Shortcuts:** Ctrl/Cmd+B and Ctrl/Cmd+I inside the textarea only. Escape closes the callout menu before it
+  reaches the global handler (which would otherwise clear the filters and leave the form).
+- **Do not write a literal URL scheme in page code** (the link helper builds it from two parts): a test checks
+  that the page contains no external URL.
