@@ -11,9 +11,9 @@ repos:
           - "--exclude-files"
           - "^context/"
           - "--exclude-files"
-          - "^frontend/messages/.*\\.json$"
+          - "^web/i18n/.*\\.json$"
           - "--exclude-files"
-          - "^backend/alembic/versions/"
+          - "^app/alembic/versions/"
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.4.0
@@ -25,7 +25,7 @@ repos:
     hooks:
       - id: black
         name: black
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project backend black "$@"; else uv run --project backend black "$@"; fi' --
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project app black "$@"; else uv run --project app black "$@"; fi' --
         language: system
         types: [ python ]
         files: ^backend/
@@ -33,7 +33,7 @@ repos:
 
       - id: ruff
         name: ruff
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project backend ruff check --fix "$@"; else uv run --project backend ruff check --fix "$@"; fi' --
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project app ruff check --fix "$@"; else uv run --project app ruff check --fix "$@"; fi' --
         language: system
         types: [ python ]
         files: ^backend/
@@ -41,7 +41,7 @@ repos:
 
       - id: mypy
         name: mypy
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory backend mypy app; else uv run --directory backend mypy app; fi'
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory app mypy app; else uv run --directory app mypy app; fi'
         language: system
         pass_filenames: false
         files: ^backend/
@@ -49,7 +49,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory backend pytest -q; else uv run --directory backend pytest -q; fi'
+        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory app pytest -q; else uv run --directory app pytest -q; fi'
         language: system
         pass_filenames: false
         always_run: true

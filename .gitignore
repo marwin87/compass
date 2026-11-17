@@ -1,9 +1,9 @@
 # Dependencies
-frontend/node_modules/
-backend/.venv/
+web/node_modules/
+app/.venv/
 
 # Build output
-frontend/.next/
+web/.next/
 
 # Environment files
 .env
@@ -14,8 +14,8 @@ frontend/.next/
 __pycache__/
 *.pyc
 *.pyo
-backend/.coverage
-backend/htmlcov/
+app/.coverage
+app/htmlcov/
 
 # Editor
 .idea/
