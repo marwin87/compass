@@ -5,6 +5,7 @@ Problems are reported as a `BadExport` carrying a machine-readable `code`; the p
 those codes into translated messages.
 """
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from compass import categories
@@ -69,8 +70,14 @@ def _parse_note(index: int, raw: object) -> ParsedNote:
     )
 
 
-def parse_export(document: object) -> list[ParsedNote]:
-    """Validate a whole export document and return its notes in file order (newest first)."""
+@dataclass(frozen=True)
+class ParsedExport:
+    notes: list[ParsedNote]  # file order (newest first)
+    categories: list[str]  # every category the file lists, with or without notes
+
+
+def parse_export(document: object) -> ParsedExport:
+    """Validate a whole export document."""
     if not isinstance(document, dict) or document.get("format") != EXPORT_FORMAT:
         raise BadExport("not_an_export")
     items = document.get("notes")
@@ -83,4 +90,13 @@ def parse_export(document: object) -> list[ParsedNote]:
             expected=count if _is_int(count) else None,
             actual=len(items),
         )
-    return [_parse_note(i, raw) for i, raw in enumerate(items, 1)]
+    names = document.get("categories", [])  # optional: older files list none
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        raise BadExport("invalid_file")
+    for name in names:
+        try:
+            categories.normalize(name)
+        except categories.CategoryError as problem:
+            if problem.code != "name_reserved":
+                raise BadExport("invalid_file") from None
+    return ParsedExport([_parse_note(i, raw) for i, raw in enumerate(items, 1)], names)

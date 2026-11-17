@@ -100,7 +100,7 @@ def test_round_trip_into_an_empty_database(
     assert export(authed)["notes"] == []
     r = do_import(authed, original)
     assert r.status_code == 200
-    assert r.json() == {"imported": 4, "skipped": 0, "total": 4}
+    assert r.json() == {"imported": 4}
 
     restored = export(authed)
     assert content(restored) == content(
@@ -110,95 +110,6 @@ def test_round_trip_into_an_empty_database(
     assert authed.get("/api/tags").json() == tag_counts_before
     ids = [n["id"] for n in restored["notes"]]
     assert ids == sorted(ids, reverse=True)  # new ids follow creation order
-
-
-def test_importing_the_same_file_again_changes_nothing(authed: TestClient) -> None:
-    seed(SAMPLE)
-    doc = export(authed)
-    r = do_import(authed, doc)  # into the app the file came from
-    assert r.json() == {"imported": 0, "skipped": 4, "total": 4}
-    assert content(export(authed)) == content(doc)
-
-
-def test_second_import_into_another_app_is_idempotent(
-    authed: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    seed(SAMPLE)
-    doc = export(authed)
-    monkeypatch.setenv("COMPASS_DB_PATH", str(tmp_path / "b" / "b.db"))
-    assert do_import(authed, doc).json()["imported"] == 4
-    assert do_import(authed, doc).json() == {
-        "imported": 0,
-        "skipped": 4,
-        "total": 4,
-    }  # ids differ, content decides
-
-
-def test_deleted_notes_come_back_and_the_rest_is_skipped(authed: TestClient) -> None:
-    seed(SAMPLE)
-    doc = export(authed)
-    authed.delete(f"/api/notes/{doc['notes'][0]['id']}")
-    authed.delete(f"/api/notes/{doc['notes'][2]['id']}")
-    assert do_import(authed, doc).json() == {"imported": 2, "skipped": 2, "total": 4}
-    assert sorted(content(export(authed))) == sorted(content(doc))
-
-
-def test_identical_notes_in_a_file_are_both_kept_as_a_multiset(
-    authed: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    twin = ("Bliźniak", "ta sama treść", ["a"], "2026-11-05T12:00:00+00:00")
-    seed([twin, twin])
-    doc = export(authed)
-    assert doc["count"] == 2
-    monkeypatch.setenv("COMPASS_DB_PATH", str(tmp_path / "b" / "b.db"))
-    assert do_import(authed, doc).json() == {"imported": 2, "skipped": 0, "total": 2}
-    assert do_import(authed, doc).json() == {"imported": 0, "skipped": 2, "total": 2}
-
-
-def test_one_existing_copy_of_two_identical_notes_imports_exactly_the_other(
-    authed: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    twin: tuple[str, str, list[str], str] = (
-        "Bliźniak",
-        "ta sama treść",
-        [],
-        "2026-11-05T12:00:00+00:00",
-    )
-    seed([twin, twin])
-    doc = export(authed)
-    monkeypatch.setenv("COMPASS_DB_PATH", str(tmp_path / "b" / "b.db"))
-    seed([twin])
-    assert do_import(authed, doc).json() == {"imported": 1, "skipped": 1, "total": 2}
-    assert export(authed)["count"] == 2
-
-
-def test_a_note_edited_after_export_comes_back_as_an_extra_note(
-    authed: TestClient,
-) -> None:
-    seed(SAMPLE)
-    doc = export(authed)
-    first = doc["notes"][-1]
-    authed.put(
-        f"/api/notes/{first['id']}",
-        json={
-            "title": first["title"],
-            "body": "poprawiona treść",
-            "tags": first["tags"],
-        },
-    )
-    assert do_import(authed, doc).json() == {"imported": 1, "skipped": 3, "total": 4}
-    bodies = [
-        n["body"] for n in export(authed)["notes"] if n["title"] == first["title"]
-    ]
-    assert sorted(bodies) == sorted([first["body"], "poprawiona treść"])
-
-
-def test_tags_of_a_skipped_duplicate_stay_as_they_are(authed: TestClient) -> None:
-    seed([("Nota", "treść", ["stary"], "2026-11-05T12:00:00+00:00")])
-    doc = export(authed)
-    doc["notes"][0]["tags"] = ["nowy", "inny"]
-    assert do_import(authed, doc).json()["skipped"] == 1
-    assert export(authed)["notes"][0]["tags"] == ["stary"]
 
 
 def test_hand_edited_tags_are_normalised_and_creation_date_is_kept_as_written(
@@ -408,11 +319,7 @@ def test_import_requires_login() -> None:
 
 
 def test_an_empty_export_imports_as_nothing(authed: TestClient) -> None:
-    assert do_import(authed, doc_of()).json() == {
-        "imported": 0,
-        "skipped": 0,
-        "total": 0,
-    }
+    assert do_import(authed, doc_of()).json() == {"imported": 0}
 
 
 def test_importing_5000_notes_is_fast(authed: TestClient) -> None:
@@ -452,7 +359,10 @@ def test_export_lists_category_names_and_null_for_the_default(
     authed.post("/api/categories", json={"name": "Pusta"})
     doc = export(authed)
     assert {n["title"]: n["category"] for n in doc["notes"]} == {"a": "Dom", "b": None}
-    assert "Pusta" not in json.dumps(doc)  # a category without notes is not exported
+    assert doc["categories"] == [
+        "Dom",
+        "Pusta",
+    ]  # a category without notes is exported too
 
 
 def test_round_trip_reproduces_categories_and_counts(
@@ -508,9 +418,62 @@ def test_bad_category_is_rejected_with_the_field(
     assert export(authed)["count"] == 0
 
 
-def test_a_skipped_duplicate_keeps_its_category(authed: TestClient) -> None:
-    add_in(authed, "Nota", "Dom")
+def test_import_replaces_everything_one_to_one(authed: TestClient) -> None:
+    seed(SAMPLE)
+    add_in(authed, "Stara", "Stara kategoria")
+    authed.post("/api/categories", json={"name": "Pusta stara"})
+    doc = doc_of(
+        valid_note(title="Nowa", tags=["x"], category="Nowa kat"),
+        categories=["Nowa kat", "Pusta nowa"],
+    )
+    assert do_import(authed, doc).json() == {"imported": 1}
+    after = export(authed)
+    assert [n["title"] for n in after["notes"]] == [
+        "Nowa"
+    ]  # nothing of the old data is left
+    assert after["categories"] == ["Nowa kat", "Pusta nowa"]
+    assert [t["name"] for t in authed.get("/api/tags").json()] == ["x"]
+    names = [c["name"] for c in authed.get("/api/categories").json()]
+    assert names == ["Nowa kat", "Pusta nowa", ""]
+
+
+def test_importing_the_same_file_again_gives_the_same_state_not_duplicates(
+    authed: TestClient,
+) -> None:
+    seed(SAMPLE)
+    add_in(authed, "z kategorią", "Dom")
     doc = export(authed)
-    doc["notes"][0]["category"] = "Inna"
-    assert do_import(authed, doc).json()["skipped"] == 1
-    assert export(authed)["notes"][0]["category"] == "Dom"
+    assert do_import(authed, doc).json() == {"imported": 5}
+    assert do_import(authed, doc).json() == {"imported": 5}
+    again = export(authed)
+    assert content(again) == content(doc) and again["categories"] == doc["categories"]
+
+
+def test_identical_notes_in_a_file_are_all_kept(authed: TestClient) -> None:
+    twin = valid_note(title="Bliźniak")
+    assert do_import(authed, doc_of(twin, twin)).json() == {"imported": 2}
+    assert export(authed)["count"] == 2
+
+
+def test_a_failed_import_leaves_the_old_data(authed: TestClient) -> None:
+    seed(SAMPLE)
+    before = export(authed)
+    r = do_import(authed, doc_of(valid_note(), valid_note(title="")))
+    assert r.status_code == 422
+    assert export(authed) == {
+        **before,
+        "exported_at": export(authed)["exported_at"],
+    } or (content(export(authed)) == content(before))
+    assert content(export(authed)) == content(before)
+
+
+def test_export_lists_categories_without_notes(authed: TestClient) -> None:
+    authed.post("/api/categories", json={"name": "Pusta"})
+    add_in(authed, "a", "Dom")
+    assert export(authed)["categories"] == ["Dom", "Pusta"]
+
+
+@pytest.mark.parametrize("bad", ["Dom", [5], ["x" * 41], [""]])
+def test_a_bad_categories_list_is_rejected(authed: TestClient, bad: object) -> None:
+    r = do_import(authed, doc_of(categories=bad))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_file"

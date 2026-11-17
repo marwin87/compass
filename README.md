@@ -26,7 +26,7 @@ The **Export notes** button (or `GET /api/export` while logged in) downloads eve
 file, `compass-export-<date>.json`, whatever the search box or tag filter currently shows:
 
 ```json
-{"format": "compass-export", "exported_at": "2026-11-17T15:10:19+00:00", "count": 2,
+{"format": "compass-export", "exported_at": "2026-11-17T15:10:19+00:00", "count": 2, "categories": ["Dom"],
  "notes": [{"id": 2, "title": "…", "body": "…", "tags": ["a", "b"], "category": "Dom", "created_at": "2026-11-17T15:10:19+00:00"}]}
 ```
 
@@ -36,18 +36,18 @@ text, so keep it as safe as the database.
 
 ## Import
 
-The **Import notes** button loads a file made by the Export button back into Compass:
+The **Import** button restores a file made by the Export button. It is a one-to-one restore, not a
+merge: **everything currently in Compass (notes, tags, categories) is replaced** by the file's content,
+after you confirm. Nothing is skipped and importing the same file twice gives the same result.
 
-- only Compass export files are accepted (`"format": "compass-export"` and a `count`
-  that matches the notes; `category` is optional, so older exports still import, into "Uncategorized"), anything else is refused with a message and changes nothing;
+- only Compass export files are accepted (`"format": "compass-export"` and a `count` that matches the
+  notes), anything else is refused with a message and changes nothing;
 - the whole file is checked first: one invalid note (empty title, a title over 200 characters, a body
-  over 20000, more than 10 tags or a tag over 30 characters, a bad date) rejects the entire file;
-- a note whose title, body and creation date match a note already in Compass is skipped and the existing
-  note is left untouched, so importing the same file twice adds nothing;
-- categories missing in Compass are created; a name that matches an existing one (case and accents ignored) joins it;
-- creation dates are kept, ids are new, and notes are added oldest first so the list looks the same;
-- a note you edited after exporting is no longer "the same", so an old file brings its old version back
-  as an extra note.
+  over 20000, more than 10 tags or a tag over 30 characters, a bad date) or category (over 40 characters)
+  rejects the entire file and the current data stays as it was;
+- categories come from the file's `categories` list (including empty ones) and from each note's
+  `category`; older exports without them import into "Uncategorized";
+- creation dates are kept, ids are new, and notes are added oldest first so the list looks the same.
 
 ## Run with Docker
 

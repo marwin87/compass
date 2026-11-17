@@ -28,7 +28,7 @@ def export(c: TestClient, **params: str) -> dict[str, object]:
 def test_document_shape_and_constants(authed: TestClient) -> None:
     add(authed, "Indeks", "b-tree", ["sql", "teoria"])
     doc = export(authed)
-    assert list(doc) == ["format", "exported_at", "count", "notes"]
+    assert list(doc) == ["format", "exported_at", "count", "categories", "notes"]
     assert doc["format"] == "compass-export"
     assert "version" not in doc
     assert doc["count"] == 1 == len(doc["notes"])  # type: ignore[arg-type]

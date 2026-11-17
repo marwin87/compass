@@ -1,5 +1,4 @@
 import sqlite3
-from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -322,38 +321,39 @@ def delete_note(note_id: int) -> bool:
     return True
 
 
-def import_notes(items: Sequence[ParsedNote]) -> tuple[int, int]:
-    """Write validated notes in one transaction; returns (imported, skipped).
+def replace_all(items: Sequence[ParsedNote], category_names: Sequence[str]) -> int:
+    """Make the database exactly what an export file says (all or nothing); returns the note count.
 
-    A note whose (title, body, created_at) already exists is skipped, counted as a multiset: a
-    file with two identical notes next to one existing copy imports exactly one. Notes go in
-    oldest first (an export is newest first) so the new ids follow creation order.
+    Every existing note, tag and category is removed first, then the file's categories and notes
+    are written, oldest first (an export is newest first) so the new ids follow creation order.
     """
     # The file is newest first, so among equal times the later file position is the older note.
     ordered = [p for _, p in sorted(enumerate(items), key=lambda e: (e[1].when, -e[0]))]
     conn = connect()
-    imported = skipped = 0
     try:
         with conn:
             conn.execute("BEGIN IMMEDIATE")
-            existing = Counter(
-                conn.execute("SELECT title, body, created_at FROM notes")
-            )
+            conn.execute("DELETE FROM notes_fts")
+            conn.execute("DELETE FROM note_tags")
+            conn.execute("DELETE FROM notes")
+            conn.execute("DELETE FROM tags")
+            conn.execute("DELETE FROM categories WHERE is_default = 0")
+            for name in category_names:
+                categories.ensure(conn, name)
             for p in ordered:
-                key = (p.title, p.body, p.created_at)
-                if existing[key] > 0:
-                    existing[key] -= 1
-                    skipped += 1
-                    continue
                 cur = conn.execute(
                     "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
-                    (*key, categories.ensure(conn, p.category)),
+                    (
+                        p.title,
+                        p.body,
+                        p.created_at,
+                        categories.ensure(conn, p.category),
+                    ),
                 )
                 note_id = cur.lastrowid
                 assert note_id is not None
                 _save_tags(conn, note_id, p.tags)
                 index_note(conn, note_id, p.title, p.body, p.tags)
-                imported += 1
     finally:
         conn.close()
-    return imported, skipped
+    return len(ordered)

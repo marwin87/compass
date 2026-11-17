@@ -87,6 +87,8 @@ h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .row{display:flex;gap:8px;align-items:center}
 .row form{margin:0}
 a.btn{display:block;text-align:center;text-decoration:none}
+[hidden]{display:none !important}
+.importask{display:grid;gap:6px;margin-top:6px}
 .msg{font-size:12px;min-height:1em;margin-top:2px}
 .msg.ok{color:var(--ok)}
 .msg.bad{color:var(--danger)}
@@ -170,6 +172,7 @@ INDEX_HTML = (
     <button type="button" class="btn wide" id="import" title="[[import_title]]">[[import]]</button>
     <input type="file" id="importfile" accept=".json,application/json" hidden>
     <a class="btn wide" href="/api/export" download title="[[export_title]]">[[export]]</a>
+    <div id="importask" class="importask" hidden><div class="msg bad" id="importasktext"></div><div class="qrow"><button type="button" class="btn danger" id="importyes">[[import_replace]]</button><button type="button" class="btn" id="importno">[[cancel]]</button></div></div>
     <div id="importmsg" class="msg" role="status"></div>
     <form method="post" action="/logout"><button class="btn wide">[[logout]]</button></form>
   </aside>
@@ -540,7 +543,8 @@ async function importFile(file) {
   }
   const body = await r.json().catch(() => ({}));
   if (!r.ok) { show(importError(body.detail), false); return; }
-  show(tr("import_done", {n: body.imported, m: body.skipped}), true);
+  show(tr("import_done", {n: body.imported}), true);
+  state.category = null; state.sel.clear(); state.cur = null; state.mode = "view";
   await loadCategories();
   await loadTags();
   await load();
@@ -554,12 +558,23 @@ $("#catclose").addEventListener("click", () => $("#catdialog").close());
 $("#catadd").addEventListener("click", addCategory);
 $("#catnew").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addCategory(); } });
 $("#catdialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });   // click on the backdrop
+let pending = null;
 $("#import").addEventListener("click", () => $("#importfile").click());
 $("#importfile").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = "";          // so choosing the same file again fires another change
+  if (!file) return;
+  pending = file;     // importing replaces everything, so ask first
+  $("#importmsg").textContent = "";
+  $("#importasktext").textContent = tr("import_ask");
+  $("#importask").hidden = false;
+  $("#importyes").focus();
+});
+$("#importyes").addEventListener("click", async () => {
+  const file = pending; pending = null; $("#importask").hidden = true;
   if (file) await importFile(file);
 });
+$("#importno").addEventListener("click", () => { pending = null; $("#importask").hidden = true; });
 document.querySelectorAll("[data-lang]").forEach((b) => {
   b.classList.toggle("on", b.dataset.lang === LANG);
   b.addEventListener("click", () => { document.cookie = "lang=" + b.dataset.lang + "; path=/; max-age=31536000; SameSite=Lax"; location.reload(); });

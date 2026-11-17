@@ -10,8 +10,8 @@ DEMO = Path(__file__).resolve().parent.parent / "demo" / "compass-demo.json"
 
 def test_the_demo_file_is_a_valid_export() -> None:
     document = json.loads(DEMO.read_text(encoding="utf-8"))
-    notes = parse_export(document)  # the same checks the import runs
-    assert len(notes) == document["count"] >= 15
+    parsed = parse_export(document)  # the same checks the import runs
+    assert len(parsed.notes) == document["count"] >= 15
 
 
 def test_the_demo_file_imports_and_searches_well(authed: TestClient) -> None:
@@ -19,16 +19,15 @@ def test_the_demo_file_imports_and_searches_well(authed: TestClient) -> None:
     first = authed.post(
         "/api/import", content=body, headers={"content-type": "application/json"}
     )
-    assert first.status_code == 200 and first.json()["skipped"] == 0
+    assert first.status_code == 200
     count = first.json()["imported"]
     again = authed.post(
         "/api/import", content=body, headers={"content-type": "application/json"}
     )
     assert again.json() == {
-        "imported": 0,
-        "skipped": count,
-        "total": count,
-    }  # safe to repeat
+        "imported": count
+    }  # safe to repeat: same state, no duplicates
+    assert authed.get("/api/export").json()["count"] == count
 
     def titles(q: str) -> list[str]:
         return [n["title"] for n in authed.get("/api/notes", params={"q": q}).json()]

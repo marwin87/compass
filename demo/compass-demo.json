@@ -2,6 +2,14 @@
   "format": "compass-export",
   "exported_at": "2026-11-17T12:00:00+00:00",
   "count": 21,
+  "categories": [
+    "Algorytmy",
+    "Bazy danych",
+    "Compass",
+    "Dom",
+    "Nauka",
+    "Rozmowa"
+  ],
   "notes": [
     {
       "id": 21,

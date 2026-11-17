@@ -110,13 +110,13 @@ def export_notes() -> Response:
     """All notes as one downloadable JSON file; search and tag filters do not apply."""
     now = datetime.now(UTC)
     items = notes.export_all()
-    names = {
-        c.id: (None if c.default else c.name) for c in categories.list_categories()
-    }
+    all_categories = categories.list_categories()
+    names = {c.id: (None if c.default else c.name) for c in all_categories}
     document = {
         "format": transfer.EXPORT_FORMAT,
         "exported_at": now.isoformat(timespec="seconds"),
         "count": len(items),
+        "categories": [c.name for c in all_categories if not c.default],
         "notes": [
             {
                 "id": n.id,
@@ -141,8 +141,8 @@ def export_notes() -> Response:
 
 @import_router.post("")
 async def import_notes(request: Request) -> dict[str, int]:
-    """Load an export file (the JSON body). Everything is validated first; nothing is written
-    unless the whole file is valid. Notes already present are skipped."""
+    """Restore an export file (the JSON body) one to one: everything in the database is replaced
+    by the file. It is validated first; nothing changes unless the whole file is valid."""
     too_large = HTTPException(
         status_code=413,
         detail={
@@ -165,8 +165,10 @@ async def import_notes(request: Request) -> dict[str, int]:
         raise HTTPException(
             status_code=422, detail={"code": problem.code, **problem.info}
         ) from None
-    imported, skipped = await run_in_threadpool(notes.import_notes, parsed)
-    return {"imported": imported, "skipped": skipped, "total": imported + skipped}
+    imported = await run_in_threadpool(
+        notes.replace_all, parsed.notes, parsed.categories
+    )
+    return {"imported": imported}
 
 
 class CategoryIn(BaseModel):
