@@ -1,21 +1,30 @@
 # Dependencies
+.venv/
 web/node_modules/
-app/.venv/
 
 # Build output
 web/.next/
+web/out/
 
-# Environment files
+# Environment files (keep .env.example tracked)
 .env
 .env.local
 .env.*.local
+
+# Application data (SQLite database and backups)
+data/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
-app/.coverage
-app/htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage
+.coverage
+htmlcov/
 
 # Editor
 .idea/
@@ -25,7 +34,3 @@ app/htmlcov/
 .DS_Store
 
 /.claude/
-
-# coverage.py data
-.coverage
-.venv/
