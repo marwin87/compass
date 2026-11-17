@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
+      - name: Check out the repository
+        uses: actions/checkout@v5
 
       - name: Ensure no .env file is tracked
         run: |
@@ -28,23 +29,131 @@ jobs:
             exit 1
           fi
 
-  check:
+  lint:
+    name: lint - ruff and mypy
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-      - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy src tests
-      - run: uv run pytest --cov
-
-  docker:
-    name: docker - build image
-    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - run: docker build -t compass:ci .
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run mypy src tests
+
+  test:
+    name: test - pytest and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      # tests/test_reader.py runs the Markdown parser in Node; in CI a missing Node fails the build
+      # instead of silently skipping those tests.
+      - name: Set up Node (parser tests)
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Tests with coverage (at least 80%)
+        run: uv run pytest --cov
+
+  docker:
+    name: docker - build and smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      URL: http://localhost:8011
+      PASSWORD: ci-password
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build the image (layer cache in GitHub Actions)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: compass:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start the container and wait for /health
+        run: |
+          docker run -d --name compass -p 8011:8011 \
+            -e COMPASS_PASSWORD=$PASSWORD -e COMPASS_SECRET_KEY=ci-secret-key-0123456789abcdef \
+            compass:ci
+          for i in $(seq 1 30); do curl -fsS $URL/health >/dev/null && exit 0; sleep 1; done
+          echo "::error::the container did not become healthy"; exit 1
+
+      - name: Health endpoint answers
+        run: test "$(curl -fsS $URL/health)" = '{"status":"ok"}'
+
+      - name: Anonymous requests are refused
+        run: |
+          code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+          test "$(code $URL/api/notes)" = 401          # the API answers 401
+          test "$(code $URL/settings)" = 303           # pages redirect to the login
+          test "$(code -d password=wrong $URL/login)" = 401
+
+      - name: Log in with the right password
+        run: test "$(curl -s -c jar -o /dev/null -w '%{http_code}' -d password=$PASSWORD $URL/login)" = 303
+
+      - name: Create a note and find it by search
+        run: |
+          curl -fsS -b jar -H 'content-type: application/json' \
+            -d '{"title":"smoke","body":"ok","tags":["ci"]}' $URL/api/notes >/dev/null
+          curl -fsS -b jar "$URL/api/notes?q=smoke" | grep -q '"smoke"'
+
+      - name: Notes and Settings pages load
+        run: |
+          curl -fsS -b jar $URL/ | grep -q 'id="results"'
+          curl -fsS -b jar $URL/settings | grep -q 'id="appearance"'
+
+      - name: Saving a setting works
+        run: |
+          curl -fsS -b jar -X PUT -H 'content-type: application/json' -d '{"theme":"light"}' \
+            $URL/api/settings | grep -q '"light"'
+
+      - name: Export works
+        run: curl -fsS -b jar $URL/api/export | grep -q '"compass-export"'
+
+      - name: Data survives a restart
+        run: |
+          docker restart compass
+          for i in $(seq 1 30); do curl -fsS $URL/health >/dev/null && break; sleep 1; done
+          curl -fsS -b jar "$URL/api/notes?q=smoke" | grep -q '"smoke"'
+          curl -fsS -b jar $URL/api/settings | grep -q '"light"'
+
+      - name: Show the container logs
+        if: failure()
+        run: docker logs compass
+
+      - name: Remove the container
+        if: always()
+        run: docker rm -f compass

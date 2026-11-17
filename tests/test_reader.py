@@ -1,10 +1,11 @@
 """Unit tests for the Markdown parser and the syntax highlighter of the note reader.
 
-They are plain JavaScript (`compass.reader.READER_PURE_JS`, no DOM), so the tests run it in Node and
-are skipped when Node is not installed.
+They are plain JavaScript (`compass.reader.READER_PURE_JS`, no DOM), so the tests run it in Node. Without Node
+they are skipped locally and fail in CI.
 """
 
 import json
+import os
 import shutil
 import subprocess
 from typing import Any
@@ -13,8 +14,11 @@ import pytest
 
 from compass.reader import READER_PURE_JS
 
+# Locally these tests are skipped without Node; in CI (GitHub Actions sets CI=true) a missing Node must fail
+# the build, so the parser tests can never be skipped silently there.
 pytestmark = pytest.mark.skipif(
-    shutil.which("node") is None, reason="node is not installed"
+    shutil.which("node") is None and not os.environ.get("CI"),
+    reason="node is not installed",
 )
 
 
