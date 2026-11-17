@@ -262,9 +262,9 @@ INDEX_HTML = (
   <aside id="side">
     <div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass</div><div class="tagline">[[tagline]]</div></div></div>
     <button type="button" class="btn primary wide newbtn" id="new">[[new_note]]</button>
-    <h4><span>[[categories_h]]</span><a class="linkbtn" href="/settings#data" title="[[manage_title]]">[[manage_categories]]<span class="ic" data-icon="settings" data-size="15"></span></a></h4>
+    <h4><span>[[categories_h]]</span><a class="linkbtn" href="/settings#categories" title="[[manage_title]]">[[manage_categories]]<span class="ic" data-icon="settings" data-size="15"></span></a></h4>
     <div class="catlist" id="catbar"></div>
-    <h4><span>[[tags_h]]</span></h4>
+    <h4><span>[[tags_h]]</span><a class="linkbtn" href="/settings#tags" title="[[tags_manage_title]]">[[manage_categories]]<span class="ic" data-icon="settings" data-size="15"></span></a></h4>
     <div class="chips tagbar" id="tagbar"></div>
     <button type="button" class="moretags" id="tagmore" hidden><span id="tagmoretext"></span><span class="ic" data-icon="chevron-down" data-size="15"></span></button>
     <div class="sep"></div>

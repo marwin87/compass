@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from compass import about as about_info
-from compass import categories, notes, settings, transfer
+from compass import categories, notes, settings, tags, transfer
 
 router = APIRouter(prefix="/api/notes")
 tags_router = APIRouter(prefix="/api/tags")
@@ -108,6 +108,38 @@ def delete(note_id: int) -> None:
 @tags_router.get("")
 def list_tags() -> list[notes.TagCount]:
     return notes.list_tags()
+
+
+class TagRename(BaseModel):
+    name: str
+
+
+TAG_STATUS = {"name_invalid": 422, "not_found": 404}
+
+
+def _tag_error(problem: tags.TagError) -> HTTPException:
+    return HTTPException(
+        status_code=TAG_STATUS.get(problem.code, 400),
+        detail={"code": problem.code, **problem.info},
+    )
+
+
+@tags_router.put("/{name:path}")
+def rename_tag(name: str, data: TagRename) -> dict[str, object]:
+    """Rename a tag on every note; renaming onto an existing tag merges the two."""
+    try:
+        return tags.rename(name, data.name)
+    except tags.TagError as problem:
+        raise _tag_error(problem) from None
+
+
+@tags_router.delete("/{name:path}")
+def delete_tag(name: str) -> dict[str, object]:
+    """Remove a tag from every note (the notes stay)."""
+    try:
+        return tags.delete(name)
+    except tags.TagError as problem:
+        raise _tag_error(problem) from None
 
 
 @export_router.get("")

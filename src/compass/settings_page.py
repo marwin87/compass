@@ -73,14 +73,31 @@ dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
 .fileline{display:flex;gap:8px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px;color:var(--muted);overflow:hidden}
 .fileline span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dlg-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-.ssub{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin:22px 4px 10px}
 .scard.danger{border-color:rgba(248,113,113,.35)}
 a.btn{text-decoration:none}
 .qrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .catpad{padding:14px 20px 16px}
-.catpad .catrows{max-height:none;margin-top:10px}
 .catpad .qrow input{flex:1;min-width:160px}
 .catpad .err{margin-top:6px}
+.listtools{margin-top:10px}
+.listtools input{width:100%;border:1px solid var(--line);border-radius:12px;padding:9px 12px;background:var(--bg)}
+.listtools input:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
+.mgrlist{list-style:none;margin:10px 0 0;padding:0 4px 0 0;max-height:min(46vh,400px);overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(310px,100%),1fr));column-gap:26px;align-content:start;scrollbar-width:thin}
+.mgrlist .catrow{padding:4px 0;gap:6px;flex-wrap:nowrap;min-height:40px;border-top:0;border-bottom:1px solid var(--line)}
+.mgrlist .catrow.wide{grid-column:1/-1;flex-wrap:wrap;padding:8px 0}
+.mgrlist .name,.mgrlist .tagname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mgrlist .wide .name,.mgrlist .wide .tagname{white-space:normal;overflow:visible}
+.mgrlist .wide .small{flex:1 1 180px;min-width:0;white-space:normal}
+.mgrlist .n{min-width:22px;text-align:right;font-variant-numeric:tabular-nums}
+.rowbtn{display:grid;place-items:center;flex:none;width:30px;height:30px;border:1px solid transparent;border-radius:8px;background:none;color:var(--muted);transition:background var(--ease),color var(--ease)}
+.rowbtn:hover,.rowbtn:focus-visible{background:var(--accent-soft);color:var(--ink)}
+.rowbtn.danger:hover,.rowbtn.danger:focus-visible{background:var(--danger-soft);color:var(--danger)}
+.listhint{font-size:12px;margin-top:8px;min-height:1em}
+.tagtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tagtools input{flex:1;min-width:160px;border:1px solid var(--line);border-radius:12px;padding:9px 12px;background:var(--bg)}
+.tagtools input:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
+.catrow .tagname{flex:1;min-width:120px;font-weight:600}
+.catrow .name{font-weight:600}
 @media (max-width:900px){
   .sapp{grid-template-columns:minmax(0,1fr)}
   .snav{min-width:0;position:sticky;top:0;z-index:10;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 14px;border-right:0;border-bottom:1px solid var(--line);gap:8px}
@@ -102,8 +119,11 @@ a.btn{text-decoration:none}
 
 _SECTIONS = (
     ("appearance", "settings_nav_appearance", "sun"),
-    ("data", "settings_nav_data", "database"),
+    ("categories", "categories_h", "layers"),
+    ("tags", "settings_nav_tags", "tag"),
+    ("backup", "data_backup_h", "database"),
     ("shortcuts", "settings_nav_shortcuts", "zap"),
+    ("danger", "data_danger_h", "alert"),
     ("about", "settings_nav_about", "info"),
 )
 
@@ -147,32 +167,55 @@ SETTINGS_HTML = (
         <div class="srow"><div><div class="sname">[[set_sort]]</div><div class="sdesc">[[set_sort_desc]]</div></div><div class="sctl" id="ctl-sort"></div></div>
       </div>
     </section>
-    <section class="ssec" id="data">
-      <h2>[[settings_nav_data]]</h2>
+    <section class="ssec" id="categories">
+      <h2>[[categories_h]]</h2>
       <div class="scard">
         <div class="srow"><div><div class="sname">[[manage_title]]</div><div class="sdesc">[[data_categories_desc]]</div></div></div>
         <div class="catpad">
           <div class="qrow"><input id="catnew" placeholder="[[category_new_ph]]" maxlength="60" autocomplete="off" aria-label="[[category_new_ph]]"><button type="button" class="btn primary" id="catadd">[[category_add]]</button></div>
           <div class="err" id="catmsg" role="alert"></div>
-          <ul class="catrows" id="catrows"></ul>
+          <div class="listtools"><input id="catsearch" type="search" placeholder="[[categories_search_ph]]" aria-label="[[categories_search_ph]]" autocomplete="off"></div>
+          <ul class="mgrlist" id="catrows"></ul>
         </div>
       </div>
-      <h3 class="ssub">[[data_backup_h]]</h3>
+    </section>
+    <section class="ssec" id="tags">
+      <h2>[[settings_nav_tags]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[tags_manage_title]]</div><div class="sdesc">[[tags_manage_desc]]</div></div></div>
+        <div class="catpad">
+          <div class="tagtools">
+            <input id="tagsearch" type="search" placeholder="[[tags_search_ph]]" aria-label="[[tags_search_ph]]" autocomplete="off">
+            <select id="tagsort" class="sselect" aria-label="[[tags_sort_count]] / [[tags_sort_name]]">
+              <option value="count">[[tags_sort_count]]</option>
+              <option value="name">[[tags_sort_name]]</option>
+            </select>
+          </div>
+          <div class="err" id="tagmsg" role="alert"></div>
+          <ul class="mgrlist" id="tagrows"></ul>
+          <div class="listhint muted" id="taghint"></div>
+        </div>
+      </div>
+    </section>
+    <section class="ssec" id="backup">
+      <h2>[[data_backup_h]]</h2>
       <div class="scard">
         <div class="srow"><div><div class="sname">[[export]]</div><div class="sdesc">[[data_export_desc]]</div></div>
           <div class="sctl"><a class="btn" id="exportlink" href="/api/export" download title="[[export_title]]"><span class="ic" data-icon="download" data-size="16"></span>[[export]]</a></div></div>
         <div class="srow"><div><div class="sname">[[import]]</div><div class="sdesc">[[data_import_desc]]</div></div>
           <div class="sctl"><button type="button" class="btn" id="import" title="[[import_title]]"><span class="ic" data-icon="upload" data-size="16"></span>[[import]]</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
       </div>
-      <h3 class="ssub">[[data_danger_h]]</h3>
-      <div class="scard danger">
-        <div class="srow"><div><div class="sname">[[data_clear]]</div><div class="sdesc">[[data_clear_desc]]</div></div>
-          <div class="sctl"><button type="button" class="btn danger" id="clearbtn"><span class="ic" data-icon="trash" data-size="16"></span>[[data_clear]]</button></div></div>
-      </div>
     </section>
     <section class="ssec" id="shortcuts">
       <h2>[[settings_nav_shortcuts]]</h2>
       <div class="scard" id="shortcutlist"></div>
+    </section>
+    <section class="ssec" id="danger">
+      <h2>[[data_danger_h]]</h2>
+      <div class="scard danger">
+        <div class="srow"><div><div class="sname">[[data_clear]]</div><div class="sdesc">[[data_clear_desc]]</div></div>
+          <div class="sctl"><button type="button" class="btn danger" id="clearbtn"><span class="ic" data-icon="trash" data-size="16"></span>[[data_clear]]</button></div></div>
+      </div>
     </section>
     <section class="ssec" id="about">
       <h2>[[settings_nav_about]]</h2>
@@ -293,18 +336,25 @@ async function loadCategories() {
   }
   renderManage();
 }
-const refreshData = () => Promise.all([loadCategories(), loadAbout()]);   // counts change after every data operation
+const refreshData = () => Promise.all([loadCategories(), loadAbout(), typeof loadTags === "function" ? loadTags() : null]);   // counts change after every data operation
 async function categoryCall(path, method, body) {
   const r = await api(path, body === undefined ? {method} : json(method, body));
   const data = (await r.json().catch(() => null)) || {};   // 204 has no body
   return {r, detail: data.detail};
 }
+const plainText = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l").toLowerCase();
+const rowBtn = (name, label, onclick, kind = "") => h("button", {type: "button", class: "rowbtn " + kind, "aria-label": label, title: label, onclick}, icon(name, 15));
 function renderManage() {
-  $("#catrows").replaceChildren(...categories.map((c) => {
+  const q = plainText($("#catsearch").value.trim());
+  const list = categories.filter((c) => !q || plainText(catLabel(c)).includes(q));
+  if (!list.length) { $("#catrows").replaceChildren(h("li", {class: "catrow wide"}, h("span", {class: "muted"}, tr("categories_none_match")))); return; }
+  $("#catrows").replaceChildren(...list.map((c) => {
     const li = h("li", {class: "catrow"});
     if (c.default) {
+      li.className = "catrow wide";
       li.append(h("span", {class: "name"}, catLabel(c)), h("span", {class: "n"}, c.count), h("span", {class: "muted small"}, tr("manage_default_note")));
     } else if (manage.editing === c.id) {
+      li.className = "catrow wide";
       const input = h("input", {value: c.name, maxlength: 60, "aria-label": tr("manage_rename")});
       const save = async () => {
         const {r, detail} = await categoryCall("/api/categories/" + c.id, "PUT", {name: input.value});
@@ -316,6 +366,7 @@ function renderManage() {
       li.append(input, h("button", {type: "button", class: "btn primary", onclick: save}, tr("save")), h("button", {type: "button", class: "btn", onclick: () => { manage.editing = null; setCatMsg(""); renderManage(); }}, tr("cancel")));
       setTimeout(() => input.focus());
     } else if (manage.deleting === c.id) {
+      li.className = "catrow wide";
       const remove = async () => {
         const {r, detail} = await categoryCall("/api/categories/" + c.id, "DELETE");
         manage.deleting = null;
@@ -324,9 +375,9 @@ function renderManage() {
       };
       li.append(h("span", {class: "name"}, tr("manage_confirm_delete", {name: c.name})), h("button", {type: "button", class: "btn danger", onclick: remove}, tr("yes_delete")), h("button", {type: "button", class: "btn", onclick: () => { manage.deleting = null; renderManage(); }}, tr("back")));
     } else {
-      li.append(h("span", {class: "name"}, c.name), h("span", {class: "n"}, c.count),
-        h("button", {type: "button", class: "btn", onclick: () => { manage.editing = c.id; manage.deleting = null; setCatMsg(""); renderManage(); }}, tr("manage_rename")),
-        h("button", {type: "button", class: "btn danger", onclick: () => { manage.deleting = c.id; manage.editing = null; setCatMsg(""); renderManage(); }}, tr("delete")));
+      li.append(h("span", {class: "name", title: c.name}, c.name), h("span", {class: "n"}, c.count),
+        rowBtn("pencil", tr("manage_rename"), () => { manage.editing = c.id; manage.deleting = null; setCatMsg(""); renderManage(); }),
+        rowBtn("trash", tr("delete"), () => { manage.deleting = c.id; manage.editing = null; setCatMsg(""); renderManage(); }, "danger"));
     }
     return li;
   }));
@@ -389,6 +440,7 @@ $("#importdialog").addEventListener("close", () => { pending = null; });   // Es
 $("#importdialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });   // click on the backdrop
 $("#exportlink").addEventListener("click", () => toast(tr("export_started"), "ok"));
 $("#catadd").addEventListener("click", addCategory);
+$("#catsearch").addEventListener("input", renderManage);
 $("#catnew").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addCategory(); } });
 
 // Clear everything: a second, explicit confirmation, then the server removes all notes, tags and categories
@@ -407,6 +459,92 @@ $("#clearyes").addEventListener("click", async () => {
   }
 });
 loadCategories();
+
+// Tags: list, search, sort; rename (an existing name merges), delete; each asks first where it changes many notes
+let tagList = [];
+const TAG_CAP = 300;     // rows drawn at most (the search narrows the rest)
+const tagUi = {editing: null, deleting: null, merging: null};
+const setTagMsg = (text) => { $("#tagmsg").textContent = text; };
+const cleanTag = (s) => s.trim().replace(/^#+/, "").toLowerCase().split(/\s+/).filter(Boolean).join(" ");   // like the server: lowercase, spaces collapsed ("#api" works too)
+const TAG_ERRORS = {name_invalid: "tags_err_name_invalid", not_found: "tags_err_not_found"};
+const tagErrorText = (detail) => tr(TAG_ERRORS[detail && detail.code] || "tags_err_failed");
+const tagUrl = (name) => "/api/tags/" + encodeURIComponent(name);
+async function tagCall(name, method, body) {
+  const r = await api(tagUrl(name), body === undefined ? {method} : json(method, body));
+  const data = (await r.json().catch(() => null)) || {};
+  return {r, data};
+}
+async function loadTags() {
+  try {
+    const r = await api("/api/tags");
+    if (!r.ok) throw new Error("tags");
+    tagList = await r.json();
+  } catch (e) {
+    if (e.message !== "not authenticated") setTagMsg(tr("tags_err_failed"));
+    return;
+  }
+  renderTags();
+}
+const refreshTags = () => Promise.all([loadTags(), loadAbout()]);   // the About counts change too
+function tagRows() {
+  const q = plainText($("#tagsearch").value.trim().replace(/^#+/, ""));
+  const list = tagList.filter((t) => !q || plainText(t.name).includes(q));
+  if ($("#tagsort").value === "name") list.sort((a, b) => a.name.localeCompare(b.name, LANG));
+  return list;
+}
+function renderTags() {
+  const all = tagRows(), shown = all.slice(0, TAG_CAP), box = $("#tagrows");
+  if (!all.length) {
+    box.replaceChildren(h("li", {class: "catrow wide"}, h("span", {class: "muted"}, tr(tagList.length ? "tags_none_match" : "tags_none"))));
+  } else box.replaceChildren(...shown.map(tagRow));
+  $("#taghint").textContent = all.length > shown.length ? tr("list_capped", {shown: shown.length, total: all.length}) : "";
+}
+function tagRow(t) {
+  const li = h("li", {class: "catrow"});
+  const reset = () => { tagUi.editing = tagUi.deleting = tagUi.merging = null; setTagMsg(""); renderTags(); };
+  const done = async (message) => { reset(); toast(message, "ok", 3500); await refreshTags(); };
+  const fail = async (r, data) => { if (r.status === 404) { reset(); await refreshTags(); } setTagMsg(tagErrorText(data.detail)); };
+  if (tagUi.merging && tagUi.merging.from === t.name) {                 // the new name exists: ask before merging
+    li.className = "catrow wide";
+    const m = tagUi.merging, target = tagList.find((x) => x.name === m.to);
+    const merge = async () => {
+      const {r, data} = await tagCall(t.name, "PUT", {name: m.to});
+      if (r.ok) await done(tr("tags_merged", {from: t.name, to: data.name, count: data.count})); else await fail(r, data);
+    };
+    li.append(h("span", {class: "tagname"}, tr("tags_merge_ask", {from: t.name, to: m.to, count: t.count, toCount: target ? target.count : 0})),
+      h("button", {type: "button", class: "btn primary", onclick: merge}, tr("tags_merge_yes")), h("button", {type: "button", class: "btn", onclick: () => { tagUi.merging = null; tagUi.editing = t.name; renderTags(); }}, tr("back")));
+  } else if (tagUi.editing === t.name) {
+    li.className = "catrow wide";
+    const input = h("input", {value: t.name, maxlength: 60, "aria-label": tr("manage_rename")});
+    const save = async () => {
+      const to = cleanTag(input.value);
+      if (!to || to.includes(",") || to.length > 30) { setTagMsg(tr("tags_err_name_invalid")); return; }
+      if (to === t.name) { reset(); return; }
+      if (tagList.some((x) => x.name === to)) { setTagMsg(""); tagUi.merging = {from: t.name, to}; renderTags(); return; }
+      const {r, data} = await tagCall(t.name, "PUT", {name: to});
+      if (r.ok) await done(tr("tags_renamed", {name: data.name})); else await fail(r, data);
+    };
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } else if (e.key === "Escape") { e.stopPropagation(); reset(); } });
+    li.append(input, h("button", {type: "button", class: "btn primary", onclick: save}, tr("save")), h("button", {type: "button", class: "btn", onclick: reset}, tr("cancel")));
+    setTimeout(() => { input.focus(); input.select(); });
+  } else if (tagUi.deleting === t.name) {
+    li.className = "catrow wide";
+    const remove = async () => {
+      const {r, data} = await tagCall(t.name, "DELETE");
+      if (r.ok) await done(tr("tags_deleted", {name: t.name, count: data.notes})); else await fail(r, data);
+    };
+    li.append(h("span", {class: "tagname"}, tr("tags_delete_ask", {name: t.name, count: t.count})),
+      h("button", {type: "button", class: "btn danger", onclick: remove}, tr("yes_delete")), h("button", {type: "button", class: "btn", onclick: reset}, tr("back")));
+  } else {
+    li.append(h("span", {class: "tagname", title: "#" + t.name}, "#" + t.name), h("span", {class: "n"}, t.count),
+      rowBtn("pencil", tr("manage_rename"), () => { tagUi.editing = t.name; tagUi.deleting = tagUi.merging = null; setTagMsg(""); renderTags(); }),
+      rowBtn("trash", tr("delete"), () => { tagUi.deleting = t.name; tagUi.editing = tagUi.merging = null; setTagMsg(""); renderTags(); }, "danger"));
+  }
+  return li;
+}
+$("#tagsearch").addEventListener("input", renderTags);
+$("#tagsort").addEventListener("change", renderTags);
+loadTags();
 
 // Navigation: the link of the section being read is highlighted. A section near the end of the page cannot be
 // scrolled to the top, so a clicked link keeps the highlight until the user scrolls by hand.

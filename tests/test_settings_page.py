@@ -7,7 +7,15 @@ from compass.i18n import LANGS, STRINGS
 from compass.main import app
 from compass.settings_page import render_settings
 
-SECTIONS = ("appearance", "shortcuts", "about")
+SECTIONS = (
+    "appearance",
+    "categories",
+    "tags",
+    "backup",
+    "shortcuts",
+    "danger",
+    "about",
+)
 
 
 def test_the_page_needs_login() -> None:
@@ -82,3 +90,76 @@ def test_the_logo_and_tagline_are_always_on_the_settings_page(
     page = authed.get("/settings").text
     assert 'class="slogo" href="/"' in page and ">Compass<" in page
     assert STRINGS[lang]["tagline"] in page  # the same description as on the notes page
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_tags_section_has_its_controls(authed: TestClient, lang: str) -> None:
+    authed.cookies.set("lang", lang)
+    page = authed.get("/settings").text
+    for marker in (
+        'id="tagrows"',
+        'id="tagsearch"',
+        'id="tagsort"',
+        'id="taghint"',
+        'id="tagmsg"',
+    ):
+        assert marker in page, marker
+    assert STRINGS[lang]["tags_manage_title"] in page
+
+
+def test_the_notes_page_links_to_tag_management(authed: TestClient) -> None:
+    notes_page = authed.get("/").text
+    assert (
+        'href="/settings#tags"' in notes_page
+        and 'href="/settings#categories"' in notes_page
+    )
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_danger_zone_is_always_right_above_about(
+    authed: TestClient, lang: str
+) -> None:
+    authed.cookies.set("lang", lang)
+    page = authed.get("/settings").text
+    order = [
+        m.group(1) for m in re.finditer(r'<section class="ssec" id="(\w+)">', page)
+    ]
+    assert order[-2:] == ["danger", "about"], (
+        order
+    )  # the clear-all button never sits among the everyday settings
+    assert order == list(SECTIONS)
+    nav = re.findall(r'<a href="#(\w+)" data-sec="\w+">', page)
+    assert nav == order  # the navigation lists them in the same order
+    section = page.split('id="danger"')[1].split('id="about"')[0]
+    assert 'id="clearbtn"' in section and STRINGS[lang]["data_danger_h"] in section
+    for other in (
+        "categories",
+        "tags",
+        "backup",
+    ):  # and it is in none of the everyday sections
+        body = page.split(f'id="{other}"')[1].split("</section>")[0]
+        assert 'id="clearbtn"' not in body, other
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_categories_section_is_its_own_section_with_search(
+    authed: TestClient, lang: str
+) -> None:
+    authed.cookies.set("lang", lang)
+    page = authed.get("/settings").text
+    section = page.split('id="categories"')[1].split("</section>")[0]
+    for marker in (
+        'id="catnew"',
+        'id="catadd"',
+        'id="catsearch"',
+        'id="catrows"',
+        'class="mgrlist"',
+    ):
+        assert marker in section, marker
+    assert STRINGS[lang]["categories_search_ph"] in section
+    backup = page.split('id="backup"')[1].split("</section>")[0]
+    assert (
+        'id="exportlink"' in backup
+        and 'id="import"' in backup
+        and "catrows" not in backup
+    )

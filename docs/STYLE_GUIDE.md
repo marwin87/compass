@@ -184,9 +184,11 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
 ## 9. Settings page and the settings registry
 
 - **Where things live:** `/settings` is a separate page with sections (left nav, a chip row on phones):
-  Appearance, Data, Keyboard shortcuts, About. Theme and language are changed only there (one place, no duplicates); the notes page has just a
-  Settings button in the sidebar footer; import, export, clear-all and the category manager are in Settings -> Data
-  (the notes page's "Zarzadzaj" link goes to `/settings#data`). Quick add of a category stays in the note forms.
+  Appearance, Categories, Tags, Backup, Keyboard shortcuts, Danger zone, About (one section per thing, named like its nav entry). **The danger zone is always the second-to-last
+  section, right above About** (new sections go before it); destructive "clear everything" actions live only there. Theme and language are changed only there (one place, no duplicates); the notes page has just a
+  Settings button in the sidebar footer; import and export are in Settings -> Backup, the category and tag managers in their own sections, clear-all in
+  the danger zone
+  (the notes page's "Zarzadzaj" links go to `/settings#categories` and `/settings#tags`). Quick add of a category stays in the note forms.
 - **Server-side settings, not `localStorage`:** preferences are rows in the `settings` table, read through
   `settings.current()` and written with `PUT /api/settings` (a partial update, validated as a whole, 422
   `invalid_setting` with the key). The server embeds them as `const SETTINGS` and puts the theme on `<html>`,
@@ -226,3 +228,22 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
   reaches the global handler (which would otherwise clear the filters and leave the form).
 - **Do not write a literal URL scheme in page code** (the link helper builds it from two parts): a test checks
   that the page contains no external URL.
+
+## 11. Tag management (Settings -> Tags)
+
+- **Same pattern as the category manager:** inline rows, a row turns into an edit field or a confirmation, errors in
+  a `role="alert"` line, results as toasts, and after every change the list and the About counts reload.
+- **Rename onto an existing name is a merge, and it asks first** (`tags_merge_ask` shows both counts); the
+  confirmation is decided on the client from the loaded list, and the server reports `merged` anyway. Deleting a tag
+  also asks, with the number of notes. Neither is blocked (unlike categories): a note may have no tags.
+- **Server rules** live in `tags.py`: one transaction, names cleaned like every tag (lowercase, spaces collapsed,
+  1-30 characters, no commas), `INSERT OR IGNORE` so a note never gets a tag twice, and **every touched note is
+  re-indexed** because tags are part of the search index. Tag names go into the URL with `encodeURIComponent`
+  (a name may contain `/`, `#`, `?`, `%`, accents), and the route is `{name:path}`.
+- **Long lists:** search (case and accent insensitive, a leading `#` is ignored), sort (most used / alphabetical)
+  and "show more" in steps of 25. Bulk selection is not built.
+- **Management lists** (categories, tags; `.mgrlist`): a search box above, rows kept compact (one line, icon-only
+  `rowBtn` actions with `aria-label`/`title`, two columns when there is room), the list scrolls inside its card
+  (`max-height`) so a long list never makes the page long, and rows that need room (rename field, confirmation,
+  the fixed default category) get the `wide` class and span both columns. At most 300 rows are drawn; the hint
+  line (`list_capped`) says so and the search narrows the rest. Do not add a "show more" button to these lists.

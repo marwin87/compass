@@ -26,13 +26,21 @@ cookie. Your notes, tags and search are not translated and work the same in both
 ## Settings
 
 The **Settings** page (`/settings`, from the side panel) has Appearance (theme, language, reading text size and
-width, default list order), Data (manage categories, export, import, clear all data), Keyboard shortcuts and
-About (version, counts, database size and path). Preferences are stored on the server (`GET`/`PUT /api/settings`),
+width, default list order), Categories and Tags (search, rename, merge, delete), Backup (export and import),
+Keyboard shortcuts, a Danger zone (clear all data) and About (version, counts, database size and path). Preferences are stored on the server (`GET`/`PUT /api/settings`),
 so they follow you between browsers; the language is a cookie.
+
+## Tags
+
+Settings → Tags (also the "Zarządzaj" link next to TAGI in the side panel) manages tags across all notes at
+once: search and sort the list, **rename** a tag (the new name is cleaned like any tag: lowercase, no commas,
+up to 30 characters), **merge** by renaming to the name of an existing tag (Compass asks first and shows both
+counts; notes that had both tags do not get a duplicate) and **delete** a tag from every note (the notes stay).
+The same is available over the API: `PUT /api/tags/{name}` with `{"name": "new"}` and `DELETE /api/tags/{name}`.
 
 ## Export
 
-The **Export notes** button (Settings → Data, or `GET /api/export` while logged in) downloads every note as one JSON
+The **Export notes** button (Settings → Backup, or `GET /api/export` while logged in) downloads every note as one JSON
 file, `compass-export-<date>.json`, whatever the search box or tag filter currently shows:
 
 ```json
@@ -46,7 +54,7 @@ text, so keep it as safe as the database.
 
 ## Import
 
-The **Import** button (Settings → Data) restores a file made by the Export button. It is a one-to-one restore, not a
+The **Import** button (Settings → Backup) restores a file made by the Export button. It is a one-to-one restore, not a
 merge: **everything currently in Compass (notes, tags, categories) is replaced** by the file's content,
 after you confirm. Nothing is skipped and importing the same file twice gives the same result.
 

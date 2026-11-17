@@ -308,7 +308,9 @@ def test_the_notes_page_no_longer_has_the_data_tools(anon: TestClient) -> None:
     with anon as c:
         login_cookie(c)
         page = c.get("/").text
-    assert 'href="/settings#data"' in page and 'href="/settings"' in page  # the ways in
+    assert (
+        'href="/settings#categories"' in page and 'href="/settings"' in page
+    )  # the ways in
     for gone in (
         'id="import"',
         'id="importdialog"',
