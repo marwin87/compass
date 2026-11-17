@@ -10,7 +10,7 @@ import json
 from collections.abc import Mapping
 
 from compass import settings as store
-from compass.i18n import STRINGS
+from compass.ui.i18n import STRINGS
 
 CORE_JS = r"""
 /*I18N*/

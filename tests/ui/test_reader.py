@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from compass.reader import READER_PURE_JS
+from compass.ui.reader import READER_PURE_JS
 
 # Locally these tests are skipped without Node; in CI (GitHub Actions sets CI=true) a missing Node must fail
 # the build, so the parser tests can never be skipped silently there.
@@ -328,9 +328,9 @@ def test_the_demo_markdown_notes_show_what_the_reader_can_do() -> None:
     from pathlib import Path
 
     demo = json.loads(
-        (
-            Path(__file__).resolve().parent.parent / "demo" / "compass-demo.json"
-        ).read_text(encoding="utf-8")
+        (Path(__file__).resolve().parents[2] / "demo" / "compass-demo.json").read_text(
+            encoding="utf-8"
+        )
     )
     by_title = {n["title"]: n["body"] for n in demo["notes"]}
     guide = js("mdParse(A)", by_title["Przewodnik: Markdown w Compass"])

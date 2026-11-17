@@ -3,9 +3,10 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from compass.i18n import LANGS, STRINGS
 from compass.main import app
-from compass.settings_page import render_settings
+from compass.ui.i18n import LANGS, STRINGS
+from compass.ui.settings_page import render_settings
+from tests.ui.helpers import login_cookie
 
 SECTIONS = (
     "appearance",
@@ -163,3 +164,77 @@ def test_the_categories_section_is_its_own_section_with_search(
         and 'id="import"' in backup
         and "catrows" not in backup
     )
+
+
+def test_export_button_is_present_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        pl = c.get("/settings").text
+        assert 'href="/api/export"' in pl and "Eksportuj notatki" in pl
+        assert "Pobierz wszystkie notatki jako plik JSON" in pl
+        c.cookies.set("lang", "en")
+        en = c.get("/settings").text
+        assert 'href="/api/export"' in en and "Export notes" in en
+        assert "Download all notes as a JSON file" in en and "Eksportuj" not in en
+
+
+def test_import_controls_are_present_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        pl = c.get("/settings").text
+        for marker in (
+            'id="import"',
+            'id="importfile"',
+            'id="importdialog"',
+            'id="toast"',
+            "Importuj notatki",
+        ):
+            assert marker in pl, marker
+        c.cookies.set("lang", "en")
+        en = c.get("/settings").text
+        for marker in (
+            'id="import"',
+            'id="importfile"',
+            'id="importdialog"',
+            'id="toast"',
+            "Import notes",
+        ):
+            assert marker in en, marker
+        assert "Importuj" not in en
+
+
+def test_category_manager_and_clear_data_live_in_settings(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        pl = c.get("/settings").text
+        for marker in (
+            'id="catrows"',
+            'id="catnew"',
+            'id="cleardialog"',
+            "Zarządzaj kategoriami",
+            "Wyczyść wszystkie dane",
+        ):
+            assert marker in pl, marker
+        c.cookies.set("lang", "en")
+        en = c.get("/settings").text
+        for marker in (
+            'id="catrows"',
+            'id="catnew"',
+            'id="cleardialog"',
+            "Manage categories",
+            "Clear all data",
+        ):
+            assert marker in en, marker
+        assert "Zarządzaj" not in en
+
+
+def test_language_and_theme_are_changed_only_in_settings(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        notes = c.get("/").text
+        settings = c.get("/settings").text
+    assert (
+        'data-lang="' not in notes and 'id="theme"' not in notes
+    )  # no duplicates in the sidebar
+    assert 'href="/settings"' in notes
+    assert "ctl-lang" in settings and "ctl-theme" in settings

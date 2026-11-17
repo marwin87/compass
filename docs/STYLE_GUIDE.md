@@ -1,7 +1,6 @@
 # Frontend style guide
 
-Everything about building and styling the Compass UI. **Read this before touching `src/compass/page.py`,
-`src/compass/i18n.py` or the login page, and add to it whenever a UI decision is made** (a new pattern,
+Everything about building and styling the Compass UI. **Read this before touching anything in `src/compass/ui/`, and add to it whenever a UI decision is made** (a new pattern,
 a pitfall, a token). Keep entries short and concrete.
 
 ## 1. Structure
@@ -10,17 +9,22 @@ The whole app UI is one server-rendered page, no build step and no framework.
 
 | Where | What |
 | --- | --- |
-| `src/compass/core.py` | `CORE_JS`: the helpers both pages share (`tr`, `$`, `h`, icons, `toast`, `api`, `sk`, `SORT_LABELS`, `categoryError`, `saveSettings`) and `inject()`, which fills the I18N and SETTINGS constants and `data-theme` on the server |
+| `src/compass/ui/core.py` | `CORE_JS`: the helpers both pages share (`tr`, `$`, `h`, icons, `toast`, `api`, `sk`, `SORT_LABELS`, `categoryError`, `saveSettings`) and `inject()`, which fills the I18N and SETTINGS constants and `data-theme` on the server |
 | `src/compass/settings.py` | the settings registry (`SPEC`: key, default, validator) stored in the `settings` table; `current()`, `update()` |
-| `src/compass/settings_page.py` | the Settings page (`/settings`): Appearance, Data, Shortcuts, About |
-| `src/compass/page.py` | `COMMON_CSS` (tokens, base, buttons, chips, forms, toast, login), `APP_CSS` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `INDEX_HTML` (markup + one `<script>`), `render_index(lang)` |
-| `src/compass/reader.py` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
-| `src/compass/editor.py` | the Markdown helper of the note forms: `EDITOR_PURE_JS` (pure text-editing functions, tested in Node), `EDITOR_UI_JS` (toolbar, callout menu, Write/Preview tabs), `EDITOR_CSS`. Embedded into `INDEX_HTML` at import time |
-| `src/compass/i18n.py` | `STRINGS["pl"]` and `STRINGS["en"]`, `pick_lang` |
-| `src/compass/auth.py` | login page; reuses `COMMON_CSS` only |
-| `tests/test_i18n.py` | page smoke tests and i18n guards |
+| `src/compass/ui/settings_page.py` | the Settings page (`/settings`): Appearance, Data, Shortcuts, About |
+| `src/compass/ui/page.py` | `COMMON_CSS` (tokens, base, buttons, chips, forms, toast, login), `APP_CSS` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `INDEX_HTML` (markup + one `<script>`), `render_index(lang)` |
+| `src/compass/ui/reader.py` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
+| `src/compass/ui/editor.py` | the Markdown helper of the note forms: `EDITOR_PURE_JS` (pure text-editing functions, tested in Node), `EDITOR_UI_JS` (toolbar, callout menu, Write/Preview tabs), `EDITOR_CSS`. Embedded into `INDEX_HTML` at import time |
+| `src/compass/ui/i18n.py` | `STRINGS["pl"]` and `STRINGS["en"]`, `pick_lang` |
+| `src/compass/ui/login.py` | the login page (`render_login`); reuses `COMMON_CSS`, the tab icon and the language switch |
+| `tests/ui/` | the UI tests (mirrors `src/compass/ui/`): `test_i18n.py` (key parity and usage guards), `test_page.py` (the notes page), `test_settings_page.py`, `test_login.py`, `test_reader.py` and `test_editor.py` (the pure JS, run in Node). Backend tests stay in `tests/` (one file per backend area). Helpers: `tests/ui/helpers.py` (`login_cookie`), `tests/ui/conftest.py` (`anon`) |
 
-The script section order in `page.py`: i18n + helpers, text/highlight helpers, icons, toast, state and
+**Package layout.** `src/compass/` is the backend (`main`, `api`, `auth`, `notes`, `categories`, `tags`, `transfer`,
+`settings`, `about`, `db`, `search`, `config`); `src/compass/ui/` is everything the browser receives (pages, CSS,
+JavaScript, translations). The backend never builds HTML or CSS; `ui/` may import the backend only for plain data
+(`settings` defaults in `core.inject`). New UI modules go into `ui/`.
+
+The script section order in `ui/page.py`: i18n + helpers, text/highlight helpers, icons, toast, state and
 server calls, skeleton, rendering, forms and the note panel, category management, import, wiring.
 State lives in one `state` object; render functions rebuild their part of the DOM from it.
 
@@ -30,7 +34,7 @@ State lives in one `state` object; render functions rebuild their part of the DO
   Never `innerHTML`: note titles, bodies, tags and category names are user data.
 - **No external requests.** No web fonts, CDNs or remote images. Icons are inline SVG (section 5), the
   font is a system stack (`Inter, Geist, system-ui, ...`). A test checks the page has no `http(s)://`
-  (apart from the SVG namespace). The tab icon is `FAVICON_LINK` in `page.py`: the logo as an inline SVG
+  (apart from the SVG namespace). The tab icon is `FAVICON_LINK` in `ui/page.py`: the logo as an inline SVG
   data URI, used by both the notes page and the login page. Change the logo there, not in a file.
 - **Exactly one `</script>`** in the rendered page (the embedded I18N JSON must not end it early).
 - **Every UI string is translated** (section 3). Never hard-code Polish or English text in the markup or JS.
@@ -42,7 +46,7 @@ State lives in one `state` object; render functions rebuild their part of the DO
 
 ## 3. Translations
 
-- Strings are keys in `i18n.py`, present in **both** languages. Markup uses `[[key]]` (filled on the
+- Strings are keys in `ui/i18n.py`, present in **both** languages. Markup uses `[[key]]` (filled on the
   server, HTML-escaped); JS uses `tr("key", {var})` or `T.key`. Placeholders look like `{count}` and
   must match between languages.
 - Tests enforce: identical key sets, every key used by the page exists, every key is used somewhere,
@@ -177,7 +181,7 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
   arrow navigation are off while it is active; editing leaves it. Size and width are the settings
   `reader_size` and `reader_width` (several clicks are saved as one request). `.card` uses `overflow:clip` (not `hidden`) so the sticky contents works.
 - **List snippets** strip Markdown markers (`snippet()`); the note itself is never changed.
-- **Testing:** `tests/test_reader.py` runs the pure parser/highlighter in Node (skipped without Node). The DOM
+- **Testing:** `tests/ui/test_reader.py` runs the pure parser/highlighter in Node (skipped without Node). The DOM
   side is checked with the headless-Chromium method from section 7. Under virtual time `requestAnimationFrame`
   and smooth scrolling do not progress between sleeps: use instant scrolling and screenshots for those.
 
@@ -201,7 +205,7 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
   is added, and prefer environment variables in Docker.
 - **Controls:** every control applies at once, saves through `saveSettings(patch)` (it toasts on failure) and goes
   back to its previous value when the save fails (`change()` on the Settings page). No Save button.
-- **Pages share code through `core.py`:** never copy a helper into a second page. New shared helpers go to
+- **Pages share code through `ui/core.py`:** never copy a helper into a second page. New shared helpers go to
   `CORE_JS`; page-specific code stays in its module. Both pages are embedded at import time so the i18n tests see
   all of their strings.
 - **Data section rules:** import and clear-all always ask in a popup (safe button focused first); results and
@@ -214,7 +218,7 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
   Markdown it does not know (our callouts), and it would break the no-external-request, DOM-only rules.
 - **Pure functions, one replacement each:** every button is `ed*(text, selStart, selEnd, ...)` returning
   `{from, to, insert, selFrom, selTo}` (replace `text[from:to]`, then select `[selFrom, selTo)` of the new text).
-  They are unit-tested in Node (`tests/test_editor.py`), including that the reader's parser understands what they
+  They are unit-tested in Node (`tests/ui/test_editor.py`), including that the reader's parser understands what they
   insert. Add a button = a pure function + a test + an icon + an i18n label.
 - **Toggling, not just inserting:** bold/italic/strike/code unwrap when already wrapped, headings/lists/quotes
   remove their marker when every selected line has it, switching bullets and numbers replaces the marker, and

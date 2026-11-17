@@ -11,10 +11,10 @@ import re
 from collections.abc import Mapping
 from urllib.parse import quote
 
-from compass import core
-from compass.editor import EDITOR_CSS, EDITOR_PURE_JS, EDITOR_UI_JS
-from compass.i18n import STRINGS
-from compass.reader import READER_CSS, READER_PURE_JS, READER_UI_JS
+from compass.ui import core
+from compass.ui.editor import EDITOR_CSS, EDITOR_PURE_JS, EDITOR_UI_JS
+from compass.ui.i18n import STRINGS
+from compass.ui.reader import READER_CSS, READER_PURE_JS, READER_UI_JS
 
 # The tab icon: the logo (compass on the brand gradient) as an inline SVG data URI, so the page
 # still makes no external request and needs no extra route.

@@ -8,8 +8,8 @@ key in `settings.SPEC`, a control here, an i18n label and a test.
 
 from collections.abc import Mapping
 
-from compass import core
-from compass.page import COMMON_CSS, FAVICON_LINK, fill
+from compass.ui import core
+from compass.ui.page import COMMON_CSS, FAVICON_LINK, fill
 
 SETTINGS_CSS = r"""
 html{scroll-behavior:smooth}

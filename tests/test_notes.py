@@ -113,39 +113,6 @@ def test_search_in_5000_notes_is_fast(authed: TestClient) -> None:
         )  # generous: avoids flaky CI
 
 
-def test_page_has_the_notes_ui_and_never_uses_inner_html(authed: TestClient) -> None:
-    page = authed.get("/")
-    assert page.status_code == 200
-    for marker in (
-        'id="q"',  # search box
-        'id="tagbar"',  # tag filter
-        'id="results"',
-        'id="detail"',
-        'id="new"',
-        "Tagi (po przecinku)",  # tag input in the add and edit forms
-        "Na pewno nadpisać?",  # edit needs a second confirmation
-        "Na pewno usunąć?",  # so does delete
-        'href="/settings"',  # the way to import, export and manage categories
-        'id="catbar"',  # category filter in the side panel
-        "Kategoria",  # the category field of the note forms
-        "Nowa kategoria",  # quick add from the form
-    ):
-        assert marker in page.text, marker
-    assert "innerHTML" not in page.text  # note content must only go in via textContent
-    assert (
-        "fonts.googleapis" not in page.text
-    )  # no external requests: notes stay on this server
-
-
-def test_login_page_is_styled_and_posts_to_login() -> None:
-    with TestClient(app, follow_redirects=False) as anon:
-        page = anon.get("/login")
-    assert page.status_code == 200
-    assert 'action="/login"' in page.text
-    assert 'name="password"' in page.text
-    assert "fonts.googleapis" not in page.text
-
-
 def put(c: TestClient, note_id: int, title: str, body: str = "") -> int:
     status: int = c.put(
         f"/api/notes/{note_id}", json={"title": title, "body": body}

@@ -7,9 +7,9 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from compass import api, auth, config, settings
 from compass.db import connect
-from compass.i18n import COOKIE, pick_lang
-from compass.page import render_index
-from compass.settings_page import render_settings
+from compass.ui.i18n import COOKIE, pick_lang
+from compass.ui.page import render_index
+from compass.ui.settings_page import render_settings
 
 SESSION_MAX_AGE = 30 * 24 * 3600
 

@@ -67,7 +67,7 @@ jobs:
         with:
           enable-cache: true
 
-      # tests/test_reader.py runs the Markdown parser in Node; in CI a missing Node fails the build
+      # tests/ui/test_reader.py runs the Markdown parser in Node; in CI a missing Node fails the build
       # instead of silently skipping those tests.
       - name: Set up Node (parser tests)
         uses: actions/setup-node@v6
@@ -124,31 +124,33 @@ jobs:
       - name: Log in with the right password
         run: test "$(curl -s -c jar -o /dev/null -w '%{http_code}' -d password=$PASSWORD $URL/login)" = 303
 
+      # The checks below use `grep 'x' >/dev/null`, not `grep -q`: with pipefail, -q closes the pipe at the
+      # first match and curl dies with SIGPIPE (exit 23) on a page larger than the 64 KB pipe buffer.
       - name: Create a note and find it by search
         run: |
           curl -fsS -b jar -H 'content-type: application/json' \
             -d '{"title":"smoke","body":"ok","tags":["ci"]}' $URL/api/notes >/dev/null
-          curl -fsS -b jar "$URL/api/notes?q=smoke" | grep -q '"smoke"'
+          curl -fsS -b jar "$URL/api/notes?q=smoke" | grep '"smoke"' >/dev/null
 
       - name: Notes and Settings pages load
         run: |
-          curl -fsS -b jar $URL/ | grep -q 'id="results"'
-          curl -fsS -b jar $URL/settings | grep -q 'id="appearance"'
+          curl -fsS -b jar $URL/ | grep 'id="results"' >/dev/null
+          curl -fsS -b jar $URL/settings | grep 'id="appearance"' >/dev/null
 
       - name: Saving a setting works
         run: |
           curl -fsS -b jar -X PUT -H 'content-type: application/json' -d '{"theme":"light"}' \
-            $URL/api/settings | grep -q '"light"'
+            $URL/api/settings | grep '"light"' >/dev/null
 
       - name: Export works
-        run: curl -fsS -b jar $URL/api/export | grep -q '"compass-export"'
+        run: curl -fsS -b jar $URL/api/export | grep '"compass-export"' >/dev/null
 
       - name: Data survives a restart
         run: |
           docker restart compass
           for i in $(seq 1 30); do curl -fsS $URL/health >/dev/null && break; sleep 1; done
-          curl -fsS -b jar "$URL/api/notes?q=smoke" | grep -q '"smoke"'
-          curl -fsS -b jar $URL/api/settings | grep -q '"light"'
+          curl -fsS -b jar "$URL/api/notes?q=smoke" | grep '"smoke"' >/dev/null
+          curl -fsS -b jar $URL/api/settings | grep '"light"' >/dev/null
 
       - name: Show the container logs
         if: failure()

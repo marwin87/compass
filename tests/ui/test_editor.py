@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from compass.editor import EDITOR_PURE_JS
-from compass.reader import READER_PURE_JS
+from compass.ui.editor import EDITOR_PURE_JS
+from compass.ui.reader import READER_PURE_JS
 
 pytestmark = pytest.mark.skipif(
     shutil.which("node") is None and not os.environ.get("CI"),
