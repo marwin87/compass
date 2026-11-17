@@ -14,7 +14,7 @@ repos:
         entry: uv run black
         language: system
         types: [ python ]
-        files: ^(app|tests)/
+        files: ^(src|tests)/
         stages: [ pre-commit ]
 
       - id: ruff
@@ -22,15 +22,15 @@ repos:
         entry: uv run ruff check --fix
         language: system
         types: [ python ]
-        files: ^(app|tests)/
+        files: ^(src|tests)/
         stages: [ pre-commit ]
 
       - id: mypy
         name: mypy
-        entry: uv run mypy app
+        entry: uv run mypy src tests
         language: system
         pass_filenames: false
-        files: ^app/
+        files: ^(src|tests)/
         stages: [ pre-commit ]
 
       # Exit code 5 means "no tests collected"; tolerated until the first tests exist.

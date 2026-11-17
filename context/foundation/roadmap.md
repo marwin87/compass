@@ -43,7 +43,7 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 | ----- | ---------------------- | ----------------------------------------------------------------- | ------------- | --------------------------------- | -------- |
 | F-01  | runnable-app-skeleton  | (foundation) one runnable app with a persistent database file     | —             | Success Criteria §Guardrails      | done |
 | F-02  | local-docker-image     | (foundation) the app builds into a Docker image that runs locally with a durable data volume | F-01 | Success Criteria §Guardrails | done |
-| S-01  | password-login         | log in with a password, and nothing is reachable without it       | F-01          | FR-001                            | proposed |
+| S-01  | password-login         | log in with a password, and nothing is reachable without it       | F-01          | FR-001                            | done |
 | S-02  | first-note-search      | save a note and find it again by a keyword in it                  | S-01, F-02    | US-01, FR-002, FR-003, FR-007     | proposed |
 | S-03  | edit-note              | correct an existing note                                          | S-02          | FR-004                            | proposed |
 | S-04  | delete-note            | remove a note I no longer need                                    | S-02          | FR-005                            | proposed |
@@ -68,7 +68,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Frontend:** absent — no web code in the repo; the choice is recorded in `tech-stack.md`.
 - **Backend / API:** partial — FastAPI app in `src/compass/` serving `/` and `/health`; no notes or search endpoints yet.
 - **Data:** partial — SQLite file created at startup (`src/compass/db.py`, `COMPASS_DB_PATH`); only a `meta` table, no notes schema.
-- **Auth:** absent — no login code (FR-001 not started).
+- **Auth:** present — single-password login with a signed session cookie (`src/compass/auth.py`); everything except `/login` and `/health` requires it.
 - **Deploy / infra:** partial — CI workflow (`.github/workflows/ci.yml`, includes a Docker build job) and a local Docker image with a data volume (`Dockerfile`, `docker-compose.yml`); no registry publishing.
 - **Observability:** absent — no logging or error tracking.
 
@@ -112,7 +112,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Sequenced first among slices because every later slice sits behind it and the guardrail "nothing without login" would otherwise be retrofitted. Friction for a single user is handled in design, per the PRD.
-- **Status:** proposed
+- **Status:** done
 
 ### S-02: Save a note and find it by a keyword
 
@@ -181,8 +181,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | ---------- | ----------------------- | ------------------------------------------------------- | --------------------- | -------------------------------------- |
 | F-01       | runnable-app-skeleton   | Runnable app skeleton with a persistent database        | done                  | Done                                   |
 | F-02       | local-docker-image      | Local Docker image with a durable data volume           | done                  | Done                                   |
-| S-01       | password-login          | Log in with a password                                  | yes                   | Run `/10x-plan password-login`         |
-| S-02       | first-note-search       | Save a note and find it by a keyword                    | no                    | Waits for S-01                         |
+| S-01       | password-login          | Log in with a password                                  | done                  | Done                                   |
+| S-02       | first-note-search       | Save a note and find it by a keyword                    | yes                   | Run `/10x-plan first-note-search`      |
 | S-03       | edit-note               | Edit a note                                             | no                    | Waits for S-02                         |
 | S-04       | delete-note             | Delete a note                                           | no                    | Waits for S-02                         |
 | S-05       | note-tags-filter        | Tag a note and filter by tag                            | no                    | Waits for S-02                         |
@@ -216,3 +216,4 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 - **F-01: Runnable app skeleton** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/runnable-app-skeleton/`. App starts, serves `/` and `/health`, and keeps its SQLite file across restarts. Lesson: —.
 - **F-02: Local Docker image** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/local-docker-image/`. App builds into a Docker image (port 8011, non-root, data on the `compass-data` volume); `docker compose down` keeps data, `down -v` wipes it. The CI `docker` build job is added but has not run on GitHub yet. Lesson: —.
+- **S-01: Log in with a password** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/password-login/`. Password from `COMPASS_PASSWORD`, signed session cookie, only `/login` and `/health` public; the app refuses to start without its secrets. Lesson: —.

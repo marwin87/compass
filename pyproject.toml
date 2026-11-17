@@ -4,6 +4,8 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.163.1",
+    "itsdangerous>=2.2.0",
+    "python-multipart>=0.0.34",
     "uvicorn>=0.54.0",
 ]
 

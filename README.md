@@ -2,9 +2,17 @@
 
 A personal knowledge base: short notes in one place, found in a fraction of a second after a few typed letters. One instance serves one person.
 
-Status: early development (see `context/foundation/roadmap.md`). Right now the app serves a minimal page and keeps a SQLite file; login, notes and search come next.
+Status: early development (see `context/foundation/roadmap.md`). Right now the app has a password login and a minimal page, and keeps a SQLite file; notes and search come next.
 
 **Stack:** Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [uv](https://docs.astral.sh/uv/).
+
+## Configuration
+
+Everything except `/login` and `/health` requires logging in. The app refuses to start without these variables:
+
+```bash
+cp .env.example .env   # then set COMPASS_PASSWORD and COMPASS_SECRET_KEY
+```
 
 ## Run with Docker
 
@@ -20,12 +28,14 @@ Data lives in the `compass-data` volume, mounted at `/data` (`COMPASS_DB_PATH=/d
 
 ```bash
 uv sync
+set -a; source .env; set +a   # load COMPASS_PASSWORD and COMPASS_SECRET_KEY
 uv run uvicorn compass.main:app --port 8011 --reload
 ```
 
 - App: http://localhost:8011/
-- Health: http://localhost:8011/health
-- API docs: http://localhost:8011/docs
+- Login: http://localhost:8011/login
+- Health: http://localhost:8011/health (public)
+- API docs: http://localhost:8011/docs (after login)
 
 The database file defaults to `data/compass.db`; override it with `COMPASS_DB_PATH`.
 
