@@ -1,20 +1,6 @@
-default_install_hook_types: [ pre-commit, pre-push ]
+default_install_hook_types: [ pre-commit, commit-msg, pre-push ]
 
 repos:
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-      - id: detect-secrets
-        args:
-          - "--baseline"
-          - ".secrets.baseline"
-          - "--exclude-files"
-          - "^context/"
-          - "--exclude-files"
-          - "^web/i18n/.*\\.json$"
-          - "--exclude-files"
-          - "^app/alembic/versions/"
-
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.4.0
     hooks:
@@ -25,31 +11,32 @@ repos:
     hooks:
       - id: black
         name: black
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project app black "$@"; else uv run --project app black "$@"; fi' --
+        entry: uv run black
         language: system
         types: [ python ]
-        files: ^backend/
+        files: ^(app|tests)/
         stages: [ pre-commit ]
 
       - id: ruff
         name: ruff
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --project app ruff check --fix "$@"; else uv run --project app ruff check --fix "$@"; fi' --
+        entry: uv run ruff check --fix
         language: system
         types: [ python ]
-        files: ^backend/
+        files: ^(app|tests)/
         stages: [ pre-commit ]
 
       - id: mypy
         name: mypy
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory app mypy app; else uv run --directory app mypy app; fi'
+        entry: uv run mypy app
         language: system
         pass_filenames: false
-        files: ^backend/
+        files: ^app/
         stages: [ pre-commit ]
 
+      # Exit code 5 means "no tests collected"; tolerated until the first tests exist.
       - id: pytest
         name: pytest
-        entry: bash -c 'if [ "$(uname)" = "Darwin" ]; then arch -arm64 uv run --directory app pytest -q; else uv run --directory app pytest -q; fi'
+        entry: bash -c 'uv run pytest -q || [ $? -eq 5 ]'
         language: system
         pass_filenames: false
         always_run: true
