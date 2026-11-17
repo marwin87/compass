@@ -1,6 +1,6 @@
 """The single notes page. Note content is only ever inserted via textContent."""
 
-INDEX_HTML = """<!doctype html>
+INDEX_HTML = r"""<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8">
@@ -26,6 +26,10 @@ INDEX_HTML = """<!doctype html>
   [hidden] { display: none !important; }
   #eact, #confirm, #ract, #dconfirm { display: flex; gap: .5rem; align-items: center; }
   #editform { display: grid; gap: .5rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: .25rem; margin: .25rem 0 .5rem; }
+  .chip { padding: .1rem .5rem; border-radius: 1rem; cursor: pointer; font-size: .85rem; }
+  .chip.on { font-weight: bold; outline: 2px solid; }
+  li .chips { margin: 0 0 .5rem; }
 </style>
 </head>
 <body>
@@ -35,6 +39,7 @@ INDEX_HTML = """<!doctype html>
 </header>
 
 <input id="q" type="search" placeholder="Szukaj… np. indeks" autocomplete="off" autofocus>
+<div id="tagbar" class="chips"></div>
 <div id="status" role="status"></div>
 <ul id="list"></ul>
 
@@ -42,6 +47,7 @@ INDEX_HTML = """<!doctype html>
   <div id="read">
     <h2 id="vt"></h2>
     <div id="vb"></div>
+    <div id="vtags" class="chips"></div>
     <div id="ract">
       <button type="button" id="edit">Edytuj</button>
       <button type="button" id="del">Usuń</button>
@@ -56,6 +62,8 @@ INDEX_HTML = """<!doctype html>
   <form id="editform" hidden>
     <input id="et" maxlength="200" required>
     <textarea id="eb" rows="8" maxlength="20000"></textarea>
+    <input id="etags" placeholder="Tagi (po przecinku)" autocomplete="off">
+    <div id="esugg" class="chips"></div>
     <div id="eact">
       <button type="submit">Zapisz</button>
       <button type="button" id="ecancel">Anuluj</button>
@@ -74,6 +82,8 @@ INDEX_HTML = """<!doctype html>
   <form class="add" id="add">
     <input id="title" placeholder="Tytuł" maxlength="200" required>
     <textarea id="body" rows="6" placeholder="Treść" maxlength="20000"></textarea>
+    <input id="tags" placeholder="Tagi (po przecinku)" autocomplete="off">
+    <div id="sugg" class="chips"></div>
     <button>Zapisz</button>
     <span id="err"></span>
   </form>
@@ -85,11 +95,67 @@ let timer;
 let seq = 0;
 
 let current = null;
+let allTags = [];
+const selected = new Set();
+
+const norm = (s) => s.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+const parseTags = (v) => v.split(",").map((t) => t.trim()).filter(Boolean);
+
+function chip(label, on, handler) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "chip" + (on ? " on" : "");
+  b.textContent = label;
+  b.addEventListener("click", handler);
+  return b;
+}
+
+function toggle(name) {
+  if (selected.has(name)) selected.delete(name); else selected.add(name);
+  renderTagbar();
+  load();
+}
+
+function renderTagbar() {
+  $("#tagbar").replaceChildren(
+    ...allTags.map((t) => chip("#" + t.name + " (" + t.count + ")", selected.has(t.name), () => toggle(t.name))),
+  );
+}
+
+function appendTag(input, name) {
+  const have = parseTags(input.value);
+  if (have.some((t) => norm(t) === name)) return;
+  input.value = have.concat(name).join(", ");
+  input.focus();
+}
+
+function renderSuggestions() {
+  for (const [input, box] of [["#tags", "#sugg"], ["#etags", "#esugg"]]) {
+    $(box).replaceChildren(
+      ...allTags.slice(0, 30).map((t) => chip(t.name, false, () => appendTag($(input), t.name))),
+    );
+  }
+}
+
+async function loadTags() {
+  const r = await fetch("/api/tags");
+  if (r.status === 401) { location.href = "/login"; return; }
+  allTags = await r.json();
+  const names = new Set(allTags.map((t) => t.name));
+  for (const t of [...selected]) if (!names.has(t)) selected.delete(t);
+  renderTagbar();
+  renderSuggestions();
+}
+
+function tagChips(tags) {
+  return tags.map((t) => chip("#" + t, selected.has(t), () => toggle(t)));
+}
 
 function show(n) {
   current = n;
   $("#vt").textContent = n.title;
   $("#vb").textContent = n.body;
+  $("#vtags").replaceChildren(...tagChips(n.tags));
   $("#editform").hidden = true;
   $("#read").hidden = false;
   $("#view").hidden = false;
@@ -126,13 +192,21 @@ function render(notes) {
     b.append(small);
     b.addEventListener("click", () => show(n));
     li.append(b);
+    if (n.tags.length) {
+      const row = document.createElement("div");
+      row.className = "chips";
+      row.append(...tagChips(n.tags));
+      li.append(row);
+    }
     ul.append(li);
   }
 }
 
 async function load() {
   const mine = ++seq;
-  const r = await fetch("/api/notes?q=" + encodeURIComponent($("#q").value));
+  const params = new URLSearchParams({ q: $("#q").value });
+  for (const t of selected) params.append("tag", t);
+  const r = await fetch("/api/notes?" + params);
   if (r.status === 401) { location.href = "/login"; return; }
   const notes = await r.json();
   if (mine === seq) render(notes);
@@ -150,7 +224,7 @@ $("#add").addEventListener("submit", async (e) => {
   const r = await fetch("/api/notes", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: $("#title").value, body: $("#body").value }),
+    body: JSON.stringify({ title: $("#title").value, body: $("#body").value, tags: parseTags($("#tags").value) }),
   });
   if (r.status === 401) { location.href = "/login"; return; }
   if (!r.ok) { $("#err").textContent = "Nie udało się zapisać (tytuł 1–200 znaków)."; return; }
@@ -158,6 +232,8 @@ $("#add").addEventListener("submit", async (e) => {
   $("#status").textContent = "";
   $("#add").reset();
   $("#q").value = "";
+  selected.clear();
+  await loadTags();
   await load();
   show(note);
 });
@@ -165,6 +241,7 @@ $("#add").addEventListener("submit", async (e) => {
 $("#edit").addEventListener("click", () => {
   $("#et").value = current.title;
   $("#eb").value = current.body;
+  $("#etags").value = current.tags.join(", ");
   $("#eerr").textContent = "";
   askConfirm(false);
   $("#read").hidden = true;
@@ -185,7 +262,7 @@ $("#eyes").addEventListener("click", async () => {
   const r = await fetch("/api/notes/" + current.id, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: $("#et").value, body: $("#eb").value }),
+    body: JSON.stringify({ title: $("#et").value, body: $("#eb").value, tags: parseTags($("#etags").value) }),
   });
   if (r.status === 401) { location.href = "/login"; return; }
   if (!r.ok) {
@@ -194,6 +271,7 @@ $("#eyes").addEventListener("click", async () => {
     return;
   }
   const note = await r.json();
+  await loadTags();
   await load();
   show(note);
 });
@@ -211,10 +289,12 @@ $("#dyes").addEventListener("click", async () => {
   }
   current = null;
   $("#view").hidden = true;
+  await loadTags();
   await load();
   $("#status").textContent = "Notatka usunięta";
 });
 
+loadTags();
 load();
 </script>
 </body>

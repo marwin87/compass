@@ -2,7 +2,7 @@
 
 A personal knowledge base: short notes in one place, found in a fraction of a second after a few typed letters. One instance serves one person.
 
-Status: early development (see `context/foundation/roadmap.md`). Right now you can log in with a password, save notes (title and body) and find them by typing the first letters of a word; editing, deleting, tags and smarter ranking come next.
+Status: early development (see `context/foundation/roadmap.md`). Right now you can log in with a password, save notes (title, body, tags), edit and delete them, find them by typing the first letters of a word and filter them by tag; smarter ranking comes next.
 
 **Stack:** Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [uv](https://docs.astral.sh/uv/).
 

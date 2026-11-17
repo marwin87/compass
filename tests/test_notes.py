@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -120,6 +121,9 @@ def test_page_has_search_and_never_uses_inner_html(authed: TestClient) -> None:
     assert 'id="editform"' in page.text
     assert 'id="eyes"' in page.text
     assert 'id="del"' in page.text
+    assert 'id="tagbar"' in page.text
+    assert 'id="tags"' in page.text
+    assert 'id="etags"' in page.text
     assert 'id="dyes"' in page.text
     assert "innerHTML" not in page.text  # note content must only go in via textContent
 
@@ -226,3 +230,146 @@ def test_notes_work_after_a_delete_even_with_reused_id(authed: TestClient) -> No
 def test_delete_requires_login() -> None:
     with TestClient(app, follow_redirects=False) as anon:
         assert anon.delete("/api/notes/1").status_code == 401
+
+
+# --- tags -----------------------------------------------------------------
+
+
+def add_t(c: TestClient, title: str, tags: list[str], body: str = "") -> int:
+    r = c.post("/api/notes", json={"title": title, "body": body, "tags": tags})
+    assert r.status_code == 201, r.text
+    note_id: int = r.json()["id"]
+    return note_id
+
+
+def tag_titles(c: TestClient, *tags: str, q: str = "") -> list[str]:
+    r = c.get("/api/notes", params={"q": q, "tag": list(tags)})
+    assert r.status_code == 200
+    return [n["title"] for n in r.json()]
+
+
+def tag_counts(c: TestClient) -> dict[str, int]:
+    r = c.get("/api/tags")
+    assert r.status_code == 200
+    return {t["name"]: t["count"] for t in r.json()}
+
+
+def test_tags_are_normalised_deduplicated_and_sorted(authed: TestClient) -> None:
+    note_id = add_t(authed, "n", ["  SQL ", "sql", "Soft   Skills", "", "  "])
+    assert authed.get(f"/api/notes/{note_id}").json()["tags"] == ["soft skills", "sql"]
+
+
+@pytest.mark.parametrize(
+    "tags",
+    [["x" * 31], ["a,b"], [f"t{i}" for i in range(11)]],
+)
+def test_invalid_tags_are_422(authed: TestClient, tags: list[str]) -> None:
+    r = authed.post("/api/notes", json={"title": "n", "tags": tags})
+    assert r.status_code == 422
+
+
+def test_notes_without_tags_have_an_empty_list(authed: TestClient) -> None:
+    note_id = add(authed, "bez tagow")
+    assert authed.get(f"/api/notes/{note_id}").json()["tags"] == []
+    assert tag_counts(authed) == {}
+
+
+def test_list_returns_tags_for_each_note(authed: TestClient) -> None:
+    add_t(authed, "a", ["x", "y"])
+    add_t(authed, "b", [])
+    got = {n["title"]: n["tags"] for n in authed.get("/api/notes").json()}
+    assert got == {"a": ["x", "y"], "b": []}
+
+
+def test_filter_by_one_tag_and_by_two_tags_is_and(authed: TestClient) -> None:
+    add_t(authed, "sql tylko", ["sql"])
+    add_t(authed, "rozmowa tylko", ["rozmowa"])
+    add_t(authed, "oba", ["sql", "rozmowa"])
+    assert tag_titles(authed, "sql") == ["oba", "sql tylko"]
+    assert tag_titles(authed, "sql", "rozmowa") == ["oba"]
+    assert tag_titles(authed, "sql", "sql") == ["oba", "sql tylko"]  # same tag twice
+
+
+def test_filter_combines_with_text_and_normalises_the_tag(authed: TestClient) -> None:
+    add_t(authed, "Indeks", ["sql"], "b-tree")
+    add_t(authed, "Transakcje", ["sql"], "acid")
+    add_t(authed, "Indeks w kuchni", ["gotowanie"])
+    assert tag_titles(authed, "SQL", q="indeks") == ["Indeks"]
+    assert tag_titles(authed, " Sql ") == ["Transakcje", "Indeks"]
+
+
+def test_unknown_tag_matches_nothing(authed: TestClient) -> None:
+    add_t(authed, "n", ["sql"])
+    assert tag_titles(authed, "nie ma") == []
+
+
+def test_text_search_does_not_match_tag_words(authed: TestClient) -> None:
+    add_t(authed, "Indeks", ["rozmowa"])
+    assert titles(authed, "rozmowa") == []  # tag matching in text search is S-06
+
+
+def test_tag_counts_ordered_by_count_then_name(authed: TestClient) -> None:
+    add_t(authed, "a", ["sql", "teoria"])
+    add_t(authed, "b", ["sql", "api"])
+    add_t(authed, "c", ["sql"])
+    r = authed.get("/api/tags").json()
+    assert r == [
+        {"name": "sql", "count": 3},
+        {"name": "api", "count": 1},
+        {"name": "teoria", "count": 1},
+    ]
+
+
+def test_edit_replaces_tags_and_clearing_works(authed: TestClient) -> None:
+    note_id = add_t(authed, "n", ["stary"])
+    r = authed.put(f"/api/notes/{note_id}", json={"title": "n", "tags": ["Nowy"]})
+    assert r.json()["tags"] == ["nowy"]
+    assert tag_titles(authed, "stary") == []
+    assert tag_titles(authed, "nowy") == ["n"]
+    authed.put(f"/api/notes/{note_id}", json={"title": "n"})  # no tags field clears
+    assert authed.get(f"/api/notes/{note_id}").json()["tags"] == []
+    assert tag_counts(authed) == {}
+
+
+def test_unused_tags_are_removed_but_shared_ones_survive(authed: TestClient) -> None:
+    keep = add_t(authed, "keep", ["wspolny", "tylko-keep"])
+    gone = add_t(authed, "gone", ["wspolny", "tylko-gone"])
+    assert delete(authed, gone) == 204
+    assert tag_counts(authed) == {"wspolny": 1, "tylko-keep": 1}
+    assert authed.get(f"/api/notes/{keep}").json()["tags"] == ["tylko-keep", "wspolny"]
+    conn = connect()
+    assert conn.execute("SELECT name FROM tags ORDER BY name").fetchall() == [
+        ("tylko-keep",),
+        ("wspolny",),
+    ]
+    conn.close()
+
+
+def test_deleting_a_note_leaves_no_link_rows(authed: TestClient) -> None:
+    note_id = add_t(authed, "n", ["a", "b"])
+    delete(authed, note_id)
+    conn = connect()
+    assert conn.execute("SELECT COUNT(*) FROM note_tags").fetchone() == (0,)
+    assert conn.execute("SELECT COUNT(*) FROM tags").fetchone() == (0,)
+    conn.close()
+
+
+def test_old_database_without_tag_tables_still_works(db_file: Path) -> None:
+    import sqlite3
+
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    old = sqlite3.connect(db_file)
+    old.executescript(
+        "CREATE TABLE notes(id INTEGER PRIMARY KEY, title TEXT NOT NULL, "
+        "body TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);"
+        "INSERT INTO notes(title, created_at) VALUES ('stara', 'x');"
+    )
+    old.close()
+    assert [n.title for n in notes.list_notes()] == ["stara"]
+    assert notes.list_notes()[0].tags == []
+    assert notes.create_note("nowa", "", ["t"]).tags == ["t"]
+
+
+def test_tags_require_login() -> None:
+    with TestClient(app, follow_redirects=False) as anon:
+        assert anon.get("/api/tags").status_code == 401
