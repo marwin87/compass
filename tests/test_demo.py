@@ -1,0 +1,40 @@
+import json
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from compass.transfer import parse_export
+
+DEMO = Path(__file__).resolve().parent.parent / "demo" / "compass-demo.json"
+
+
+def test_the_demo_file_is_a_valid_export() -> None:
+    document = json.loads(DEMO.read_text(encoding="utf-8"))
+    notes = parse_export(document)  # the same checks the import runs
+    assert len(notes) == document["count"] >= 15
+
+
+def test_the_demo_file_imports_and_searches_well(authed: TestClient) -> None:
+    body = DEMO.read_text(encoding="utf-8")
+    first = authed.post(
+        "/api/import", content=body, headers={"content-type": "application/json"}
+    )
+    assert first.status_code == 200 and first.json()["skipped"] == 0
+    count = first.json()["imported"]
+    again = authed.post(
+        "/api/import", content=body, headers={"content-type": "application/json"}
+    )
+    assert again.json() == {
+        "imported": 0,
+        "skipped": count,
+        "total": count,
+    }  # safe to repeat
+
+    def titles(q: str) -> list[str]:
+        return [n["title"] for n in authed.get("/api/notes", params={"q": q}).json()]
+
+    assert titles("zlozonosc")[0].startswith("Złożoność")
+    assert titles("indkes")[0] == "Indeks w bazie danych"
+    assert (
+        titles("sql")[0] != "Szybkie notatki o SQL"
+    )  # notes tagged sql come before a title-only hit

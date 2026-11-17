@@ -1,0 +1,229 @@
+{
+  "format": "compass-export",
+  "version": 1,
+  "exported_at": "2026-11-17T12:00:00+00:00",
+  "count": 21,
+  "notes": [
+    {
+      "id": 21,
+      "title": "English note: how to learn faster",
+      "body": "Spaced repetition beats cramming. Test yourself instead of rereading, mix topics (interleaving), and explain the idea in your own words.\n\nThe search in this app also works for English text.",
+      "tags": [
+        "learning",
+        "wskazówki"
+      ],
+      "created_at": "2026-11-14T13:33:00+00:00"
+    },
+    {
+      "id": 20,
+      "title": "Shortcuts: Compass",
+      "body": "/ — szukaj, N — nowa notatka, ↑ ↓ — wybór z listy, Esc — czyść.\n\nWskazówka: wpisz „zlozonosc” bez polskich liter albo „indkes” z literówką — i tak znajdzie.",
+      "tags": [
+        "compass",
+        "wskazówki"
+      ],
+      "created_at": "2026-11-12T17:20:00+00:00"
+    },
+    {
+      "id": 19,
+      "title": "Zakupy na weekend",
+      "body": "- pomidory, ogórki, rukola\n- mleko, jajka, ser żółty\n- kawa (ziarnista)\n- baterie AA\n- prezent dla Kasi 🎁",
+      "tags": [
+        "listy"
+      ],
+      "created_at": "2026-11-10T10:07:00+00:00"
+    },
+    {
+      "id": 18,
+      "title": "Przepis: naleśniki (jak od babci)",
+      "body": "Składniki: 250 g mąki, 2 jajka, 500 ml mleka, szczypta soli, 2 łyżki oleju.\n\n1. Wymieszaj mąkę z jajkami i połową mleka na gładkie ciasto.\n2. Dolej resztę mleka, sól i olej.\n3. Odstaw na 15 minut.\n4. Smaż na rozgrzanej patelni po ok. 1 minucie z każdej strony.\n\nPodawać z dżemem lub serkiem waniliowym.",
+      "tags": [
+        "gotowanie",
+        "przepisy"
+      ],
+      "created_at": "2026-11-08T14:54:00+00:00"
+    },
+    {
+      "id": 17,
+      "title": "Szybkie notatki o SQL",
+      "body": "Luźna lista: EXPLAIN pokazuje plan zapytania, LIMIT bez ORDER BY daje przypadkowe wiersze, COUNT(*) a COUNT(kolumna) to nie to samo.",
+      "tags": [
+        "luźne"
+      ],
+      "created_at": "2026-11-06T18:41:00+00:00"
+    },
+    {
+      "id": 16,
+      "title": "SQL: JOIN w pigułce",
+      "body": "INNER JOIN — tylko pasujące wiersze z obu tabel.\nLEFT JOIN — wszystkie z lewej, brakujące z prawej jako NULL.\nFULL OUTER JOIN — wszystko z obu stron.\n\nSELECT u.name, o.total\nFROM users u LEFT JOIN orders o ON o.user_id = u.id;",
+      "tags": [
+        "bazy danych",
+        "sql"
+      ],
+      "created_at": "2026-11-04T11:28:00+00:00"
+    },
+    {
+      "id": 15,
+      "title": "Fotosynteza",
+      "body": "6CO₂ + 6H₂O + światło → C₆H₁₂O₆ + 6O₂. Zachodzi w chloroplastach.\n\nFaza jasna: tylakoidy, powstaje ATP i NADPH.\nFaza ciemna (cykl Calvina): stroma, wiązanie CO₂.",
+      "tags": [
+        "biologia",
+        "nauka",
+        "podstawy"
+      ],
+      "created_at": "2026-11-02T15:15:00+00:00"
+    },
+    {
+      "id": 14,
+      "title": "Scrum — role i wydarzenia",
+      "body": "Zespół, Product Owner i Scrum Master pracują w sprintach (1–4 tygodnie) z planningiem, daily, review i retro.\n\nPO zarządza backlogiem i priorytetami, SM usuwa przeszkody i dba o proces. Sprint kończy się działającym przyrostem.",
+      "tags": [
+        "agile",
+        "rozmowa"
+      ],
+      "created_at": "2026-10-31T19:02:00+00:00"
+    },
+    {
+      "id": 13,
+      "title": "Docker: obraz i kontener",
+      "body": "Obraz to szablon, kontener to uruchomiona instancja. Kontener współdzieli jądro hosta, więc jest lżejszy niż maszyna wirtualna.\n\ndocker compose up --build\ndocker compose down -v   # kasuje też dane na wolumenie",
+      "tags": [
+        "devops",
+        "podstawy"
+      ],
+      "created_at": "2026-10-29T12:49:00+00:00"
+    },
+    {
+      "id": 12,
+      "title": "Git: merge vs rebase",
+      "body": "Merge łączy gałęzie commitem scalającym (zachowuje historię), rebase przepisuje commity na nową bazę (liniowa historia).\n\nNie rebase'uj gałęzi współdzielonych.\nrebase -i do porządkowania commitów przed PR.\n\ngit checkout feature\ngit rebase main",
+      "tags": [
+        "git",
+        "rozmowa"
+      ],
+      "created_at": "2026-10-27T16:36:00+00:00"
+    },
+    {
+      "id": 11,
+      "title": "Średnia vs mediana",
+      "body": "Średnia jest wrażliwa na wartości odstające, mediana — odporna. Przy skośnych rozkładach (np. zarobki) lepsza jest mediana.",
+      "tags": [
+        "nauka",
+        "podstawy",
+        "statystyka"
+      ],
+      "created_at": "2026-10-25T09:23:00+00:00"
+    },
+    {
+      "id": 10,
+      "title": "Wartość p i istotność statystyczna",
+      "body": "p to prawdopodobieństwo uzyskania wyników co najmniej tak skrajnych, zakładając prawdziwość H0.\n\np < α (zwykle 0,05) → odrzucamy H0\np NIE jest prawdopodobieństwem, że H0 jest prawdziwa\nIstotność statystyczna to nie istotność praktyczna.",
+      "tags": [
+        "nauka",
+        "statystyka",
+        "teoria"
+      ],
+      "created_at": "2026-10-23T13:10:00+00:00"
+    },
+    {
+      "id": 9,
+      "title": "Opowiedz o porażce",
+      "body": "Wybierz realną, ale nie krytyczną porażkę; skup się na wnioskach i tym, co zmieniłeś.\n\n- Nie udawaj, że porażek nie było\n- Bierz odpowiedzialność, nie obwiniaj innych\n- Zakończ konkretną zmianą w działaniu",
+      "tags": [
+        "rozmowa",
+        "soft skills"
+      ],
+      "created_at": "2026-10-21T17:57:00+00:00"
+    },
+    {
+      "id": 8,
+      "title": "Metoda STAR",
+      "body": "Struktura odpowiedzi na pytania behawioralne: Sytuacja → Zadanie → Działanie → Rezultat.\n\nS: krótki kontekst (1–2 zdania)\nT: co było Twoim celem\nA: co TY zrobiłeś (najdłuższa część)\nR: mierzalny efekt i czego się nauczyłeś",
+      "tags": [
+        "rozmowa",
+        "soft skills"
+      ],
+      "created_at": "2026-10-19T10:44:00+00:00"
+    },
+    {
+      "id": 7,
+      "title": "Kody statusu HTTP",
+      "body": "2xx sukces, 3xx przekierowanie, 4xx błąd klienta, 5xx błąd serwera.\n\n401 = brak uwierzytelnienia, 403 = brak uprawnień\n404 nie znaleziono, 409 konflikt\n429 za dużo żądań\n502/503 problem z bramą lub usługa niedostępna",
+      "tags": [
+        "api",
+        "podstawy",
+        "sieci"
+      ],
+      "created_at": "2026-10-17T14:31:00+00:00"
+    },
+    {
+      "id": 6,
+      "title": "REST vs GraphQL",
+      "body": "REST: wiele zasobów pod osobnymi URL-ami, prosty cache HTTP, dojrzałe narzędzia.\nGraphQL: jeden endpoint, klient sam określa kształt odpowiedzi; brak over- i under-fetchingu, ale trudniejszy w cache'owaniu i limitowaniu kosztu zapytań.",
+      "tags": [
+        "api",
+        "architektura",
+        "rozmowa"
+      ],
+      "created_at": "2026-10-15T18:18:00+00:00"
+    },
+    {
+      "id": 5,
+      "title": "Wyszukiwanie binarne",
+      "body": "Szukanie w posortowanej tablicy przez dzielenie zakresu na pół — O(log n).\n\ndef bsearch(a, x):\n    lo, hi = 0, len(a) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if a[mid] == x: return mid\n        if a[mid] < x: lo = mid + 1\n        else: hi = mid - 1\n    return -1",
+      "tags": [
+        "algorytmy",
+        "podstawy",
+        "rozmowa"
+      ],
+      "created_at": "2026-10-13T11:05:00+00:00"
+    },
+    {
+      "id": 4,
+      "title": "Złożoność obliczeniowa (Big O)",
+      "body": "Opis, jak rośnie czas lub pamięć algorytmu wraz z rozmiarem danych n — w najgorszym przypadku.\n\nO(1) dostęp po indeksie\nO(log n) wyszukiwanie binarne\nO(n log n) dobre sortowania\nO(n²) pętla w pętli",
+      "tags": [
+        "algorytmy",
+        "podstawy",
+        "rozmowa",
+        "teoria"
+      ],
+      "created_at": "2026-10-11T15:52:00+00:00"
+    },
+    {
+      "id": 3,
+      "title": "Normalizacja (1NF–3NF)",
+      "body": "Porządkowanie tabel, by usunąć redundancję i anomalie aktualizacji.\n\n1NF: wartości atomowe\n2NF: brak zależności od części klucza\n3NF: brak zależności przechodnich\n\nDenormalizacja bywa świadomym wyborem dla wydajności.",
+      "tags": [
+        "bazy danych",
+        "sql",
+        "teoria"
+      ],
+      "created_at": "2026-10-09T19:39:00+00:00"
+    },
+    {
+      "id": 2,
+      "title": "Transakcje i ACID",
+      "body": "ACID = Atomicity, Consistency, Isolation, Durability: transakcja wykonuje się w całości albo wcale.\n\nPoziomy izolacji: READ COMMITTED, REPEATABLE READ, SERIALIZABLE.\nPo COMMIT dane przetrwają awarię.",
+      "tags": [
+        "bazy danych",
+        "rozmowa",
+        "sql",
+        "teoria"
+      ],
+      "created_at": "2026-10-07T12:26:00+00:00"
+    },
+    {
+      "id": 1,
+      "title": "Indeks w bazie danych",
+      "body": "Struktura (najczęściej B-drzewo) przyspieszająca wyszukiwanie wierszy kosztem miejsca i wolniejszych zapisów.\n\n- B-tree: zakresy, sortowanie, równość\n- Hash: tylko równość\n- Indeks złożony działa wg zasady lewego prefiksu\n- Za dużo indeksów spowalnia INSERT i UPDATE\n\nCREATE INDEX idx_user_email ON users(email);",
+      "tags": [
+        "bazy danych",
+        "rozmowa",
+        "sql",
+        "wydajność"
+      ],
+      "created_at": "2026-10-05T16:13:00+00:00"
+    }
+  ]
+}
