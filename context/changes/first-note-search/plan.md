@@ -9,7 +9,7 @@ The north star: a logged-in user saves a note (title + body), views it, and find
 - `src/compass/auth.py`: `guard` middleware redirects every non-public, unauthenticated request to `/login` (303). `PUBLIC_PATHS = {"/login", "/health"}`.
 - Tests: `tests/test_app.py` + `tests/conftest.py` (env vars set before import), `TestClient(app, follow_redirects=False)`.
 - FTS5 is available in local SQLite (3.50) and in the Docker image (`python:3.12-slim-bookworm`, SQLite 3.40).
-- `compass-prototyp.html` is a UI reference only (not served).
+- `../../../prototypes/compass-prototyp.html` is a UI reference only (not served).
 
 ## Desired End State
 After login, `/` shows a search box, a list of notes (newest first), an add-note form and a note view. Typing filters the list live (prefix match, case-insensitive, any word matches). Notes survive `docker compose down` / `up --build` and are wiped by `down -v`.
@@ -94,7 +94,7 @@ API tests (Phase 1) carry the behaviour; Phase 2 adds a smoke test for the page 
 
 ## References
 - PRD US-01, FR-002, FR-003, FR-007; NFR on response time
-- `src/compass/db.py`, `src/compass/auth.py`, `src/compass/main.py`, `compass-prototyp.html`
+- `src/compass/db.py`, `src/compass/auth.py`, `src/compass/main.py`, `../../../prototypes/compass-prototyp.html`
 
 ## Progress
 

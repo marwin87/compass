@@ -50,7 +50,7 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 What's already in place in the codebase as of `2026-11-17` (auto-researched).
 Foundations below assume these are present and do NOT re-scaffold them.
 
-- **Frontend:** present — one HTML page with inline JS (`src/compass/page.py`): live search, add, view, edit and delete with confirmation, tags and a tag filter bar; no export or import control yet.
+- **Frontend:** present — one page in a panel layout (tag sidebar with counts, ranked results, note card) built from DOM calls (`src/compass/page.py`): live search with match highlighting, add, view, edit and delete with confirmation, tags and a tag filter; a styled login page; no export or import control yet. UI variants are kept as standalone prototypes in `prototypes/`.
 - **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, a JSON notes API (`/api/notes`: create, read, search, edit, delete, filter by tag), `/api/tags`; no export or import endpoint.
 - **Data:** present — SQLite file (`COMPASS_DB_PATH`) with `notes`, `tags`, `note_tags` and a folded search index (`notes_fts`) that is rebuilt on version change; no code reads or writes notes in bulk.
 - **Auth:** present — single-password login with a signed session cookie; everything except `/login` and `/health` requires it.
@@ -124,3 +124,4 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 (Empty on first generation. `/10x-archive` appends an entry here — and flips that item's `Status` to `done` — when a change whose `Change ID` matches the item is archived. Do NOT pre-populate. Format:)
 
 - **<Slice ID>: <Outcome>** — Archived <YYYY-MM-DD> → `context/archive/<YYYY-MM-DD-change-id>/`. Lesson: <pointer to lessons.md if any, or `—`>.
+- **(outside the roadmap) UI redesign: panel layout, variant A** — Done 2026-11-17. Not a roadmap item (no PRD anchor, no change folder); recorded here so the history is complete. The notes page and the login page were redesigned from prototype variant A; the page makes no external requests (no web fonts). Lesson: —.
