@@ -1,0 +1,10 @@
+services:
+  compass:
+    build: .
+    ports:
+      - "8011:8011"
+    volumes:
+      - compass-data:/data
+
+volumes:
+  compass-data:

@@ -40,3 +40,11 @@ jobs:
       - run: uv run ruff format --check .
       # Exit code 5 means "no tests collected"; tolerated until the first tests exist.
       - run: uv run pytest || [ $? -eq 5 ]
+
+  docker:
+    name: docker - build image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t compass:ci .

@@ -22,7 +22,7 @@ milestone_status: open
 
 **M-01: First usable notes** — Status: open
 
-- **Intent:** A logged-in user can keep notes, find them again quickly by keyword and by tag, and the app runs on a real host with notes that survive restarts and new releases.
+- **Intent:** A logged-in user can keep notes, find them again quickly by keyword and by tag, and the app runs as a local Docker image with notes that survive restarts and new images.
 - **Source materials:** `context/foundation/prd.md` (v1)
 - **Done when:** every F-NN and S-NN below is `done`.
 - **Scope anchors:** FR-001 to FR-008 (the must-have requirements) and US-01. FR-009 (export and import) is a nice-to-have and is parked.
@@ -41,8 +41,8 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 
 | ID    | Change ID              | Outcome (user can …)                                              | Prerequisites | PRD refs                          | Status   |
 | ----- | ---------------------- | ----------------------------------------------------------------- | ------------- | --------------------------------- | -------- |
-| F-01  | runnable-app-skeleton  | (foundation) one runnable app with a persistent database file     | —             | Success Criteria §Guardrails      | in-progress |
-| F-02  | first-hosted-release   | (foundation) the app runs on the chosen host with a durable data volume | F-01    | Success Criteria §Guardrails      | proposed |
+| F-01  | runnable-app-skeleton  | (foundation) one runnable app with a persistent database file     | —             | Success Criteria §Guardrails      | done |
+| F-02  | local-docker-image     | (foundation) the app builds into a Docker image that runs locally with a durable data volume | F-01 | Success Criteria §Guardrails | done |
 | S-01  | password-login         | log in with a password, and nothing is reachable without it       | F-01          | FR-001                            | proposed |
 | S-02  | first-note-search      | save a note and find it again by a keyword in it                  | S-01, F-02    | US-01, FR-002, FR-003, FR-007     | proposed |
 | S-03  | edit-note              | correct an existing note                                          | S-02          | FR-004                            | proposed |
@@ -57,7 +57,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | Stream | Theme                 | Chain                                          | Note                                                                 |
 | ------ | --------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
 | A      | Notes and login       | `F-01` → `S-01` → `S-02` → `S-03` → `S-04`     | The shortest path to a usable app, which is what the `speed` goal asks for. |
-| B      | Hosting               | `F-02`                                         | Runs alongside `S-01`; joins Stream A at `S-02`.                     |
+| B      | Docker image          | `F-02`                                         | Runs alongside `S-01`; joins Stream A at `S-02`.                     |
 | C      | Tags and relevance    | `S-05` → `S-06`                                | Starts once `S-02` is done; the relevance slice tunes what `S-02` first delivers. |
 
 ## Baseline
@@ -66,10 +66,10 @@ What's already in place in the codebase as of `2026-11-17` (auto-researched + us
 Foundations below assume these are present and do NOT re-scaffold them.
 
 - **Frontend:** absent — no web code in the repo; the choice is recorded in `tech-stack.md`.
-- **Backend / API:** partial — backend framework dependencies are installed (`pyproject.toml`, `uv.lock`); no application code yet.
-- **Data:** absent — the database choice is recorded in `tech-stack.md`; no schema or data code.
+- **Backend / API:** partial — FastAPI app in `src/compass/` serving `/` and `/health`; no notes or search endpoints yet.
+- **Data:** partial — SQLite file created at startup (`src/compass/db.py`, `COMPASS_DB_PATH`); only a `meta` table, no notes schema.
 - **Auth:** absent — no login code (FR-001 not started).
-- **Deploy / infra:** partial — a CI workflow exists (`.github/workflows/ci.yml`); no container or host configuration.
+- **Deploy / infra:** partial — CI workflow (`.github/workflows/ci.yml`, includes a Docker build job) and a local Docker image with a data volume (`Dockerfile`, `docker-compose.yml`); no registry publishing.
 - **Observability:** absent — no logging or error tracking.
 
 ## Foundations
@@ -85,21 +85,20 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Kept to a minimal wiring of existing pieces; resist pre-building the data model or screens beyond what S-01 and S-02 need.
-- **Status:** in-progress
+- **Status:** done
 
-### F-02: First hosted release
+### F-02: Local Docker image
 
-- **Outcome:** (foundation) the app skeleton runs on the chosen host, over a secure connection, and its data volume survives a restart and a new release.
-- **Change ID:** first-hosted-release
-- **PRD refs:** Success Criteria §Guardrails (no data loss); Access Control (nothing reachable without logging in)
-- **Unlocks:** S-02, which is the first slice that stores user data and must show that notes survive a restart and a new release.
+- **Outcome:** (foundation) the app builds into a Docker image that runs locally with a mounted data volume, and the data survives a container restart and a rebuilt image.
+- **Change ID:** local-docker-image
+- **PRD refs:** Success Criteria §Guardrails (no data loss)
+- **Unlocks:** S-02, which is the first slice that stores user data and must show that notes survive a restart and a new image.
 - **Prerequisites:** F-01
 - **Parallel with:** S-01
-- **Blockers:** A hosting account and a deploy credential must exist (user action, outside the repo).
-- **Unknowns:**
-  - Is the hosting account and deploy credential ready? — Owner: user. Block: no.
-- **Risk:** Hosting surprises surface late if left until the end; doing it beside S-01 keeps the first data-bearing slice honest. Only the skeleton is deployed here, not a full pipeline.
-- **Status:** proposed
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Container surprises (paths, permissions on the volume) surface late if left until the end; doing it beside S-01 keeps the first data-bearing slice honest. No remote host: publishing the image as a GitHub package and pulling it from there is a later step, not part of this milestone.
+- **Status:** done
 
 ## Slices
 
@@ -180,10 +179,10 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 | Roadmap ID | Change ID               | Suggested issue title                                   | Ready for `/10x-plan` | Notes                                  |
 | ---------- | ----------------------- | ------------------------------------------------------- | --------------------- | -------------------------------------- |
-| F-01       | runnable-app-skeleton   | Runnable app skeleton with a persistent database        | yes                   | Run `/10x-plan runnable-app-skeleton`  |
-| F-02       | first-hosted-release    | First hosted release with a durable data volume         | no                    | Waits for F-01                         |
-| S-01       | password-login          | Log in with a password                                  | no                    | Waits for F-01                         |
-| S-02       | first-note-search       | Save a note and find it by a keyword                    | no                    | Waits for S-01 and F-02                |
+| F-01       | runnable-app-skeleton   | Runnable app skeleton with a persistent database        | done                  | Done                                   |
+| F-02       | local-docker-image      | Local Docker image with a durable data volume           | done                  | Done                                   |
+| S-01       | password-login          | Log in with a password                                  | yes                   | Run `/10x-plan password-login`         |
+| S-02       | first-note-search       | Save a note and find it by a keyword                    | no                    | Waits for S-01                         |
 | S-03       | edit-note               | Edit a note                                             | no                    | Waits for S-02                         |
 | S-04       | delete-note             | Delete a note                                           | no                    | Waits for S-02                         |
 | S-05       | note-tags-filter        | Tag a note and filter by tag                            | no                    | Waits for S-02                         |
@@ -194,7 +193,6 @@ Foundations below assume these are present and do NOT re-scaffold them.
 1. **What is the expected query rate for the instance?** — Owner: user. Block: roadmap-wide (does not gate any slice).
 2. **What is the expected data volume?** — Owner: user. Block: roadmap-wide (does not gate any slice; may inform S-06's response-time target).
 3. **Which formats should export and import support?** — Owner: user. Block: none in this milestone (FR-009 is parked).
-4. **Is the hosting account and deploy credential ready?** — Owner: user. Block: F-02.
 
 ## Parked
 
@@ -215,3 +213,6 @@ Foundations below assume these are present and do NOT re-scaffold them.
 (Empty on first generation. `/10x-archive` appends an entry here — and flips that item's `Status` to `done` — when a change whose `Change ID` matches the item is archived. Do NOT pre-populate. Format:)
 
 - **<Slice ID>: <Outcome>** — Archived <YYYY-MM-DD> → `context/archive/<YYYY-MM-DD-change-id>/`. Lesson: <pointer to lessons.md if any, or `—`>.
+
+- **F-01: Runnable app skeleton** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/runnable-app-skeleton/`. App starts, serves `/` and `/health`, and keeps its SQLite file across restarts. Lesson: —.
+- **F-02: Local Docker image** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/local-docker-image/`. App builds into a Docker image (port 8011, non-root, data on the `compass-data` volume); `docker compose down` keeps data, `down -v` wipes it. The CI `docker` build job is added but has not run on GitHub yet. Lesson: —.

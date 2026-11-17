@@ -10,7 +10,7 @@ See `@context/foundation/prd.md` for domain rules and `@context/foundation/tech-
 
 ## Build & Development Commands
 
-API docs: `http://localhost:8010/docs`.
+API docs: `http://localhost:8011/docs`.
 
 ## Coding Style & Conventions
 
