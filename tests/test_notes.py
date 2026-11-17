@@ -108,9 +108,9 @@ def test_search_in_5000_notes_is_fast(authed: TestClient) -> None:
         elapsed = time.perf_counter() - start
         assert result, query
         assert len(result) <= notes.LIMIT
-        assert (
-            elapsed < 0.5
-        ), f"{query!r} took {elapsed:.3f}s"  # generous: avoids flaky CI
+        assert elapsed < 0.5, (
+            f"{query!r} took {elapsed:.3f}s"
+        )  # generous: avoids flaky CI
 
 
 def test_page_has_search_and_never_uses_inner_html(authed: TestClient) -> None:
