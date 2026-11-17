@@ -1,6 +1,6 @@
 import json
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints, field_validator
@@ -69,8 +69,9 @@ def search(
     q: str = "",
     tag: Annotated[list[str] | None, Query()] = None,
     category_id: int | None = None,
+    sort: Literal["title_asc", "title_desc", "date_asc", "date_desc"] | None = None,
 ) -> list[notes.Note]:
-    return notes.list_notes(q, tag or [], category_id)
+    return notes.list_notes(q, tag or [], category_id, sort)
 
 
 @router.get("/{note_id}")

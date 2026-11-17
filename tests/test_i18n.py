@@ -323,3 +323,16 @@ def test_tab_icon_is_inline_on_both_pages(anon: TestClient) -> None:
         home = c.get("/").text
     for page in (login, home):
         assert 'rel="icon" type="image/svg+xml" href="data:image/svg+xml,' in page
+
+
+def test_sort_control_is_present_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        for lang, label in (("pl", "Sortowanie"), ("en", "Sort")):
+            c.cookies.set("lang", lang)
+            page = c.get("/").text
+            assert 'id="sort"' in page and f'aria-label="{label}"' in page, lang
+        assert (
+            "Nazwa A–Z" in STRINGS["pl"]["sort_title_asc"]
+            and "Title A–Z" == STRINGS["en"]["sort_title_asc"]
+        )

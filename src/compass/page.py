@@ -150,7 +150,13 @@ main{display:flex;flex-direction:column;min-width:0;height:100vh;padding:18px 24
 .hint{margin-left:auto;color:var(--faint);opacity:.75;font-size:12px;display:flex;gap:14px;flex-wrap:wrap}
 .grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(300px,455px) minmax(0,1fr);gap:20px}
 .listcol,.detailcol{min-height:0;overflow:auto;padding:2px 4px 22px 2px;scrollbar-width:thin;scrollbar-color:rgba(128,132,160,.35) transparent}
-.count{color:var(--muted);font-size:13px;margin:0 4px 10px}
+.count{color:var(--muted);font-size:13px;margin:0 4px}
+.listhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 10px}
+.sortsel{display:inline-flex;align-items:center;gap:6px;flex:none;border:1px solid var(--line);border-radius:999px;padding:2px 6px 2px 10px;color:var(--muted);background:rgba(255,255,255,.03);transition:border-color var(--ease),color var(--ease)}
+.sortsel:hover,.sortsel:focus-within{border-color:rgba(99,125,255,.5);color:var(--ink)}
+.sortsel.on{border-color:rgba(99,125,255,.55);color:var(--accent-light);background:var(--accent-soft)}
+.sortsel select{border:0;background:none;color:inherit;font-size:12.5px;padding:3px 2px;cursor:pointer;outline:0;max-width:170px}
+.sortsel select option{background:var(--panel);color:var(--ink)}
 .withbtn{display:flex;justify-content:space-between;align-items:center}
 .linkbtn{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--muted);font-size:12px;padding:0;text-transform:none;letter-spacing:0;font-weight:500}
 .linkbtn:hover{color:var(--accent-light)}
@@ -317,7 +323,13 @@ INDEX_HTML = (
       <div class="hint"><span><kbd>↑</kbd><kbd>↓</kbd> [[hint_select]]</span><span><kbd>N</kbd> [[hint_new]]</span><span><kbd>Esc</kbd> [[hint_clear]]</span></div>
     </div>
     <div class="grid">
-      <div class="listcol"><div class="count" id="count"></div><div class="results" id="results"></div></div>
+      <div class="listcol">
+        <div class="listhead">
+          <div class="count" id="count"></div>
+          <label class="sortsel" id="sortbox" title="[[sort_label]]"><span class="ic" data-icon="sort" data-size="14"></span><select id="sort" aria-label="[[sort_label]]"></select></label>
+        </div>
+        <div class="results" id="results"></div>
+      </div>
       <div class="detailcol" id="detail"></div>
     </div>
   </main>
@@ -417,6 +429,7 @@ const ICONS = {
   moon: [["path", {d: "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"}]],
   sun: [["circle", {cx: 12, cy: 12, r: 4}], ["path", {d: "M12 2v2"}], ["path", {d: "M12 20v2"}], ["path", {d: "m4.93 4.93 1.41 1.41"}], ["path", {d: "m17.66 17.66 1.41 1.41"}], ["path", {d: "M2 12h2"}], ["path", {d: "M20 12h2"}], ["path", {d: "m6.34 17.66-1.41 1.41"}], ["path", {d: "m19.07 4.93-1.41 1.41"}]],
   menu: [["path", {d: "M4 6h16"}], ["path", {d: "M4 12h16"}], ["path", {d: "M4 18h16"}]],
+  sort: [["path", {d: "m21 16-4 4-4-4"}], ["path", {d: "M17 20V4"}], ["path", {d: "m3 8 4-4 4 4"}], ["path", {d: "M7 4v16"}]],
   x: [["path", {d: "M18 6 6 18"}], ["path", {d: "m6 6 12 12"}]],
   "chevron-right": [["path", {d: "m9 18 6-6-6-6"}]],
   "chevron-left": [["path", {d: "m15 18-6-6 6-6"}]],
@@ -466,7 +479,7 @@ function toast(msg, kind = "", ms = 1800) {   // kind: "", "ok" or "bad"; errors
 
 /*READER_UI*/
 // --- state and server calls
-const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: [], total: 0, reading: false};
+const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: [], total: 0, reading: false, sort: ""};
 let seq = 0, timer;
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -535,6 +548,7 @@ async function load(keepDetail = false) {
   const params = new URLSearchParams({q: state.q});
   for (const t of state.sel) params.append("tag", t);
   if (state.category !== null) params.set("category_id", state.category);
+  if (state.sort) params.set("sort", state.sort);
   let list;
   loadingStarted();
   try {
@@ -901,6 +915,17 @@ $("#theme").addEventListener("click", () => {
 });
 $("#f-all").addEventListener("click", () => { state.sel.clear(); state.category = null; state.mode = "view"; renderTagbar(); renderCategories(); load(); });
 $("#f-clear").addEventListener("click", () => resetFilters(true));
+// Sorting: "" is the default (newest first, or by relevance while searching); a chosen order always wins
+const SORT_LABELS = {"": "sort_default", title_asc: "sort_title_asc", title_desc: "sort_title_desc", date_desc: "sort_date_desc", date_asc: "sort_date_asc"};
+try { const saved = localStorage.getItem("sort"); if (saved in SORT_LABELS) state.sort = saved; } catch (e) { /* default */ }
+$("#sort").replaceChildren(...Object.entries(SORT_LABELS).map(([value, key]) => h("option", {value}, tr(key))));
+const syncSort = () => { $("#sort").value = state.sort; $("#sortbox").classList.toggle("on", state.sort !== ""); };
+syncSort();
+$("#sort").addEventListener("change", () => {
+  state.sort = $("#sort").value; syncSort();
+  try { localStorage.setItem("sort", state.sort); } catch (e) { /* private mode */ }
+  load();
+});
 applyReader();
 $("#r-smaller").addEventListener("click", () => { READER.size = Math.max(READ_SIZES[0], READER.size - 1); applyReader(); });
 $("#r-larger").addEventListener("click", () => { READER.size = Math.min(READ_SIZES[1], READER.size + 1); applyReader(); });

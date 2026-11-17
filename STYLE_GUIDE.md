@@ -105,6 +105,11 @@ Dark is the default theme; the light theme is `:root[data-theme=light]`. The cho
 - **Keyboard:** `/` and Ctrl/Cmd+K focus search, `N` new note, Esc clears filters, Up/Down move through
   the notes from the search box or from anywhere outside a form. Shortcuts never fire inside inputs,
   textareas or selects, and never while the dialog is open.
+- **Sorting:** the `#sort` select above the list (`SORT_LABELS`): default (newest first, or by relevance while
+  searching), title A-Z / Z-A, oldest / newest first. A chosen order overrides relevance, is sent as `sort=` to
+  `/api/notes` (server sorts before cutting to 50; titles ignore case and accents), is kept in
+  `localStorage["sort"]` and is highlighted while active. New sort options need the API `Literal`, `SORTS` in
+  `notes.py`, an `i18n` key and a test in `tests/test_sort.py`.
 - **Hiding:** use the `hidden` attribute; a global `[hidden]{display:none!important}` exists because
   `display:flex/grid` on a class would otherwise override it.
 

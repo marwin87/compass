@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from compass import categories
 from compass.db import connect, index_note, unindex_note
-from compass.search import fuzzy_terms, rank_key, words
+from compass.search import fold, fuzzy_terms, rank_key, words
 
 LIMIT = 50
 CANDIDATES = 200  # notes fetched from the index (best bm25 first) before re-ranking
@@ -170,13 +170,45 @@ def _tag_filter(tags: Iterable[str]) -> tuple[str, list[object]] | None:
     return sql, [*wanted, len(wanted)]
 
 
+SORTS = ("title_asc", "title_desc", "date_asc", "date_desc")
+
+
+def _when(created_at: str) -> datetime:
+    """The creation moment as an aware datetime (imported dates may carry any offset)."""
+    try:
+        when = datetime.fromisoformat(created_at)
+    except ValueError:
+        return datetime.min.replace(tzinfo=UTC)
+    return when if when.tzinfo else when.replace(tzinfo=UTC)
+
+
+def _sort_notes(items: list[Note], sort: str) -> None:
+    """Sort in place: titles ignore case and accents (Polish letters sit next to their base letter)."""
+    if sort.startswith("title"):
+        items.sort(
+            key=lambda n: (fold(n.title), n.title.lower(), n.id),
+            reverse=sort == "title_desc",
+        )
+    else:
+        items.sort(
+            key=lambda n: (_when(n.created_at), n.id), reverse=sort == "date_desc"
+        )
+
+
 def list_notes(
-    q: str = "", tags: Iterable[str] = (), category_id: int | None = None
+    q: str = "",
+    tags: Iterable[str] = (),
+    category_id: int | None = None,
+    sort: str | None = None,
 ) -> list[Note]:
     """Newest first without a query; otherwise the most relevant notes first.
 
     The tag filter (all tags) and the category filter (one category) combine with the text by AND.
+    An explicit `sort` (see SORTS) replaces that default order, also while searching, and is applied
+    before the result is cut to LIMIT.
     """
+    if sort is not None and sort not in SORTS:
+        raise ValueError(f"unknown sort: {sort}")
     tokens = words(q)
     tag_filter = _tag_filter(tags)
     conn = connect()
@@ -191,6 +223,13 @@ def list_notes(
                 conditions.append("n.category_id = ?")
                 params.append(category_id)
             where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
+            if sort:
+                rows = conn.execute(
+                    f"SELECT {COLUMNS} FROM notes n {where}", params
+                ).fetchall()
+                found = _with_tags(conn, rows)
+                _sort_notes(found, sort)
+                return found[:LIMIT]
             rows = conn.execute(
                 f"SELECT {COLUMNS} FROM notes n {where}ORDER BY n.id DESC LIMIT ?",
                 (*params, LIMIT),
@@ -218,10 +257,13 @@ def list_notes(
         candidates = _with_tags(conn, rows)
     finally:
         conn.close()
-    candidates.sort(
-        key=lambda n: (*rank_key(tokens, n.title, n.body, n.tags, fuzzy), n.id),
-        reverse=True,
-    )
+    if sort:
+        _sort_notes(candidates, sort)
+    else:
+        candidates.sort(
+            key=lambda n: (*rank_key(tokens, n.title, n.body, n.tags, fuzzy), n.id),
+            reverse=True,
+        )
     return candidates[:LIMIT]
 
 
