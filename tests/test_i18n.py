@@ -286,3 +286,23 @@ def test_manage_dialog_is_present_in_both_languages(anon: TestClient) -> None:
         for marker in ('id="catdialog"', 'id="managecats"', "Manage categories"):
             assert marker in en, marker
         assert "Zarządzaj" not in en
+
+
+def test_redesigned_page_controls_exist_in_both_languages(anon: TestClient) -> None:
+    with anon as c:
+        login_cookie(c)
+        for lang, texts in (("pl", ("Czyść", "Importuj")), ("en", ("Clear", "Import"))):
+            c.cookies.set("lang", lang)
+            page = c.get("/").text
+            for marker in (
+                'id="f-all"',
+                'id="f-clear"',
+                'id="tagmore"',
+                'id="shortcut"',
+                'id="menu"',
+                *texts,
+            ):
+                assert marker in page, (lang, marker)
+        assert "https://" not in page and "http://" not in page.replace(
+            "http://www.w3.org/2000/svg", ""
+        )  # still no external requests
