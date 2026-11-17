@@ -198,7 +198,7 @@ def test_import_controls_are_present_in_both_languages(anon: TestClient) -> None
         for marker in (
             'id="import"',
             'id="importfile"',
-            'id="importmsg"',
+            'id="toast"',  # results and errors are shown in the toast at the bottom
             "Importuj notatki",
         ):
             assert marker in pl, marker
@@ -207,7 +207,7 @@ def test_import_controls_are_present_in_both_languages(anon: TestClient) -> None
         for marker in (
             'id="import"',
             'id="importfile"',
-            'id="importmsg"',
+            'id="toast"',
             "Import notes",
         ):
             assert marker in en, marker
@@ -306,3 +306,20 @@ def test_redesigned_page_controls_exist_in_both_languages(anon: TestClient) -> N
         assert "https://" not in page and "http://" not in page.replace(
             "http://www.w3.org/2000/svg", ""
         )  # still no external requests
+
+
+def test_skeleton_loading_is_built_in_and_respects_reduced_motion() -> None:
+    assert "skeletonCard" in INDEX_HTML and "skeletonPanel" in INDEX_HTML
+    assert (
+        "prefers-reduced-motion:reduce" in INDEX_HTML
+    )  # shimmer stops for those users
+    assert "spinner" not in INDEX_HTML.lower()
+
+
+def test_tab_icon_is_inline_on_both_pages(anon: TestClient) -> None:
+    with anon as c:
+        login = c.get("/login").text
+        login_cookie(c)
+        home = c.get("/").text
+    for page in (login, home):
+        assert 'rel="icon" type="image/svg+xml" href="data:image/svg+xml,' in page

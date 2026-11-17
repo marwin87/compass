@@ -9,8 +9,26 @@ same strings from the embedded `I18N` object.
 import html
 import json
 import re
+from urllib.parse import quote
 
 from compass.i18n import STRINGS
+
+# The tab icon: the logo (compass on the brand gradient) as an inline SVG data URI, so the page
+# still makes no external request and needs no extra route.
+_FAVICON_SVG = (
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+    "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>"
+    "<stop offset='0' stop-color='#477bff'/><stop offset='1' stop-color='#765bff'/></linearGradient></defs>"
+    "<rect width='32' height='32' rx='8' fill='url(#g)'/>"
+    "<g transform='translate(5 5) scale(.917)' fill='none' stroke='white' stroke-width='2' "
+    "stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/>"
+    "<polygon points='16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76'/></g></svg>"
+)
+FAVICON_LINK = (
+    '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,'
+    + quote(_FAVICON_SVG, safe="/:='")
+    + '">'
+)
 
 COMMON_CSS = r"""
 :root{
@@ -18,12 +36,13 @@ COMMON_CSS = r"""
   --accent:#5275ff; --accent-2:#795cff; --accent-light:#7295ff; --accent-soft:rgba(82,117,255,.16);
   --ink:#f5f5fa; --muted:#a3a5b5; --faint:#777b90; --mark:rgba(121,92,255,.38); --ok:#22c55e; --danger:#f87171; --danger-soft:rgba(248,113,113,.12);
   --grad:linear-gradient(135deg,#477bff,#765bff); --r:14px; --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.35);
+  --sk-a:#222538; --sk-b:#30354d;
   --glow:0 0 0 1px rgba(99,125,255,.55),0 8px 30px rgba(82,117,255,.22); --ease:.18s ease-out;
 }
 :root[data-theme=light]{
   --bg:#f4f5fa; --side:#ffffff; --panel:#ffffff; --raise:#eef0f8; --line:rgba(20,24,50,.09); --line-strong:rgba(82,117,255,.9);
   --accent:#4263eb; --accent-light:#4263eb; --accent-soft:rgba(82,117,255,.12); --ink:#16182a; --muted:#5b5f75; --faint:#8a8ea3;
-  --mark:rgba(255,214,10,.45); --ok:#15803d; --danger:#dc2626; --danger-soft:rgba(220,38,38,.08);
+  --sk-a:#e8eaf4; --sk-b:#f6f7fc; --mark:rgba(255,214,10,.45); --ok:#15803d; --danger:#dc2626; --danger-soft:rgba(220,38,38,.08);
   --shadow:0 1px 2px rgba(20,24,50,.05),0 12px 32px rgba(20,24,50,.08); --glow:0 0 0 1px rgba(82,117,255,.5),0 8px 26px rgba(82,117,255,.16);
 }
 *{box-sizing:border-box}
@@ -73,6 +92,8 @@ kbd{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;border:1p
 .empty{color:var(--muted);text-align:center;padding:40px 14px}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(6px);background:var(--raise);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);padding:9px 18px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s ease-out,transform .2s ease-out;pointer-events:none;z-index:60}
 .toast.show{opacity:1;transform:translateX(-50%)}
+.toast.ok{border-color:rgba(34,197,94,.45);color:var(--ok)}
+.toast.bad{border-color:rgba(248,113,113,.5);color:var(--danger)}
 .login{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(900px 500px at 70% -10%,rgba(82,117,255,.14),transparent),var(--bg)}
 .login .card{width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow)}
 .login h1{margin:0 0 4px;font-size:22px}
@@ -104,7 +125,13 @@ aside>.spacer{flex:1 0 12px}
 .row form{margin:0}
 a.btn{text-decoration:none}
 .sidebtn{justify-content:center;background:rgba(255,255,255,.03);padding:10px 12px;border-radius:12px}
-.importask{display:grid;gap:8px;margin-top:6px;padding:10px;border:1px solid rgba(248,113,113,.4);border-radius:12px;background:var(--danger-soft)}
+#importdialog{width:min(440px,calc(100% - 32px))}
+#importdialog h3{margin:12px 0 6px;font-size:18px}
+#importdialog p{margin:0 0 14px;line-height:1.55}
+.warnicon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--danger-soft);color:var(--danger)}
+.fileline{display:flex;gap:8px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px;color:var(--muted);overflow:hidden}
+.fileline span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dlg-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
 .msg{font-size:12px;min-height:1em;margin-top:2px}
 .msg.ok{color:var(--ok)}
 .msg.bad{color:var(--danger)}
@@ -164,8 +191,20 @@ dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
 .res .badge.cat{border-color:transparent;background:none;padding-left:0;color:var(--accent-light);font-weight:600}
 .res .chev{color:var(--faint);opacity:.55;margin-top:2px;transition:opacity var(--ease),transform var(--ease)}
 .res:hover .chev,.res.on .chev{opacity:1;transform:translateX(2px)}
-.skel{height:104px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(100deg,var(--panel) 30%,var(--raise) 50%,var(--panel) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite}
-@keyframes shimmer{to{background-position:-200% 0}}
+.sk{display:block;flex:none;max-width:100%;border-radius:8px;background:linear-gradient(100deg,var(--sk-a) 30%,var(--sk-b) 50%,var(--sk-a) 70%);background-size:240% 100%;animation:shimmer 1.7s ease-in-out infinite}
+.sk.round{border-radius:50%}
+.sk.pill{border-radius:999px}
+.skcard{display:grid;grid-template-columns:40px minmax(0,1fr);gap:13px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:var(--panel)}
+.skbody{display:grid;gap:9px;min-width:0}
+.sktop{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sktags{display:flex;gap:6px;margin-top:2px}
+.skhero{padding:20px 26px 38px;background:linear-gradient(135deg,#232857,#171b3e)}
+.skhero .sk{background:linear-gradient(100deg,rgba(255,255,255,.07) 30%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.07) 70%);background-size:240% 100%}
+.skhero .sktags{margin-top:14px}
+.sklines{display:grid;gap:12px;padding:26px}
+.reveal .res{animation:fadein .2s ease-out both}
+@keyframes fadein{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@keyframes shimmer{from{background-position:120% 0}to{background-position:-120% 0}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);animation:rise .2s ease-out}
 @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .panel[data-mode=edit],.panel[data-mode=del],.panel[data-mode=confirm],.panel.pad{padding:24px 26px}
@@ -217,6 +256,9 @@ INDEX_HTML = (
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Compass</title>
+"""
+    + FAVICON_LINK
+    + r"""
 <style>"""
     + COMMON_CSS
     + APP_CSS
@@ -251,8 +293,6 @@ INDEX_HTML = (
     <button type="button" class="btn wide sidebtn" id="import" title="[[import_title]]"><span class="ic" data-icon="upload"></span>[[import]]</button>
     <input type="file" id="importfile" accept=".json,application/json" hidden>
     <a class="btn wide sidebtn" href="/api/export" download title="[[export_title]]"><span class="ic" data-icon="download"></span>[[export]]</a>
-    <div id="importask" class="importask" hidden><div class="msg bad" id="importasktext"></div><div class="qrow"><button type="button" class="btn danger" id="importyes">[[import_replace]]</button><button type="button" class="btn" id="importno">[[cancel]]</button></div></div>
-    <div id="importmsg" class="msg" role="status"></div>
     <form method="post" action="/logout"><button class="btn wide sidebtn"><span class="ic" data-icon="logout"></span>[[logout]]</button></form>
   </aside>
   <div class="scrim" id="scrim" hidden></div>
@@ -277,6 +317,13 @@ INDEX_HTML = (
   <div class="qrow"><input id="catnew" placeholder="[[category_new_ph]]" maxlength="60" autocomplete="off"><button type="button" class="btn primary" id="catadd">[[category_add]]</button></div>
   <div class="err" id="catmsg" role="alert"></div>
   <ul class="catrows" id="catrows"></ul>
+</dialog>
+<dialog id="importdialog" aria-labelledby="importdialog-h" aria-describedby="importdialog-text">
+  <div class="warnicon"><span class="ic" data-icon="alert" data-size="22"></span></div>
+  <h3 id="importdialog-h">[[import_confirm_title]]</h3>
+  <p class="muted" id="importdialog-text">[[import_ask]]</p>
+  <div class="fileline"><span class="ic" data-icon="file" data-size="16"></span><span id="importfilename"></span></div>
+  <div class="dlg-actions"><button type="button" class="btn" id="importno">[[cancel]]</button><button type="button" class="btn danger" id="importyes">[[import_replace]]</button></div>
 </dialog>
 <div class="toast" id="toast" role="status"></div>
 """
@@ -342,6 +389,7 @@ const SVGNS = "http://www.w3.org/2000/svg";
 const ICONS = {
   compass: [["circle", {cx: 12, cy: 12, r: 10}], ["polygon", {points: "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"}]],
   plus: [["path", {d: "M5 12h14"}], ["path", {d: "M12 5v14"}]],
+  alert: [["path", {d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"}], ["path", {d: "M12 9v4"}], ["path", {d: "M12 17h.01"}]],
   search: [["circle", {cx: 11, cy: 11, r: 8}], ["path", {d: "m21 21-4.3-4.3"}]],
   zap: [["polygon", {points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2"}]],
   star: [["polygon", {points: "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"}]],
@@ -395,7 +443,9 @@ const TOPICS = [[/rozmow|interview|soft/, "message"], [/\bgit\b/, "branch"], [/a
 const noteIcon = (note) => { const hay = fold(note.title + " " + note.tags.join(" ")); const hit = TOPICS.find(([re]) => re.test(hay)); return hit ? hit[1] : "file"; };
 const shortDate = (iso) => new Date(iso).toLocaleDateString(LANG, {day: "numeric", month: "short"});
 const longDate = (iso) => new Date(iso).toLocaleDateString(LANG, {day: "numeric", month: "short", year: "numeric"});
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800); }
+function toast(msg, kind = "", ms = 1800) {   // kind: "", "ok" or "bad"; errors stay longer
+  const t = $("#toast"); t.textContent = msg; t.className = "toast show " + kind; clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
+}
 
 // --- state and server calls
 const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: [], total: 0};
@@ -426,29 +476,66 @@ async function loadTags() {
 const setView = (v) => { $("#app").dataset.view = v; };
 function showLoadError() {
   $("#count").textContent = "";
-  $("#results").replaceChildren(h("div", {class: "empty"}, h("div", {}, tr("load_failed")), h("button", {type: "button", class: "btn", style: "margin-top:12px", onclick: () => { skeleton(); load(); }}, tr("retry"))));
+  $("#results").replaceChildren(h("div", {class: "empty"}, h("div", {}, tr("load_failed")), h("button", {type: "button", class: "btn", style: "margin-top:12px", onclick: () => load()}, tr("retry"))));
+  if (state.mode === "view") $("#detail").replaceChildren(h("div", {class: "card"}, h("div", {class: "empty"}, tr("load_failed"))));
 }
-function skeleton() { $("#results").replaceChildren(...[0, 1, 2, 3, 4].map(() => h("div", {class: "skel"}))); }
+// --- skeleton loading: one block (`sk`) and a few variants built from it; shown only while we really wait
+const sk = (w, ht = 12, cls = "") => h("span", {class: "sk " + cls, style: "width:" + w + ";height:" + ht + "px"});
+const SK_CARDS = [{t: 58, a: 92, b: 64, tags: [54, 70, 46]}, {t: 72, a: 84, b: 52, tags: [62, 48]}, {t: 46, a: 96, b: 70, tags: [44, 66, 58]},
+  {t: 64, a: 78, b: 40, tags: [58, 52, 72]}, {t: 52, a: 90, b: 58, tags: [66, 46]}, {t: 68, a: 82, b: 48, tags: [50, 60, 44]}];
+function skeletonCard(i) {
+  const v = SK_CARDS[i % SK_CARDS.length];
+  return h("div", {class: "skcard", "aria-hidden": "true"}, sk("40px", 40, "round"),
+    h("div", {class: "skbody"}, h("div", {class: "sktop"}, sk(v.t + "%", 15), sk("36px", 10)), sk(v.a + "%", 11), sk(v.b + "%", 11),
+      h("div", {class: "sktags"}, v.tags.map((w) => sk(w + "px", 20, "pill")))));
+}
+function skeletonPanel() {
+  return h("div", {class: "card skdetail", "aria-hidden": "true"},
+    h("div", {class: "skhero"}, h("div", {class: "sktop"}, sk("170px", 28, "pill"), sk("120px", 36, "pill")), h("div", {style: "margin-top:18px"}, sk("64%", 30)),
+      h("div", {class: "sktags"}, sk("58px", 26, "pill"), sk("92px", 26, "pill"), sk("70px", 26, "pill"))),
+    h("div", {class: "sheet"}, h("div", {class: "sklines"}, sk("96%"), sk("88%"), sk("92%"), sk("60%"), sk("100%", 96))));
+}
+let skTimer = 0, skShown = false, loaded = false;
+function showSkeleton(withPanel) {
+  skShown = true;
+  $("#results").setAttribute("aria-busy", "true");
+  $("#results").replaceChildren(...[0, 1, 2, 3, 4, 5].map(skeletonCard));
+  if (withPanel && state.mode === "view") $("#detail").replaceChildren(skeletonPanel());
+}
+function loadingStarted() {            // first load: at once; later loads: only if the answer is slow (no flicker)
+  clearTimeout(skTimer);
+  if (!loaded) showSkeleton(true); else skTimer = setTimeout(() => showSkeleton(false), 350);
+}
+function loadingDone() {               // true when a skeleton was on screen, so the real cards should fade in
+  clearTimeout(skTimer);
+  $("#results").removeAttribute("aria-busy");
+  const was = skShown; skShown = false;
+  return was;
+}
 async function load(keepDetail = false) {
   const mine = ++seq, had = state.cur;
   const params = new URLSearchParams({q: state.q});
   for (const t of state.sel) params.append("tag", t);
   if (state.category !== null) params.set("category_id", state.category);
   let list;
+  loadingStarted();
   try {
     const r = await api("/api/notes?" + params);
     if (!r.ok) throw new Error("load");
     list = await r.json();
   } catch (e) {
-    if (mine === seq && e.message !== "not authenticated") showLoadError();
+    if (mine === seq && e.message !== "not authenticated") { loadingDone(); loaded = false; showLoadError(); }
     return;
   }
   if (mine !== seq) return;
+  const reveal = loadingDone();
+  loaded = true;
   state.total = state.categories.reduce((sum, c) => sum + c.count, 0);
   state.list = list;
   if (state.mode === "view" && !list.some((n) => n.id === state.cur)) state.cur = list.length ? list[0].id : null;
   renderList();
-  if (!keepDetail || had !== state.cur) renderDetail();
+  if (reveal) { $("#results").classList.add("reveal"); setTimeout(() => $("#results").classList.remove("reveal"), 400); }
+  if (!keepDetail || had !== state.cur || reveal) renderDetail();
 }
 function toggleCategory(id) { state.category = state.category === id ? null : id; renderCategories(); load(); }
 function toggleTag(t) { state.sel.has(t) ? state.sel.delete(t) : state.sel.add(t); renderTagbar(); load(); }
@@ -727,7 +814,7 @@ function importError(detail) {
   return tr(key, {expected: d.expected ?? "?", actual: d.actual ?? "?", index: d.index ?? "?", field, mb: d.limit_mb ?? "?"});
 }
 async function importFile(file) {
-  const show = (text, ok) => { const m = $("#importmsg"); m.textContent = text; m.className = "msg " + (ok ? "ok" : "bad"); };
+  const show = (text, ok) => toast(text, ok ? "ok" : "bad", ok ? 3500 : 6000);
   let r;
   try {
     r = await api("/api/import", {method: "POST", headers: {"content-type": "application/json"}, body: await file.text()});
@@ -758,17 +845,19 @@ $("#importfile").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = "";          // so choosing the same file again fires another change
   if (!file) return;
-  pending = file;     // importing replaces everything, so ask first
-  $("#importmsg").textContent = "";
-  $("#importasktext").textContent = tr("import_ask");
-  $("#importask").hidden = false;
-  $("#importyes").focus();
+  pending = file;     // importing replaces everything, so ask first, in a popup
+  $("#importfilename").textContent = file.name;
+  $("#importdialog").showModal();
+  $("#importno").focus();     // the safe choice has the focus
 });
 $("#importyes").addEventListener("click", async () => {
-  const file = pending; pending = null; $("#importask").hidden = true;
+  const file = pending; pending = null; $("#importdialog").close();
   if (file) await importFile(file);
 });
-$("#importno").addEventListener("click", () => { pending = null; $("#importask").hidden = true; });
+document.querySelector('a[href="/api/export"]').addEventListener("click", () => toast(tr("export_started"), "ok"));
+$("#importno").addEventListener("click", () => $("#importdialog").close());
+$("#importdialog").addEventListener("close", () => { pending = null; });   // Esc, Cancel or the backdrop: nothing happens
+$("#importdialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });   // click on the backdrop
 document.querySelectorAll("[data-lang]").forEach((b) => {
   b.classList.toggle("on", b.dataset.lang === LANG);
   b.addEventListener("click", () => { document.cookie = "lang=" + b.dataset.lang + "; path=/; max-age=31536000; SameSite=Lax"; location.reload(); });
@@ -793,20 +882,22 @@ $("#menu").addEventListener("click", () => openMenu(true));
 $("#scrim").addEventListener("click", () => openMenu(false));
 $("#shortcut").textContent = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘ K" : "Ctrl K";
 document.addEventListener("keydown", (e) => {
-  if ($("#catdialog").open) return;   // the dialog handles its own keys (Esc closes it natively)
+  if (document.querySelector("dialog[open]")) return;   // a dialog handles its own keys (Esc closes it natively)
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName), q = $("#q");
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); q.focus(); q.select(); }
   else if (e.key === "/" && !typing) { e.preventDefault(); q.focus(); }
   else if ((e.key === "n" || e.key === "N") && !typing) { e.preventDefault(); openNew(); }
   else if (e.key === "Escape") { openMenu(false); resetFilters(true); q.focus(); }
-  else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && document.activeElement === q && state.list.length) {
+  else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && state.list.length && !e.altKey && !e.ctrlKey && !e.metaKey
+    && (document.activeElement === q || (!typing && state.mode === "view"))) {   // from the search box, or anywhere outside a form
     const i = state.list.findIndex((x) => x.id === state.cur);
     const next = state.list[Math.max(0, Math.min(state.list.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))];
     e.preventDefault(); select(next.id);
+    const on = document.querySelector(".res.on");
+    if (on) on.scrollIntoView({block: "nearest"});    // keep the chosen card in view (the list scrolls, not the page)
   }
 });
 fillIcons();
-skeleton();
 loadCategories();
 loadTags();
 load();

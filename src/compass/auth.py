@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from compass import config
 from compass.i18n import COOKIE, LANGS, STRINGS, pick_lang
-from compass.page import COMMON_CSS, LANG_SWITCH_JS, fill
+from compass.page import COMMON_CSS, FAVICON_LINK, LANG_SWITCH_JS, fill
 
 PUBLIC_PATHS = {"/login", "/health"}
 
@@ -24,7 +24,11 @@ def _lang(request: Request) -> str:
 LOGIN_TEMPLATE = (
     '<!doctype html><html lang="[[lang]]"><head><meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width, initial-scale=1">'
-    "<title>[[login_title]]</title><style>" + COMMON_CSS + "</style></head><body>"
+    "<title>[[login_title]]</title>"
+    + FAVICON_LINK
+    + "<style>"
+    + COMMON_CSS
+    + "</style></head><body>"
     '<div class="login"><div style="width:min(380px,100%)">'
     '<form class="card form" method="post" action="/login">'
     '<div class="logo"><div class="dot">🧭</div>Compass</div>'
