@@ -169,8 +169,9 @@ dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);animation:rise .2s ease-out}
 @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .panel[data-mode=edit],.panel[data-mode=del],.panel[data-mode=confirm],.panel.pad{padding:24px 26px}
-.hero{position:relative;overflow:hidden;padding:20px 26px 22px;color:#fff;background:linear-gradient(135deg,#2c2070 0%,#1d2468 55%,#161d46 100%);border-bottom:1px solid var(--line)}
-.hero .wave{position:absolute;right:-20px;bottom:-30px;width:70%;height:auto;opacity:.5;pointer-events:none}
+.card:has(.panel[data-mode=read]){border-color:rgba(255,255,255,.08);background:radial-gradient(560px 340px at 100% 0%,rgba(112,92,255,.5),transparent 72%),radial-gradient(460px 320px at 85% 38%,rgba(66,104,240,.22),transparent 72%),linear-gradient(180deg,#1b1f46 0%,#161a38 38%,#12142a 100%)}
+.hero{position:relative;padding:20px 26px 38px;color:#fff}
+.hero .wave{position:absolute;right:0;top:0;width:78%;height:100%;pointer-events:none}
 .hero>*:not(.wave){position:relative}
 .hero .bar{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:16px}
 .hero .left{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -185,6 +186,8 @@ dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
 .hero .chip{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.14);color:#fff}
 .hero .chip:hover{background:rgba(255,255,255,.2)}
 .hero .chip.on{background:var(--grad);border-color:transparent}
+.sheet{position:relative;margin-top:-16px;border-radius:22px 22px 0 0;border-top:1px solid rgba(255,255,255,.1);background:rgba(12,14,30,.6);backdrop-filter:blur(8px);min-height:120px}
+:root[data-theme=light] .sheet{background:var(--panel)}
 .panel .body{white-space:pre-wrap;font-size:15.5px;line-height:1.7;padding:24px 26px 28px;margin:0;color:var(--ink);opacity:.94;overflow-wrap:anywhere}
 .panel .actions{padding:14px 26px 26px}
 .panel .err{padding:0 26px}
@@ -368,6 +371,17 @@ const ICONS = {
   binary: [["rect", {x: 14, y: 14, width: 4, height: 6, rx: 2}], ["rect", {x: 6, y: 4, width: 4, height: 6, rx: 2}], ["path", {d: "M6 20h4"}], ["path", {d: "M14 10h4"}], ["path", {d: "M6 14h2v6"}], ["path", {d: "M14 4h2v6"}]],
   file: [["path", {d: "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"}], ["path", {d: "M14 2v4a2 2 0 0 0 2 2h4"}], ["path", {d: "M10 9H8"}], ["path", {d: "M16 13H8"}], ["path", {d: "M16 17H8"}]],
 };
+const WAVE_STOPS = {wv1: ["#7a63ff", .34, "#4a5be0", .06], wv2: ["#8f7bff", .26, "#5b6cf0", .05], wv3: ["#6f86ff", .22, "#6f5cff", .04]};
+function waveDefs(s) {              // the gradients the hero waves are filled with
+  const defs = s.querySelector("defs");
+  for (const [id, [c1, a1, c2, a2]] of Object.entries(WAVE_STOPS)) {
+    const g = document.createElementNS(SVGNS, "linearGradient");
+    g.setAttribute("id", id); g.setAttribute("x1", "1"); g.setAttribute("y1", "0"); g.setAttribute("x2", "0"); g.setAttribute("y2", "1");
+    for (const [o, c, a] of [[0, c1, a1], [1, c2, a2]]) { const st = document.createElementNS(SVGNS, "stop"); st.setAttribute("offset", o); st.setAttribute("stop-color", c); st.setAttribute("stop-opacity", a); g.append(st); }
+    defs.append(g);
+  }
+  return s;
+}
 function svg(spec, attrs) {
   const s = document.createElementNS(SVGNS, "svg");
   for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
@@ -591,7 +605,7 @@ function notePanel(note, cb) {
       const catBadge = h("span", {class: "badge cat"}, catName(note.category_id));
       root.replaceChildren(
         h("div", {class: "hero"},
-          svg([["path", {d: "M0 150 C 90 100, 170 200, 270 140 S 390 60, 400 95 V200 H0 Z", fill: "rgba(121,92,255,.35)"}], ["path", {d: "M0 185 C 110 140, 200 210, 300 170 S 380 130, 400 150 V200 H0 Z", fill: "rgba(82,117,255,.3)"}]], {class: "wave", viewBox: "0 0 400 200", "aria-hidden": "true"}),
+          waveDefs(svg([["defs", {}], ["path", {d: "M0 250 C 110 215, 210 140, 290 78 S 380 8, 400 0 V250 Z", fill: "url(#wv1)"}], ["path", {d: "M110 250 C 210 228, 300 170, 352 112 S 392 60, 400 52 V250 Z", fill: "url(#wv2)"}], ["path", {d: "M230 250 C 300 238, 360 205, 400 165 V250 Z", fill: "url(#wv3)"}]], {class: "wave", viewBox: "0 0 400 250", preserveAspectRatio: "xMaxYMid slice", "aria-hidden": "true"})),
           h("div", {class: "bar"},
             h("div", {class: "left"},
               h("button", {type: "button", class: "iconbtn back", "aria-label": tr("back"), onclick: () => setView("list")}, icon("chevron-left", 18)),
@@ -603,8 +617,7 @@ function notePanel(note, cb) {
               h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
           h("h2", {}, hlNodes(note.title, tk)),
           h("div", {class: "chips"}, note.tags.map((t) => h("button", {type: "button", class: "chip" + (state.sel.has(t) ? " on" : ""), onclick: () => toggleTag(t)}, "#" + t)))),
-        h("div", {class: "body"}, hlNodes(note.body, tk)),
-        h("div", {class: "err"}, msg));
+        h("div", {class: "sheet"}, h("div", {class: "body"}, hlNodes(note.body, tk)), h("div", {class: "err"}, msg)));
     } else if (mode === "del") {
       root.replaceChildren(h("h2", {}, note.title), h("div", {class: "confirm"}, h("span", {}, tr("confirm_delete")),
         h("button", {class: "btn danger", onclick: remove}, tr("yes_delete")), h("button", {class: "btn", onclick: back}, tr("back"))));
