@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from compass import notes
-from compass.db import connect
+from compass.db import connect, index_note
 from compass.main import app
 
 
@@ -98,18 +98,19 @@ def test_search_in_5000_notes_is_fast(authed: TestClient) -> None:
                 "INSERT INTO notes(title, body, created_at) VALUES (?, ?, 'x')",
                 (title, body),
             )
-            conn.execute(
-                "INSERT INTO notes_fts(rowid, title, body) VALUES (?, ?, ?)",
-                (cur.lastrowid, title, body),
-            )
+            assert cur.lastrowid is not None
+            index_note(conn, cur.lastrowid, title, body, ["tag" + str(i % 7)])
     conn.close()
 
-    start = time.perf_counter()
-    result = notes.list_notes("temat7 dol")
-    elapsed = time.perf_counter() - start
-
-    assert len(result) == notes.LIMIT
-    assert elapsed < 0.5  # generous: real cost is a few ms; avoids flaky CI
+    for query in ("temat7 dol", "tamat7 dolro", "ipsm loerm", "tag3"):
+        start = time.perf_counter()
+        result = notes.list_notes(query)
+        elapsed = time.perf_counter() - start
+        assert result, query
+        assert len(result) <= notes.LIMIT
+        assert (
+            elapsed < 0.5
+        ), f"{query!r} took {elapsed:.3f}s"  # generous: avoids flaky CI
 
 
 def test_page_has_search_and_never_uses_inner_html(authed: TestClient) -> None:
@@ -303,9 +304,10 @@ def test_unknown_tag_matches_nothing(authed: TestClient) -> None:
     assert tag_titles(authed, "nie ma") == []
 
 
-def test_text_search_does_not_match_tag_words(authed: TestClient) -> None:
+def test_tag_words_are_found_by_text_search(authed: TestClient) -> None:
     add_t(authed, "Indeks", ["rozmowa"])
-    assert titles(authed, "rozmowa") == []  # tag matching in text search is S-06
+    assert titles(authed, "rozmowa") == ["Indeks"]
+    assert titles(authed, "rozm") == ["Indeks"]
 
 
 def test_tag_counts_ordered_by_count_then_name(authed: TestClient) -> None:
@@ -373,3 +375,211 @@ def test_old_database_without_tag_tables_still_works(db_file: Path) -> None:
 def test_tags_require_login() -> None:
     with TestClient(app, follow_redirects=False) as anon:
         assert anon.get("/api/tags").status_code == 401
+
+
+# --- folded index (S-06 phase 1) ---------------------------------------------
+
+
+def test_missing_polish_letters_still_find_the_note(authed: TestClient) -> None:
+    add(
+        authed,
+        "Złożoność obliczeniowa",
+        "Wyszukiwanie binarne działa w czasie O(log n)",
+    )
+    assert titles(authed, "zlozonosc") == ["Złożoność obliczeniowa"]
+    assert titles(authed, "ZŁOŻONOŚĆ") == ["Złożoność obliczeniowa"]
+    assert titles(authed, "dziala") == ["Złożoność obliczeniowa"]
+
+
+def test_polish_letters_find_a_note_typed_without_them(authed: TestClient) -> None:
+    add(authed, "Zlozonosc obliczeniowa")
+    assert titles(authed, "złożoność") == ["Zlozonosc obliczeniowa"]
+
+
+def test_polish_letters_in_tags_are_searchable_both_ways(authed: TestClient) -> None:
+    add_t(authed, "n", ["wydajność"])
+    assert titles(authed, "wydajnosc") == ["n"]
+    assert titles(authed, "wydajność") == ["n"]
+
+
+def test_edit_and_delete_leave_no_stale_words_in_the_index(authed: TestClient) -> None:
+    note_id = add_t(authed, "Stary tytuł", ["oldtag"], "stara treść")
+    put_tags = authed.put(
+        f"/api/notes/{note_id}",
+        json={"title": "Nowy tytuł", "body": "nowa treść", "tags": ["newtag"]},
+    )
+    assert put_tags.status_code == 200
+    for stale in ("stary", "stara", "oldtag"):
+        assert titles(authed, stale) == []
+    assert titles(authed, "nowy") == ["Nowy tytuł"]
+    assert titles(authed, "nowa") == ["Nowy tytuł"]
+    assert titles(authed, "newtag") == ["Nowy tytuł"]
+    delete(authed, note_id)
+    for gone in ("nowy", "nowa", "newtag"):
+        assert titles(authed, gone) == []
+
+
+def test_clearing_tags_removes_their_words_from_the_index(authed: TestClient) -> None:
+    note_id = add_t(authed, "n", ["rozmowa"])
+    authed.put(f"/api/notes/{note_id}", json={"title": "n"})
+    assert titles(authed, "rozmowa") == []
+
+
+OLD_SCHEMA = """
+CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE notes(id INTEGER PRIMARY KEY, title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
+CREATE TABLE tags(id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
+CREATE TABLE note_tags(note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (note_id, tag_id));
+CREATE VIRTUAL TABLE notes_fts USING fts5(title, body, content='notes', content_rowid='id');
+INSERT INTO notes(id, title, body, created_at) VALUES (1, 'Złożoność', 'czas O(n)', 'x');
+INSERT INTO notes_fts(rowid, title, body) VALUES (1, 'Złożoność', 'czas O(n)');
+INSERT INTO notes(id, title, body, created_at) VALUES (2, 'Indeks', 'b-tree', 'x');
+INSERT INTO notes_fts(rowid, title, body) VALUES (2, 'Indeks', 'b-tree');
+INSERT INTO tags(id, name) VALUES (1, 'sql');
+INSERT INTO note_tags(note_id, tag_id) VALUES (2, 1);
+"""
+
+
+def test_old_index_is_migrated_once(db_file: Path) -> None:
+    import sqlite3
+
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    old = sqlite3.connect(db_file)
+    old.executescript(OLD_SCHEMA)
+    old.close()
+
+    assert [n.title for n in notes.list_notes("zlozonosc")] == ["Złożoność"]
+    assert [n.title for n in notes.list_notes("sql")] == ["Indeks"]  # tag is searchable
+    assert [n.title for n in notes.list_notes("indek")] == ["Indeks"]
+
+    conn = connect()
+    assert conn.execute(
+        "SELECT value FROM meta WHERE key='fts_version'"
+    ).fetchone() == ("2",)
+    conn.execute("DELETE FROM notes_fts WHERE rowid = 2")  # a rebuild would restore it
+    conn.commit()
+    conn.close()
+    assert notes.list_notes("indek") == []  # second connect did not rebuild
+
+
+# --- ranking (S-06 phase 2) ---------------------------------------------------
+
+
+def test_title_match_beats_a_newer_body_only_match(authed: TestClient) -> None:
+    add(authed, "Indeks", "")
+    add(authed, "Transakcje", "o indeks w bazie")
+    assert titles(authed, "indeks") == ["Indeks", "Transakcje"]
+
+
+def test_exact_tag_beats_a_title_match(authed: TestClient) -> None:
+    add_t(authed, "Transakcje", ["sql"])
+    add(authed, "SQL basics")  # newer, has the word in its title but no such tag
+    assert titles(authed, "sql") == ["Transakcje", "SQL basics"]
+
+
+def test_tag_equal_to_the_whole_multi_word_query_is_exact(authed: TestClient) -> None:
+    add_t(authed, "Rozmowa", ["soft skills"])
+    add(authed, "Soft skills intro")
+    assert titles(authed, "soft skills") == ["Rozmowa", "Soft skills intro"]
+
+
+def test_partial_tag_word_is_weaker_than_a_title_match(authed: TestClient) -> None:
+    add_t(authed, "Rozmowa", ["soft skills"])
+    add(authed, "Soft drinks")
+    assert titles(authed, "soft") == ["Soft drinks", "Rozmowa"]
+
+
+def test_more_matched_words_beat_a_single_title_hit(authed: TestClient) -> None:
+    add(authed, "Transakcje", "indeks baza")  # both words, body only
+    add(authed, "Indeks")  # one word, in the title, newer
+    assert titles(authed, "indeks baza") == ["Transakcje", "Indeks"]
+
+
+def test_exact_word_beats_a_prefix_in_the_same_field(authed: TestClient) -> None:
+    add(authed, "Indeks")
+    add(authed, "Indeksy")  # newer, only a prefix match
+    assert titles(authed, "indeks") == ["Indeks", "Indeksy"]
+
+
+def test_equal_relevance_is_newest_first(authed: TestClient) -> None:
+    add(authed, "Indeks pierwszy")
+    add(authed, "Indeks drugi")
+    assert titles(authed, "indeks") == ["Indeks drugi", "Indeks pierwszy"]
+
+
+def test_tag_filter_still_ands_with_ranked_text(authed: TestClient) -> None:
+    add_t(authed, "Indeks", ["sql"])
+    add_t(authed, "Indeks kuchenny", ["gotowanie"])
+    add_t(authed, "Transakcje", ["sql"], "indeks")
+    assert tag_titles(authed, "sql", q="indeks") == ["Indeks", "Transakcje"]
+
+
+def test_an_exact_tag_note_survives_the_candidate_cut(authed: TestClient) -> None:
+    add_t(authed, "Ten z tagiem", ["sql"])
+    for i in range(notes.CANDIDATES + 100):
+        add(authed, f"nota {i}", "sql " * 5)
+    assert titles(authed, "sql")[0] == "Ten z tagiem"
+
+
+# --- typo tolerance (S-06 phase 3) -------------------------------------------
+
+
+def test_typos_still_find_the_note(authed: TestClient) -> None:
+    add(authed, "Indeks w bazie danych")
+    add(authed, "Złożoność obliczeniowa")
+    assert titles(authed, "indkes") == ["Indeks w bazie danych"]  # swapped letters
+    assert titles(authed, "indekt") == ["Indeks w bazie danych"]  # wrong letter
+    assert titles(authed, "zlozonsoc") == [
+        "Złożoność obliczeniowa"
+    ]  # missing PL + typo
+
+
+def test_two_typos_are_tolerated_only_in_long_words(authed: TestClient) -> None:
+    add(authed, "Złożoność obliczeniowa")
+    add(authed, "Indeks")
+    assert titles(authed, "zlzonosc") == ["Złożoność obliczeniowa"]  # 1 deletion
+    assert titles(authed, "zlzonsoc") == [
+        "Złożoność obliczeniowa"
+    ]  # 8 letters, 2 edits
+    assert titles(authed, "zlzonoc") == []  # 7 letters, 2 edits: too far
+    assert titles(authed, "indks") == ["Indeks"]  # 1 edit
+    assert titles(authed, "idks") == []  # 2 edits in a 4-letter word: too far
+
+
+def test_short_words_are_not_corrected(authed: TestClient) -> None:
+    add(authed, "SQL basics")
+    add(authed, "Zapytanie sqr")
+    assert titles(authed, "sql") == ["SQL basics"]  # no fuzzy hit on "sqr"
+
+
+def test_a_typo_in_a_tag_finds_the_note(authed: TestClient) -> None:
+    add_t(authed, "Rozmowa o prace", ["wydajność"])
+    assert titles(authed, "wydajnosc") == ["Rozmowa o prace"]
+    assert titles(authed, "wydajnsoc") == ["Rozmowa o prace"]
+
+
+def test_typo_hits_rank_below_exact_and_prefix_hits_in_the_same_field(
+    authed: TestClient,
+) -> None:
+    add(authed, "Indkes")  # typo, oldest
+    add(authed, "Indeksy")  # prefix
+    add(authed, "Indeks")  # exact
+    add(authed, "Indekt")  # typo, newest
+    assert titles(authed, "indeks") == ["Indeks", "Indeksy", "Indekt", "Indkes"]
+
+
+def test_a_typo_in_the_title_still_beats_an_exact_word_in_the_body(
+    authed: TestClient,
+) -> None:
+    add(authed, "Transakcje", "indeks")  # exact, but body only
+    add(authed, "Indkes")  # title typo: the field rule wins
+    assert titles(authed, "indeks") == ["Indkes", "Transakcje"]
+
+
+def test_typos_still_and_with_the_tag_filter(authed: TestClient) -> None:
+    add_t(authed, "Indeks", ["sql"])
+    add_t(authed, "Indeks kuchenny", ["gotowanie"])
+    assert tag_titles(authed, "sql", q="indkes") == ["Indeks"]

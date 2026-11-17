@@ -1,4 +1,3 @@
-import re
 import sqlite3
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
@@ -6,9 +5,12 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from compass.db import connect
+from compass.db import connect, index_note, unindex_note
+from compass.search import fuzzy_terms, rank_key, words
 
 LIMIT = 50
+CANDIDATES = 200  # notes fetched from the index (best bm25 first) before re-ranking
+BM25_WEIGHTS = "10.0, 1.0, 20.0"  # title, body, tags
 MAX_TAGS = 10
 MAX_TAG_LEN = 30
 COLUMNS = "n.id, n.title, n.body, n.created_at"
@@ -46,13 +48,15 @@ def normalize_tags(raw: Iterable[str]) -> list[str]:
     return sorted(tags)
 
 
-def match_query(q: str) -> str:
-    """Turn user input into a safe FTS5 query: any word, as a prefix.
+def match_query(tokens: Sequence[str], fuzzy: dict[str, set[str]]) -> str:
+    """Safe FTS5 query: every word as a prefix, plus its typo variants as exact terms.
 
-    Only word characters survive, so quotes and FTS operators in the input
-    cannot break the query. Empty result means "no filter".
+    Tokens are folded `[^\\W_]+` words, so quotes and FTS operators in the user's input
+    cannot reach the query.
     """
-    return " OR ".join(f'"{word}"*' for word in re.findall(r"\w+", q))
+    parts = [f'"{t}"*' for t in tokens]
+    parts += [f'"{f}"' for t in tokens for f in sorted(fuzzy.get(t, ()))]
+    return " OR ".join(dict.fromkeys(parts))
 
 
 def _save_tags(conn: sqlite3.Connection, note_id: int, tags: Sequence[str]) -> None:
@@ -106,11 +110,8 @@ def create_note(title: str, body: str, tags: Sequence[str] = ()) -> Note:
             )
             note_id = cur.lastrowid
             assert note_id is not None
-            conn.execute(
-                "INSERT INTO notes_fts(rowid, title, body) VALUES (?, ?, ?)",
-                (note_id, title, body),
-            )
             _save_tags(conn, note_id, clean)
+            index_note(conn, note_id, title, body, clean)
     finally:
         conn.close()
     return Note(id=note_id, title=title, body=body, created_at=created_at, tags=clean)
@@ -128,36 +129,58 @@ def get_note(note_id: int) -> Note | None:
     return found[0] if found else None
 
 
-def list_notes(q: str = "", tags: Iterable[str] = ()) -> list[Note]:
-    conditions: list[str] = []
-    params: list[object] = []
-    match = match_query(q)
-    if match:
-        conditions.append(
-            "n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)"
-        )
-        params.append(match)
+def _tag_filter(tags: Iterable[str]) -> tuple[str, list[object]] | None:
     wanted = sorted({c for c in (_clean(t) for t in tags) if c})
-    if wanted:
-        marks = ",".join("?" * len(wanted))
-        conditions.append(
-            "n.id IN (SELECT nt.note_id FROM note_tags nt "
-            "JOIN tags t ON t.id = nt.tag_id "
-            f"WHERE t.name IN ({marks}) "
-            "GROUP BY nt.note_id HAVING COUNT(DISTINCT t.name) = ?)"
-        )
-        params.extend(wanted)
-        params.append(len(wanted))
-    where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
+    if not wanted:
+        return None
+    marks = ",".join("?" * len(wanted))
+    sql = (
+        "SELECT nt.note_id FROM note_tags nt JOIN tags t ON t.id = nt.tag_id "
+        f"WHERE t.name IN ({marks}) "
+        "GROUP BY nt.note_id HAVING COUNT(DISTINCT t.name) = ?"
+    )
+    return sql, [*wanted, len(wanted)]
+
+
+def list_notes(q: str = "", tags: Iterable[str] = ()) -> list[Note]:
+    """Newest first without a query; otherwise the most relevant notes first."""
+    tokens = words(q)
+    tag_filter = _tag_filter(tags)
     conn = connect()
     try:
+        if not tokens:
+            where, params = "", []
+            if tag_filter:
+                where, params = f"WHERE n.id IN ({tag_filter[0]}) ", tag_filter[1]
+            rows = conn.execute(
+                f"SELECT {COLUMNS} FROM notes n {where}ORDER BY n.id DESC LIMIT ?",
+                (*params, LIMIT),
+            ).fetchall()
+            return _with_tags(conn, rows)
+
+        vocab = [r[0] for r in conn.execute("SELECT term FROM notes_vocab")]
+        fuzzy = {t: fuzzy_terms(t, vocab) for t in set(tokens)}
+        sql = "SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?"
+        params = [match_query(tokens, fuzzy)]
+        if tag_filter:
+            sql += f" AND rowid IN ({tag_filter[0]})"
+            params += tag_filter[1]
+        sql += f" ORDER BY bm25(notes_fts, {BM25_WEIGHTS}) LIMIT ?"
+        ids = [r[0] for r in conn.execute(sql, (*params, CANDIDATES))]
+        if not ids:
+            return []
+        marks = ",".join("?" * len(ids))
         rows = conn.execute(
-            f"SELECT {COLUMNS} FROM notes n {where}ORDER BY n.id DESC LIMIT ?",
-            (*params, LIMIT),
+            f"SELECT {COLUMNS} FROM notes n WHERE n.id IN ({marks})", ids
         ).fetchall()
-        return _with_tags(conn, rows)
+        candidates = _with_tags(conn, rows)
     finally:
         conn.close()
+    candidates.sort(
+        key=lambda n: (*rank_key(tokens, n.title, n.body, n.tags, fuzzy), n.id),
+        reverse=True,
+    )
+    return candidates[:LIMIT]
 
 
 def list_tags() -> list[TagCount]:
@@ -175,18 +198,14 @@ def list_tags() -> list[TagCount]:
 def update_note(
     note_id: int, title: str, body: str, tags: Sequence[str] = ()
 ) -> Note | None:
-    """Replace title, body and tags, keeping the FTS index in step.
-
-    The external-content index only forgets old words when told the OLD values
-    via the 'delete' command, so the old row is read inside the same transaction.
-    """
+    """Replace title, body and tags, keeping the search index in step."""
     clean = normalize_tags(tags)
     conn = connect()
     try:
         with conn:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
-                "SELECT title, body, created_at FROM notes WHERE id = ?", (note_id,)
+                "SELECT created_at FROM notes WHERE id = ?", (note_id,)
             ).fetchone()
             if row is None:
                 return None
@@ -194,20 +213,12 @@ def update_note(
                 "UPDATE notes SET title = ?, body = ? WHERE id = ?",
                 (title, body, note_id),
             )
-            conn.execute(
-                "INSERT INTO notes_fts(notes_fts, rowid, title, body) "
-                "VALUES ('delete', ?, ?, ?)",
-                (note_id, row[0], row[1]),
-            )
-            conn.execute(
-                "INSERT INTO notes_fts(rowid, title, body) VALUES (?, ?, ?)",
-                (note_id, title, body),
-            )
             _save_tags(conn, note_id, clean)
             _drop_unused_tags(conn)
+            index_note(conn, note_id, title, body, clean)
     finally:
         conn.close()
-    return Note(id=note_id, title=title, body=body, created_at=row[2], tags=clean)
+    return Note(id=note_id, title=title, body=body, created_at=row[0], tags=clean)
 
 
 def delete_note(note_id: int) -> bool:
@@ -217,15 +228,11 @@ def delete_note(note_id: int) -> bool:
         with conn:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
-                "SELECT title, body FROM notes WHERE id = ?", (note_id,)
+                "SELECT id FROM notes WHERE id = ?", (note_id,)
             ).fetchone()
             if row is None:
                 return False
-            conn.execute(
-                "INSERT INTO notes_fts(notes_fts, rowid, title, body) "
-                "VALUES ('delete', ?, ?, ?)",
-                (note_id, row[0], row[1]),
-            )
+            unindex_note(conn, note_id)
             conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))  # cascades
             _drop_unused_tags(conn)
     finally:
