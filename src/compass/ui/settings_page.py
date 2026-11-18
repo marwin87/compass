@@ -42,6 +42,12 @@ body{background:radial-gradient(1000px 500px at 80% -10%,rgba(82,117,255,.11),tr
 .segbtn.on{background:var(--grad);color:#fff;font-weight:600}
 .stepval{min-width:56px;text-align:center;font-variant-numeric:tabular-nums;color:var(--ink)}
 .sselect{border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:8px 10px;font-size:13px;color:var(--ink);cursor:pointer}
+.sinput{width:260px;max-width:100%;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:8px 10px;font-size:13px;color:var(--ink)}
+.sinput:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
+.srow[hidden]{display:none}
+.aistate{font-weight:600}
+.aistate.ok{color:var(--ok)}
+.aistate.bad{color:var(--danger)}
 .sselect:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
 .krow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line)}
 .krow:last-child{border-bottom:0}
@@ -123,6 +129,7 @@ _SECTIONS = (
     ("tags", "settings_nav_tags", "tag"),
     ("backup", "data_backup_h", "database"),
     ("shortcuts", "settings_nav_shortcuts", "zap"),
+    ("ai", "ai_h", "bulb"),
     ("danger", "data_danger_h", "alert"),
     ("about", "settings_nav_about", "info"),
 )
@@ -210,6 +217,16 @@ SETTINGS_HTML = (
       <h2>[[settings_nav_shortcuts]]</h2>
       <div class="scard" id="shortcutlist"></div>
     </section>
+    <section class="ssec" id="ai">
+      <h2>[[ai_h]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[set_ai_enabled]]</div><div class="sdesc">[[set_ai_enabled_desc]]</div></div><div class="sctl" id="ctl-ai-on"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_connection]]</div><div class="sdesc">[[set_ai_connection_desc]]</div></div><div class="sctl" id="ctl-ai-conn"></div></div>
+        <div class="srow" id="row-ai-addr"><div><div class="sname">[[set_ai_address]]</div><div class="sdesc">[[set_ai_address_desc]]</div></div><div class="sctl" id="ctl-ai-addr"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_model]]</div><div class="sdesc">[[set_ai_model_desc]]</div></div><div class="sctl" id="ctl-ai-model"></div></div>
+        <div class="srow"><div><div class="sname">[[ai_status_h]]</div><div class="sdesc" id="ai-status" role="status"></div></div></div>
+      </div>
+    </section>
     <section class="ssec" id="danger">
       <h2>[[data_danger_h]]</h2>
       <div class="scard danger">
@@ -288,6 +305,38 @@ const sortSel = h("select", {class: "sselect", "aria-label": tr("set_sort")}, Ob
 sortSel.value = SETTINGS.sort;
 sortSel.addEventListener("change", () => change("sort", sortSel.value, (x) => { sortSel.value = x; }));
 $("#ctl-sort").append(sortSel);
+
+// AI: the switch, the connection and where it points; the key itself lives in the server environment only
+const aiOn = segmented([[true, tr("ai_on")], [false, tr("ai_off")]], SETTINGS.ai_enabled, (v) => change("ai_enabled", v, (x) => aiOn.set(x)).then(loadAiStatus));
+$("#ctl-ai-on").append(aiOn.el);
+const aiConn = segmented([["openrouter", "OpenRouter"], ["local", tr("ai_local")]], SETTINGS.ai_connection, (v) => change("ai_connection", v, (x) => { aiConn.set(x); showAiRows(); }).then(loadAiStatus));
+$("#ctl-ai-conn").append(aiConn.el);
+const aiText = (key, ph) => {
+  const input = h("input", {class: "sinput", maxlength: "200", autocomplete: "off", placeholder: ph, "aria-label": ph});
+  input.value = SETTINGS[key];
+  input.addEventListener("change", () => change(key, input.value.trim(), (x) => { input.value = x; }).then(loadAiStatus));
+  return input;
+};
+$("#ctl-ai-addr").append(aiText("ai_address", "localhost:11434/v1"));
+$("#ctl-ai-model").append(aiText("ai_model", tr("ai_model_ph")));
+const showAiRows = () => { $("#row-ai-addr").hidden = SETTINGS.ai_connection !== "local"; };
+showAiRows();
+const MISSING_LABELS = {key: tr("ai_missing_key"), address: tr("ai_missing_address"), model: tr("ai_missing_model")};
+async function loadAiStatus() {
+  let d;
+  try {
+    const r = await api("/api/ai/status");
+    if (!r.ok) throw new Error("ai");
+    d = await r.json();
+  } catch (e) {
+    if (e.message !== "not authenticated") $("#ai-status").textContent = tr("ai_status_failed");
+    return;
+  }
+  const where = tr(d.leaves_machine ? "ai_leaves" : "ai_stays");
+  const state = d.configured ? tr(d.enabled ? "ai_ready" : "ai_idle") : tr("ai_missing", {items: d.missing.map((m) => MISSING_LABELS[m]).join(", ")});
+  $("#ai-status").replaceChildren(h("span", {class: "aistate " + (d.configured ? "ok" : "bad")}, state), h("br"), where);
+}
+loadAiStatus();
 
 // Keyboard shortcuts
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);

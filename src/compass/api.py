@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from compass import about as about_info
-from compass import categories, notes, settings, tags, transfer
+from compass import ai, categories, notes, settings, tags, transfer
 
 router = APIRouter(prefix="/api/notes")
 tags_router = APIRouter(prefix="/api/tags")
@@ -15,6 +15,7 @@ export_router = APIRouter(prefix="/api/export")
 import_router = APIRouter(prefix="/api/import")
 categories_router = APIRouter(prefix="/api/categories")
 settings_router = APIRouter(prefix="/api/settings")
+ai_router = APIRouter(prefix="/api/ai")
 about_router = APIRouter(prefix="/api/about")
 data_router = APIRouter(prefix="/api/data")
 
@@ -179,7 +180,8 @@ def export_notes() -> Response:
 @import_router.post("")
 async def import_notes(request: Request) -> dict[str, int]:
     """Restore an export file (the JSON body) one to one: everything in the database is replaced
-    by the file. It is validated first; nothing changes unless the whole file is valid."""
+    by the file. It is validated first; nothing changes unless the whole file is valid.
+    """
     too_large = HTTPException(
         status_code=413,
         detail={
@@ -255,6 +257,11 @@ def write_settings(patch: dict[str, object]) -> dict[str, object]:
         raise HTTPException(
             status_code=422, detail={"code": "invalid_setting", "key": problem.key}
         ) from None
+
+
+@ai_router.get("/status")
+def ai_status() -> dict[str, object]:
+    return ai.status(settings.current())
 
 
 @about_router.get("")

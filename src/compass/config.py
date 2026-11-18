@@ -14,3 +14,8 @@ def password() -> str:
 
 def secret_key() -> str:
     return _required("COMPASS_SECRET_KEY")
+
+
+def ai_key() -> str:
+    """Optional: the OpenRouter key (a local server usually needs none)."""
+    return os.environ.get("OPENROUTER_API_KEY", "")

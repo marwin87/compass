@@ -14,7 +14,7 @@ Status: early development (see `context/foundation/roadmap.md`). Right now you c
 Everything except `/login` and `/health` requires logging in. The app refuses to start without these variables:
 
 ```bash
-cp .env.example .env   # then set COMPASS_PASSWORD and COMPASS_SECRET_KEY
+cp .env.example .env   # then set COMPASS_PASSWORD and COMPASS_SECRET_KEY (OPENROUTER_API_KEY is optional: AI via OpenRouter)
 ```
 
 ## Language

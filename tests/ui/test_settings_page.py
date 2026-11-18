@@ -14,6 +14,7 @@ SECTIONS = (
     "tags",
     "backup",
     "shortcuts",
+    "ai",
     "danger",
     "about",
 )
@@ -125,9 +126,10 @@ def test_the_danger_zone_is_always_right_above_about(
     order = [
         m.group(1) for m in re.finditer(r'<section class="ssec" id="(\w+)">', page)
     ]
-    assert order[-2:] == ["danger", "about"], (
-        order
-    )  # the clear-all button never sits among the everyday settings
+    assert order[-2:] == [
+        "danger",
+        "about",
+    ], order  # the clear-all button never sits among the everyday settings
     assert order == list(SECTIONS)
     nav = re.findall(r'<a href="#(\w+)" data-sec="\w+">', page)
     assert nav == order  # the navigation lists them in the same order

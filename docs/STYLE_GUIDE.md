@@ -11,10 +11,11 @@ The whole app UI is one server-rendered page, no build step and no framework.
 | --- | --- |
 | `src/compass/ui/core.py` | `CORE_JS`: the helpers both pages share (`tr`, `$`, `h`, icons, `toast`, `api`, `sk`, `SORT_LABELS`, `categoryError`, `saveSettings`) and `inject()`, which fills the I18N and SETTINGS constants and `data-theme` on the server |
 | `src/compass/settings.py` | the settings registry (`SPEC`: key, default, validator) stored in the `settings` table; `current()`, `update()` |
-| `src/compass/ui/settings_page.py` | the Settings page (`/settings`): Appearance, Data, Shortcuts, About |
+| `src/compass/ui/settings_page.py` | the Settings page (`/settings`): Appearance, Data, Shortcuts, AI features, About |
 | `src/compass/ui/page.py` | `COMMON_CSS` (tokens, base, buttons, chips, forms, toast, login), `APP_CSS` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `INDEX_HTML` (markup + one `<script>`), `render_index(lang)` |
 | `src/compass/ui/reader.py` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
 | `src/compass/ui/editor.py` | the Markdown helper of the note forms: `EDITOR_PURE_JS` (pure text-editing functions, tested in Node), `EDITOR_UI_JS` (toolbar, callout menu, Write/Preview tabs), `EDITOR_CSS`. Embedded into `INDEX_HTML` at import time |
+| `src/compass/ai.py` | `status()`: the static check of the AI connection (configured? what is missing? do notes leave the machine?), served by `GET /api/ai/status`. The key (`OPENROUTER_API_KEY`) is read from the environment only, never a setting, never returned |
 | `src/compass/ui/i18n.py` | `STRINGS["pl"]` and `STRINGS["en"]`, `pick_lang` |
 | `src/compass/ui/login.py` | the login page (`render_login`); reuses `COMMON_CSS`, the tab icon and the language switch |
 | `tests/ui/` | the UI tests (mirrors `src/compass/ui/`): `test_i18n.py` (key parity and usage guards), `test_page.py` (the notes page), `test_settings_page.py`, `test_login.py`, `test_reader.py` and `test_editor.py` (the pure JS, run in Node). Backend tests stay in `tests/` (one file per backend area). Helpers: `tests/ui/helpers.py` (`login_cookie`), `tests/ui/conftest.py` (`anon`) |
@@ -188,11 +189,12 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
 ## 9. Settings page and the settings registry
 
 - **Where things live:** `/settings` is a separate page with sections (left nav, a chip row on phones):
-  Appearance, Categories, Tags, Backup, Keyboard shortcuts, Danger zone, About (one section per thing, named like its nav entry). **The danger zone is always the second-to-last
+  Appearance, Categories, Tags, Backup, Keyboard shortcuts, AI features, Danger zone, About (one section per thing, named like its nav entry). **The danger zone is always the second-to-last
   section, right above About** (new sections go before it); destructive "clear everything" actions live only there. Theme and language are changed only there (one place, no duplicates); the notes page has just a
   Settings button in the sidebar footer; import and export are in Settings -> Backup, the category and tag managers in their own sections, clear-all in
   the danger zone
   (the notes page's "Zarzadzaj" links go to `/settings#categories` and `/settings#tags`). Quick add of a category stays in the note forms.
+- **AI section:** on/off, connection (OpenRouter or Local), address (Local only), model; a status line from `GET /api/ai/status` says what is missing and whether notes leave the machine. Text settings save on `change` (trimmed) through the same `change()` helper. A secret is never a setting: it is read from the environment and never reaches `GET /api/settings`, the page or the export.
 - **Server-side settings, not `localStorage`:** preferences are rows in the `settings` table, read through
   `settings.current()` and written with `PUT /api/settings` (a partial update, validated as a whole, 422
   `invalid_setting` with the key). The server embeds them as `const SETTINGS` and puts the theme on `<html>`,

@@ -8,7 +8,16 @@ from compass import about, settings
 from compass.db import connect
 from compass.main import app
 
-DEFAULTS = {"theme": "dark", "reader_size": 17, "reader_width": 1, "sort": ""}
+DEFAULTS = {
+    "theme": "dark",
+    "reader_size": 17,
+    "reader_width": 1,
+    "sort": "",
+    "ai_enabled": False,
+    "ai_connection": "openrouter",
+    "ai_address": "",
+    "ai_model": "",
+}
 
 
 def put(c: TestClient, patch: Any) -> Any:
@@ -44,6 +53,10 @@ def test_partial_update_changes_only_the_given_keys_and_persists(
         ("reader_size", [15, 17, 22]),
         ("reader_width", [0, 1, 2]),
         ("sort", ["", "title_asc", "title_desc", "date_asc", "date_desc"]),
+        ("ai_enabled", [True, False]),
+        ("ai_connection", ["openrouter", "local"]),
+        ("ai_address", ["", "http://localhost:11434/v1"]),
+        ("ai_model", ["", "openai/gpt-4o-mini"]),
     ],
 )
 def test_every_valid_value_is_accepted(
@@ -65,6 +78,11 @@ def test_every_valid_value_is_accepted(
         ("reader_size", 17.5),
         ("reader_size", "17"),
         ("reader_size", True),
+        ("ai_enabled", "yes"),
+        ("ai_enabled", 1),
+        ("ai_connection", "cloud"),
+        ("ai_address", "x" * 201),
+        ("ai_model", 5),
         ("reader_width", 3),
         ("reader_width", -1),
         ("reader_width", False),

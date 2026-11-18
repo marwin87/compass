@@ -33,6 +33,14 @@ def _int_between(low: int, high: int) -> Callable[[object], bool]:
     return lambda v: isinstance(v, int) and not isinstance(v, bool) and low <= v <= high
 
 
+def _bool(v: object) -> bool:
+    return isinstance(v, bool)
+
+
+def _str(maxlen: int) -> Callable[[object], bool]:
+    return lambda v: isinstance(v, str) and len(v) <= maxlen
+
+
 SPEC: dict[str, Setting] = {
     "theme": Setting("dark", _choice("dark", "light")),
     "reader_size": Setting(17, _int_between(15, 22)),  # px, reading mode text size
@@ -40,6 +48,11 @@ SPEC: dict[str, Setting] = {
     "sort": Setting(
         "", _choice("", *notes.SORTS)
     ),  # the list order; "" = relevance / newest
+    # AI (the key is never a setting: it lives in the OPENROUTER_API_KEY env var only)
+    "ai_enabled": Setting(False, _bool),
+    "ai_connection": Setting("openrouter", _choice("openrouter", "local")),
+    "ai_address": Setting("", _str(200)),  # used by the local connection only
+    "ai_model": Setting("", _str(200)),
 }
 
 
