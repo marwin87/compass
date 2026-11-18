@@ -15,6 +15,8 @@ def s(**kw: object) -> dict[str, object]:
         "ai_model_local": "m",
         "ai_embed_model_openrouter": "",
         "ai_embed_model_local": "",
+        "ai_vision_model_openrouter": "",
+        "ai_vision_model_local": "",
     }
     return {**base, **kw}
 

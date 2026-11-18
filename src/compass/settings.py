@@ -62,6 +62,9 @@ SPEC: dict[str, Setting] = {
     # the embedding model of each connection (chat retrieval); empty = keyword search only
     "ai_embed_model_openrouter": Setting("", _str(200)),
     "ai_embed_model_local": Setting("", _str(200)),
+    # the vision model of each connection (reads images for import); empty = no image import
+    "ai_vision_model_openrouter": Setting("", _str(200)),
+    "ai_vision_model_local": Setting("", _str(200)),
 }
 
 

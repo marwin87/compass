@@ -298,9 +298,10 @@ def answer(
                 for n, e in enumerate(excerpts, 1)
             ],
         }
+        earlier: ai.Messages = [{"role": m.role, "content": m.text} for m in history]
         messages: ai.Messages = [
             {"role": "system", "content": SYSTEM},
-            *({"role": m.role, "content": m.text} for m in history),
+            *earlier,
             {"role": "user", "content": _prompt(excerpts, question)},
         ]
         parts: list[str] = []
@@ -309,7 +310,7 @@ def answer(
             "chat prepared: sync %.0f ms, retrieve %.0f ms, prompt %d chars",
             (synced - started) * 1000,
             (asked - synced) * 1000,
-            sum(len(m["content"]) for m in messages),
+            sum(len(str(m["content"])) for m in messages),
         )
         for piece in ai.stream_messages(s, messages):
             if not parts:

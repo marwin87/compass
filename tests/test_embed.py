@@ -12,6 +12,7 @@ def s(**extra: object) -> dict[str, object]:
         "ai_address": "",
         "ai_model_local": "m1",
         "ai_embed_model_local": "emb",
+        "ai_vision_model_local": "",
         **extra,
     }
 
@@ -19,6 +20,11 @@ def s(**extra: object) -> dict[str, object]:
 def test_status_says_whether_embeddings_are_set() -> None:
     assert ai.status(s())["embeddings"] is True
     assert ai.status(s(ai_embed_model_local=""))["embeddings"] is False
+
+
+def test_status_says_whether_a_vision_model_is_set() -> None:
+    assert ai.status(s())["vision"] is False
+    assert ai.status(s(ai_vision_model_local="v"))["vision"] is True
 
 
 def test_embed_returns_one_vector_per_text_in_order(fake: Fake) -> None:

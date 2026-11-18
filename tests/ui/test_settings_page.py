@@ -283,3 +283,15 @@ def test_the_embedding_model_and_the_chat_index_are_in_the_ai_section(
         and 'method: "DELETE"' in page
         and STRINGS[lang]["index_clear"] in page
     )
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_vision_model_is_in_the_ai_section_and_images_are_accepted(
+    authed: TestClient, lang: str
+) -> None:
+    authed.cookies.set("lang", lang)
+    page = authed.get("/settings").text
+    section = page.split('id="ai"')[1].split("</section>")[0]
+    assert 'id="ctl-ai-vision"' in section and STRINGS[lang]["set_ai_vision"] in section
+    load = page.split('id="load"')[1].split("</section>")[0]
+    assert ".png,.jpg,.jpeg,.webp" in load and "image/webp" in load

@@ -84,6 +84,9 @@ Change flow (first slice): 1. the user opens a note in the reader; 2. chooses Tr
 - [new] FR-018: User reviews the list of proposed notes, can deselect or edit them, and only confirmed notes are saved. Priority: must-have
   > Socrates: Counter-argument considered: "if something fails midway, the model work already paid for is lost." Resolution: kept as written; the concern is handled in design, not scope.
 
+- [new] FR-019: User can import an image (photo, screenshot or scan): a vision model chosen in Settings reads the text on it (tables as tables, a diagram or flow with labels as a plain-text list of its elements and connections, unreadable parts marked), and the notes go through the same split, suggest and review flow as a Word file; a picture with no text is refused with a clear message, no vision model set means no image import, and the image is not stored. Priority: should-have
+  > Added 2026-11-18 with slice S-07: one image per import; the only check on the reading is the user's review of the proposed notes.
+
 ### Conversation
 - [new] FR-017: User can hold a conversation with the notes: ask questions in natural language, follow up on earlier answers, and get answers written only from the notes, each naming the notes it comes from (a source can be opened); when the notes do not contain the answer, the answer says so. Conversations are saved and can be reopened or deleted. Priority: must-have
   > Socrates: Counter-argument considered: "an answer without a source is not trustworthy." Resolution: sources are part of the requirement (revised 2026-11-18); an answer cites the notes it used.

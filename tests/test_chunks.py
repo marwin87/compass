@@ -24,6 +24,7 @@ def ready(c: TestClient, f: Fake) -> dict[str, object]:
         "ai_address": f.url,
         "ai_model_local": "m1",
         "ai_embed_model_local": "emb",
+        "ai_vision_model_local": "",
     }
 
 

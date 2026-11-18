@@ -3,6 +3,7 @@
 Neither the key nor note content is ever logged or returned.
 """
 
+import base64
 import json
 import urllib.error
 import urllib.request
@@ -71,6 +72,21 @@ def embed_model(s: dict[str, object]) -> str:
     return str(s[f"ai_embed_model_{s['ai_connection']}"]).strip()
 
 
+IMAGE_TIMEOUT = 120  # reading a photo takes longer than a short chat answer
+NO_TEXT = "NO_TEXT"
+READ = (
+    "You read one image (a photo, screenshot or scan) for a note-taking app. Write down everything that is "
+    "written on it, faithfully and in reading order, as Markdown: headings as headings, lists as lists, "
+    "tables as Markdown tables, code as fenced code. A diagram, flowchart, mind map or other drawing whose "
+    "elements carry text is written as a short list of its elements and how they connect, for example "
+    "'Login -> Check password (wrong: back to Login) -> Dashboard', nested for a hierarchy. Keep the "
+    "language, names, numbers and links exactly as they are. Do not describe pictures, objects or people "
+    "and do not add anything that is not written on the image. Mark text you cannot read as "
+    "[illegible] instead of guessing. If the image holds no text at all, reply with exactly "
+    f"{NO_TEXT}. Reply with the Markdown only, no preface and no code fence around it."
+)
+
+
 def status(s: dict[str, object]) -> dict[str, object]:
     """Whether the chosen connection is configured, what is missing, and whether notes leave the machine."""
     local = s["ai_connection"] == "local"
@@ -90,7 +106,13 @@ def status(s: dict[str, object]) -> dict[str, object]:
         "missing": missing,
         "leaves_machine": not local or host not in LOOPBACK,
         "embeddings": bool(embed_model(s)),
+        "vision": bool(vision_model(s)),
     }
+
+
+def vision_model(s: dict[str, object]) -> str:
+    """The vision model of the chosen connection; empty = no image import."""
+    return str(s[f"ai_vision_model_{s['ai_connection']}"]).strip()
 
 
 def base_url(s: dict[str, object]) -> str:
@@ -101,8 +123,8 @@ def base_url(s: dict[str, object]) -> str:
 
 
 Messages = list[
-    dict[str, str]
-]  # [{"role": "system" | "user" | "assistant", "content": ...}]
+    dict[str, object]
+]  # [{"role": "system" | "user" | "assistant", "content": text, or a list of text and image parts}]
 
 
 def _post(
@@ -117,9 +139,15 @@ def _post(
 
 
 def _request(
-    s: dict[str, object], messages: Messages, stream: bool = False
+    s: dict[str, object],
+    messages: Messages,
+    stream: bool = False,
+    model_name: str | None = None,
 ) -> urllib.request.Request:
-    payload: dict[str, object] = {"model": model(s), "messages": messages}
+    payload: dict[str, object] = {
+        "model": model_name or model(s),
+        "messages": messages,
+    }
     if stream:
         payload["stream"] = True
     return _post(s, "/chat/completions", payload)
@@ -149,10 +177,19 @@ def _mapped() -> Iterator[None]:
 def _chat(
     s: dict[str, object], system: str, user: str, timeout: int | None = None
 ) -> str:
+    return _complete(s, _one(system, user), timeout)
+
+
+def _complete(
+    s: dict[str, object],
+    messages: Messages,
+    timeout: int | None = None,
+    model_name: str | None = None,
+) -> str:
     with (
         _mapped(),
         urllib.request.urlopen(
-            _request(s, _one(system, user)), timeout=timeout or TIMEOUT
+            _request(s, messages, model_name=model_name), timeout=timeout or TIMEOUT
         ) as response,
     ):
         answer = json.load(response)["choices"][0]["message"]["content"]
@@ -239,6 +276,32 @@ def ask(
     """One model call for any feature. Raises AIError; makes no call when AI is off or unconfigured."""
     ready(s)
     return _chat(s, system, user, timeout)
+
+
+def read_image(s: dict[str, object], image: bytes, mime: str) -> str:
+    """The text of an image, written as Markdown by the vision model; "" when it holds no text. Raises
+    AIError; makes no call when AI is off or unconfigured, or no vision model is set."""
+    ready(s)
+    name = vision_model(s)
+    if not name:
+        raise AIError("not_configured", "vision model")
+    url = f"data:{mime};base64,{base64.b64encode(image).decode()}"
+    messages: Messages = [
+        {"role": "system", "content": READ},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Write down the text of this image."},
+                {"type": "image_url", "image_url": {"url": url}},
+            ],
+        },
+    ]
+    text = _complete(s, messages, IMAGE_TIMEOUT, name)
+    if text.startswith("```") and text.endswith(
+        "```"
+    ):  # a fence round the whole answer: not asked for
+        text = text.split("\n", 1)[-1].removesuffix("```").strip()
+    return "" if text == NO_TEXT else text
 
 
 def summarize(title: str, body: str, s: dict[str, object]) -> str:

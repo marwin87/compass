@@ -1,4 +1,7 @@
-"""Turn a Word file into proposed notes (nothing is saved here).
+"""Turn a Word, text or image file into proposed notes (nothing is saved here).
+
+An image is first read by the vision model into Markdown text (`ai.read_image`); from there it is a text
+file like any other. The image itself is never stored.
 
 The model reads the file part by part, understands it and writes self-contained Markdown notes
 (one per topic). A second call per part then compares the source with those notes and lists what
@@ -317,13 +320,41 @@ def _part_events(
 TEXT_TYPES = {".txt", ".md", ".markdown"}
 
 
-def _blocks(raw: bytes, name: str) -> list[docx.Block]:
+IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _image_mime(raw: bytes) -> str | None:
+    """The type of an image from its first bytes (the file name can lie), None for anything else."""
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if raw.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _image_blocks(raw: bytes, s: dict[str, object]) -> list[docx.Block]:
+    """The text of an image as blocks, read by the vision model (one call, before the notes are written)."""
+    if not ai.vision_model(s):
+        raise docx.BadFile("no_vision")
+    mime = _image_mime(raw)
+    if mime is None:
+        raise docx.BadFile("not_image")
+    return textfile.extract(
+        ai.read_image(s, raw, mime).encode()
+    )  # "empty" when no text
+
+
+def _blocks(raw: bytes, name: str, s: dict[str, object]) -> list[docx.Block]:
     """The blocks of a file, read by the parser of its type (the extension of `name`)."""
     kind = PurePath(name).suffix.lower()
     if kind == ".docx":
         return docx.extract(raw)
     if kind in TEXT_TYPES:
         return textfile.extract(raw)
+    if kind in IMAGE_TYPES:
+        return _image_blocks(raw, s)
     raise docx.BadFile("unsupported")
 
 
@@ -331,7 +362,7 @@ def prepare(raw: bytes, s: dict[str, object], name: str) -> list[list[docx.Block
     """The parts of a file (`name` tells its type), after every check that can fail before any model call.
     Raises ai.AIError (AI off or not configured) and docx.BadFile."""
     ai.ready(s)
-    blocks = _blocks(raw, name)
+    blocks = _blocks(raw, name, s)
     if sum(len(b.text) for b in blocks) > MAX_TEXT:
         raise docx.BadFile("too_large")
     return windows(blocks)

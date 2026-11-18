@@ -247,7 +247,7 @@ SETTINGS_HTML = (
       <h2>[[load_h]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></h2>
       <div class="scard aiframe">
         <div class="srow"><div><div class="sname">[[word_import]]</div><div class="sdesc">[[word_import_desc]]</div></div>
-          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,.txt,.md,.markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" hidden></div></div>
+          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,image/png,image/jpeg,image/webp" hidden></div></div>
       </div>
       <div class="scard aiframe" id="wordreview" hidden aria-live="polite"></div>
     </section>
@@ -263,6 +263,7 @@ SETTINGS_HTML = (
         <div class="srow" id="row-ai-addr"><div><div class="sname">[[set_ai_address]]</div><div class="sdesc">[[set_ai_address_desc]]</div></div><div class="sctl" id="ctl-ai-addr"></div></div>
         <div class="srow"><div><div class="sname">[[set_ai_model]]</div><div class="sdesc">[[set_ai_model_desc]]</div></div><div class="sctl" id="ctl-ai-model"></div></div>
         <div class="srow"><div><div class="sname">[[set_ai_embed]]</div><div class="sdesc">[[set_ai_embed_desc]]</div></div><div class="sctl" id="ctl-ai-embed"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_vision]]</div><div class="sdesc">[[set_ai_vision_desc]]</div></div><div class="sctl" id="ctl-ai-vision"></div></div>
         <div class="srow" id="row-ai-index" hidden><div><div class="sname">[[set_ai_index]]</div><div class="sdesc">[[set_ai_index_desc]]</div><div class="sdesc" id="ai-index-status" role="status"></div></div><div class="sctl" id="ctl-ai-index"></div></div>
         <div class="srow"><div><div class="sname">[[ai_status_h]]</div><div class="sdesc" id="ai-status" role="status"></div></div></div>
       </div>
@@ -361,8 +362,8 @@ $("#ctl-ai-block").append(aiBlock.el);
 const aiOn = segmented([[true, tr("ai_on")], [false, tr("ai_off")]], SETTINGS.ai_enabled, (v) => change("ai_enabled", v, (x) => aiOn.set(x)).then(loadAiStatus));
 $("#ctl-ai-on").append(aiOn.el);
 // Each connection keeps its own model: the model field shows and saves the one of the chosen connection
-// One model per role (chat, embeddings; vision later = one more entry here, in SPEC and in the HTML row)
-const MODEL_ROLES = [["ai_model_", "#ctl-ai-model", "ai_model_ph"], ["ai_embed_model_", "#ctl-ai-embed", "ai_embed_ph"]];
+// One model per role (chat, embeddings, vision; another role = one more entry here, in SPEC and in the HTML row)
+const MODEL_ROLES = [["ai_model_", "#ctl-ai-model", "ai_model_ph"], ["ai_embed_model_", "#ctl-ai-embed", "ai_embed_ph"], ["ai_vision_model_", "#ctl-ai-vision", "ai_vision_ph"]];
 const aiText = (keyOf, ph) => {
   const input = h("input", {class: "sinput", maxlength: "200", autocomplete: "off", placeholder: ph, "aria-label": ph});
   input.value = SETTINGS[keyOf()];
@@ -589,7 +590,7 @@ async function importFile(file) {
 // Import from Word (AI): the model writes the notes part by part. Proposals appear as each part is ready,
 // so they can be reviewed and saved while the rest is still coming; a failed part says why and can be run again.
 const WORD_ERRORS = {
-  not_docx: "word_err_not_docx", not_text: "word_err_not_text", unsupported: "word_err_unsupported", empty: "word_err_empty", too_large: "word_err_too_large", file_too_large: "import_err_file_too_large",
+  not_docx: "word_err_not_docx", not_text: "word_err_not_text", unsupported: "word_err_unsupported", not_image: "word_err_not_image", no_vision: "word_err_no_vision", empty: "word_err_empty", too_large: "word_err_too_large", file_too_large: "import_err_file_too_large",
   not_enabled: "ai_err_not_enabled", not_configured: "ai_err_not_configured", timeout: "ai_err_timeout",
 };
 const PART_ERRORS = {timeout: "ai_err_timeout"};
