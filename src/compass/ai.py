@@ -4,7 +4,6 @@ Neither the key nor note content is ever logged or returned.
 """
 
 import json
-import re
 import urllib.error
 import urllib.request
 from urllib.parse import urlparse
@@ -15,12 +14,16 @@ LOOPBACK = {"localhost", "127.0.0.1", "::1"}
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 TIMEOUT = 60  # seconds; a slow model must not hang a request forever
 
-TRANSLATE_PROMPT = (
-    "Translate the Markdown note you receive: into English if it is mostly Polish, otherwise into Polish. "
-    "Keep the Markdown structure exactly (headings, lists, tables, links). Do not translate code blocks, "
-    "inline code or URLs. Start the reply with one line holding only [en] or [pl], the language you translated "
-    "into, then the translated note and nothing else."
-)
+LANGUAGES = {"en": "English", "pl": "Polish"}
+
+
+def translate_prompt(to: str) -> str:
+    source = LANGUAGES["pl" if to == "en" else "en"]
+    return (
+        f"Translate the Markdown note you receive from {source} into {LANGUAGES[to]}. "
+        "Keep the Markdown structure exactly (headings, lists, tables, links). Do not translate code blocks, "
+        "inline code or URLs. Reply with the translated note and nothing else."
+    )
 
 
 class AIError(Exception):
@@ -96,19 +99,14 @@ def _chat(s: dict[str, object], system: str, user: str) -> str:
     return answer.strip()
 
 
-LANG_LINE = re.compile(r"^\s*\[(en|pl)\]\s*", re.IGNORECASE)
-
-
-def translate(text: str, s: dict[str, object]) -> tuple[str, str]:
-    """Translate a note body PL<->EN: (language it was translated into, text); the language is "" when
-    the model did not say. Raises AIError; makes no call when AI is off or unconfigured."""
+def translate(text: str, s: dict[str, object], to: str) -> str:
+    """Translate a note body into `to` ("en" or "pl"). Raises AIError; makes no call when AI is off or
+    unconfigured."""
     state = status(s)
     if not state["enabled"]:
         raise AIError("not_enabled")
     if not state["configured"]:
         raise AIError("not_configured")
     if not text.strip():
-        return "", ""
-    answer = _chat(s, TRANSLATE_PROMPT, text)
-    found = LANG_LINE.match(answer)
-    return (found.group(1).lower(), answer[found.end() :]) if found else ("", answer)
+        return ""
+    return _chat(s, translate_prompt(to), text)

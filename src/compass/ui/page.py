@@ -52,6 +52,7 @@ COMMON_CSS = r"""
 .aiframe,.scard.aiframe{border-radius:16px;border:1.5px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
 .aitag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;line-height:1.5;padding:1px 8px;border-radius:999px;color:#fff;background:linear-gradient(135deg,var(--ai1),var(--ai2));vertical-align:middle}
 .aitag .ic,.aitag svg{color:#fff!important}
+.logo .aitag{margin-left:6px}
 .aipad{margin:16px 14px 20px;overflow:hidden}
 .aipad .aihd{flex-wrap:wrap}.aihd .grow{flex:1}
 .aibody{padding:0}.aipad .aierr{padding:16px 18px;font-size:14px}
@@ -62,7 +63,10 @@ COMMON_CSS = r"""
 .iconbtn.ai.on{box-shadow:0 0 0 3px var(--ai-soft)}
 .aihd{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--ai-soft);font-size:13px;font-weight:600;color:var(--ink)}
 .aihd .ic,.aihd svg{color:var(--ai1)}
-.iconbtn.ai,.hero .iconbtn.ai{position:relative;color:var(--ai1);border:1.5px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
+.iconbtn.ai{position:relative;color:var(--ai1);border:1.5px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
+.hero .iconbtn.ai{color:#fff;background:rgba(255,255,255,.08);border-color:transparent}
+.hero .iconbtn.ai:hover{background:rgba(255,255,255,.18)}
+.hero .iconbtn.ai::before{content:"";position:absolute;inset:-1.5px;border-radius:inherit;padding:1.5px;background:linear-gradient(135deg,var(--ai1),var(--ai2));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);pointer-events:none}
 .iconbtn.ai .aitag{position:absolute;top:-7px;right:-9px;font-size:9px;padding:0 5px}
 .iconbtn.ai .aitag svg{display:none}
 *{box-sizing:border-box}
@@ -126,17 +130,17 @@ kbd{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;border:1p
 @keyframes shimmer{from{background-position:120% 0}to{background-position:-120% 0}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 .sidebtn{margin-top:4px;justify-content:center;background:rgba(255,255,255,.03);padding:10px 12px;border-radius:12px}
+.newbtn{padding:13px 14px;border-radius:14px;font-size:14px;font-weight:600}
+.logo .dot svg{display:block}
+.tagline{font-size:12px;font-weight:400;color:var(--faint);line-height:1.2;margin-top:3px}
 """
 
 APP_CSS = r"""
 body{overflow:hidden}
 .app{display:grid;grid-template-columns:250px minmax(0,1fr);height:100vh}
 aside{scrollbar-width:thin;scrollbar-color:rgba(128,132,160,.35) transparent;background:var(--side);border-right:1px solid var(--line);padding:22px 16px 16px;overflow:auto;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin}
-.logo .dot svg{display:block}
-.tagline{font-size:12px;font-weight:400;color:var(--faint);line-height:1.2;margin-top:3px}
 aside .logo{margin-bottom:20px}
 .wide{width:100%}
-.newbtn{padding:13px 14px;border-radius:14px;font-size:14px;font-weight:600}
 h4{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin:22px 4px 8px}
 .legend{list-style:none;margin:0;padding:0;font-size:12.5px;display:grid;gap:10px}
 .legend li{display:flex;gap:12px;align-items:flex-start;line-height:1.35}
@@ -175,7 +179,7 @@ main{display:flex;flex-direction:column;min-width:0;height:100vh;padding:18px 24
 .withbtn{display:flex;justify-content:space-between;align-items:center}
 .linkbtn{text-decoration:none;display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--muted);font-size:12px;padding:0;text-transform:none;letter-spacing:0;font-weight:500}
 .linkbtn:hover{color:var(--accent-light)}
-.catlist{display:flex;flex-direction:column;gap:2px}
+.catlist{display:flex;flex-direction:column;gap:2px;flex:none;position:relative;overflow:hidden;transition:max-height .22s ease-out}
 .catlist .cat{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;border:1px solid transparent;background:none;padding:5px 10px;border-radius:10px;font-size:13px;text-align:left;color:var(--muted);transition:background var(--ease),color var(--ease)}
 .catlist .cat:hover{background:rgba(255,255,255,.04);color:var(--ink)}
 .catlist .cat.on{background:var(--accent-soft);color:var(--ink);border-color:rgba(99,125,255,.35);font-weight:600}
@@ -276,10 +280,11 @@ INDEX_HTML = (
     + r"""
 <div class="app" id="app" data-view="list">
   <aside id="side">
-    <div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass</div><div class="tagline">[[tagline]]</div></div></div>
+    <div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass <span class="aitag" data-ai hidden><span class="ic" data-icon="spark" data-size="10"></span>AI</span></div><div class="tagline">[[tagline]]</div></div></div>
     <button type="button" class="btn primary wide newbtn" id="new">[[new_note]]</button>
     <h4><span>[[categories_h]]</span><a class="linkbtn" href="/settings#categories" title="[[manage_title]]">[[manage_categories]]<span class="ic" data-icon="settings" data-size="15"></span></a></h4>
     <div class="catlist" id="catbar"></div>
+    <button type="button" class="moretags" id="catmore" hidden><span id="catmoretext"></span><span class="ic" data-icon="chevron-down" data-size="15"></span></button>
     <h4><span>[[tags_h]]</span><a class="linkbtn" href="/settings#tags" title="[[tags_manage_title]]">[[manage_categories]]<span class="ic" data-icon="settings" data-size="15"></span></a></h4>
     <div class="chips tagbar" id="tagbar"></div>
     <button type="button" class="moretags" id="tagmore" hidden><span id="tagmoretext"></span><span class="ic" data-icon="chevron-down" data-size="15"></span></button>
@@ -476,6 +481,8 @@ function renderFilters() {
   const none = state.sel.size === 0 && state.category === null;
   $("#f-all").classList.toggle("on", none);
 }
+const CAT_PREVIEW = 6;
+let catsOpen = false;
 function renderCategories() {
   renderFilters();
   const total = state.categories.reduce((sum, c) => sum + c.count, 0);
@@ -483,18 +490,21 @@ function renderCategories() {
   $("#catbar").replaceChildren(
     entry(tr("category_all"), total, state.category === null, () => { state.category = null; renderCategories(); load(); }),
     ...state.categories.map((c) => entry(catLabel(c), c.count, state.category === c.id, () => toggleCategory(c.id))));
+  fitList("cat", CAT_PREVIEW + 1, catsOpen);   // +1: the "All" entry
 }
 const TAG_PREVIEW = 9;
 let tagsOpen = false;
-function fitTags() {                    // collapsed: just the first rows; open: everything; the height change is animated
-  const bar = $("#tagbar"), kids = bar.children, many = kids.length > TAG_PREVIEW;
-  $("#tagmore").hidden = !many;
-  $("#tagmore").classList.toggle("open", tagsOpen);
-  $("#tagmoretext").textContent = tagsOpen ? tr("tags_less") : tr("tags_more");
+// Collapsed: the first `preview` items; open: everything. The height change is animated (tags and categories alike).
+function fitList(name, preview, open) {
+  const bar = $("#" + name + "bar"), more = $("#" + name + "more"), kids = bar.children, many = kids.length > preview;
+  more.hidden = !many;
+  more.classList.toggle("open", open);
+  $("#" + name + "moretext").textContent = open ? tr("tags_less") : tr("tags_more");
   if (!many) { bar.style.maxHeight = ""; return; }
-  const last = kids[TAG_PREVIEW - 1];
-  bar.style.maxHeight = (tagsOpen ? bar.scrollHeight : last.offsetTop + last.offsetHeight) + "px";
+  const last = kids[preview - 1];
+  bar.style.maxHeight = (open ? bar.scrollHeight : last.offsetTop + last.offsetHeight) + "px";
 }
+const fitTags = () => fitList("tag", TAG_PREVIEW, tagsOpen);
 function renderTagbar() {
   renderFilters();
   $("#tagbar").replaceChildren(...state.tags.map((t) => h("button", {type: "button", class: "chip" + (state.sel.has(t.name) ? " on" : ""), onclick: () => toggleTag(t.name)}, "#" + t.name, h("span", {class: "n"}, t.count))));
@@ -593,7 +603,7 @@ async function copyNote(note) {
 function notePanel(note, cb) {
   const root = h("div", {class: "panel"});
   let mode = "read", draft = null, msg = "";
-  let preview = null, job = 0;    // the translation shown in place of the note: {state: "loading"|"done"|"error", text, msg}; job drops a late answer
+  let preview = null, job = 0, swapped = false;    // swapped: the user turned the direction around; the translation shown in place of the note: {state: "loading"|"done"|"error", text, msg}; job drops a late answer
   const back = () => { job++; preview = null; mode = "read"; draft = null; msg = ""; draw(); };
   async function save() {
     const r = await api("/api/notes/" + note.id, json("PUT", draft));
@@ -605,12 +615,13 @@ function notePanel(note, cb) {
     if (r.status !== 204 && r.status !== 404) { msg = tr("delete_failed"); mode = "read"; draw(); return; }
     cb.onDeleted();       // a 404 means it is already gone, which is the state the user wanted
   }
+  const target = () => ((noteLang(note.body) === "pl") !== swapped ? "en" : "pl");   // the language to translate into
   async function translate() {
-    const mine = ++job;
+    const mine = ++job, to = target();
     preview = {state: "loading", minH: Math.max(160, (root.querySelector(".sheet") || {offsetHeight: 0}).offsetHeight - 50)}; draw();
     let next;
     try {
-      const r = await api("/api/notes/" + note.id + "/translate", {method: "POST"});
+      const r = await api("/api/notes/" + note.id + "/translate?to=" + to, {method: "POST"});
       if (r.ok) { const d = await r.json(); next = {state: "done", text: d.text, lang: d.lang}; }
       else { const d = (await r.json().catch(() => ({}))).detail; next = {state: "error", msg: tr(AI_ERRORS[d && d.code] || "ai_err_failed")}; }
     } catch (e) {
@@ -620,9 +631,13 @@ function notePanel(note, cb) {
     if (mine !== job || !preview) return;
     preview = {...next, minH: preview.minH}; draw();
   }
-  const closeTranslation = () => { job++; preview = null; draw(); };
+  const closeTranslation = () => { job++; preview = null; swapped = false; draw(); };
+  const openTranslation = () => { swapped = false; translate(); };
+  const swap = () => { swapped = !swapped; translate(); };
   function translationBlock(tk) {
-    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, tr("translate")), aiTag(), h("span", {class: "grow"}),
+    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, translateLabel(target())), aiTag(),
+      preview.state === "loading" ? null : h("button", {type: "button", class: "btn icon", "aria-label": tr("translate_swap"), title: tr("translate_swap"), onclick: swap}, icon("swap", 16)),
+      h("span", {class: "grow"}),
       preview.state === "done" ? h("button", {type: "button", class: "btn", onclick: copyPreview}, icon("copy", 16), tr("copy_translation")) : null,
       preview.state === "error" ? h("button", {type: "button", class: "btn primary", onclick: translate}, tr("retry")) : null,
       h("button", {type: "button", class: "btn", onclick: closeTranslation}, tr("back")));
@@ -652,7 +667,7 @@ function notePanel(note, cb) {
             h("div", {class: "tools"},
               h("button", {type: "button", class: "iconbtn readtoggle", "aria-label": tr("reading_mode"), "aria-pressed": "false", title: tr("reading_mode"), onclick: toggleReading}, icon("book", 17)),
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("copy"), title: tr("copy"), onclick: () => copyNote(note)}, icon("copy", 17)),
-              SETTINGS.ai_enabled ? h("button", {type: "button", class: "iconbtn ai" + (preview ? " on" : ""), "aria-pressed": preview ? "true" : "false", "aria-label": tr("translate") + " (AI)", title: tr("translate") + " (AI)", onclick: preview ? closeTranslation : translate}, icon("languages", 17), aiTag()) : null,
+              AI_READY ? h("button", {type: "button", class: "iconbtn ai" + (preview ? " on" : ""), "aria-pressed": preview ? "true" : "false", "aria-label": translateLabel(target()) + " (AI)", title: translateLabel(target()) + " (AI)", onclick: preview ? closeTranslation : openTranslation}, icon("languages", 17), aiTag()) : null,
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("edit"), title: tr("edit"), onclick: edit}, icon("pencil", 17)),
               h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { job++; preview = null; msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
           h("h2", {}, hlNodes(note.title, tk)),
@@ -711,6 +726,7 @@ $("#r-smaller").addEventListener("click", () => { READER.size = Math.max(READ_SI
 $("#r-larger").addEventListener("click", () => { READER.size = Math.min(READ_SIZES[1], READER.size + 1); applyReader(); });
 $("#r-width").addEventListener("click", () => { READER.width = (READER.width + 1) % READ_WIDTHS.length; applyReader(); });
 $("#r-exit").addEventListener("click", exitReading);
+$("#catmore").addEventListener("click", () => { catsOpen = !catsOpen; fitList("cat", CAT_PREVIEW + 1, catsOpen); });
 $("#tagmore").addEventListener("click", () => { tagsOpen = !tagsOpen; fitTags(); });
 const openMenu = (on) => { $("#app").classList.toggle("menu", on); $("#scrim").hidden = !on; };
 $("#menu").addEventListener("click", () => openMenu(true));
@@ -734,6 +750,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 fillIcons();
+setAiReady(AI_READY);
 loadTags();
 loadCategories().then(() => load());   // categories first: the note's category badge and the total need them
 """

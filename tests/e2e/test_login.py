@@ -70,3 +70,15 @@ def test_the_language_buttons_on_the_login_page_switch_the_texts_and_are_remembe
     ).to_be_visible()
     page.get_by_role("button", name="PL").click()
     expect(page.get_by_role("button", name=T["login_btn"], exact=True)).to_be_visible()
+
+
+def test_the_eye_button_shows_and_hides_the_password(page: Page) -> None:
+    page.goto("/login")
+    field = page.get_by_placeholder(T["password_ph"])
+    field.fill("tajne-haslo")
+    expect(field).to_have_attribute("type", "password")
+    page.get_by_role("button", name=T["password_show"]).click()
+    expect(field).to_have_attribute("type", "text")
+    expect(field).to_have_value("tajne-haslo")
+    page.get_by_role("button", name=T["password_hide"]).click()
+    expect(field).to_have_attribute("type", "password")

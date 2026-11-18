@@ -336,11 +336,12 @@ function readerBody(note, tk, lang) {             // the rendered note: optional
   const tocHeads = ctx.heads.filter((x) => x.level === 2 || x.level === 3);
   const wrap = h("div", {class: "mdwrap"});
   if (tocHeads.length >= 3) {                      // short notes get no contents
-    const nav = h("nav", {"aria-label": tr("toc_title")}, tocHeads.map((x) => h("a", {href: "#" + x.id, "data-id": x.id, class: "l" + x.level, onclick: (e) => {
+    const tocTitle = lang && I18N.callouts[lang] ? I18N.callouts[lang].toc_title : tr("toc_title");   // a translation names it in its own language
+    const nav = h("nav", {"aria-label": tocTitle}, tocHeads.map((x) => h("a", {href: "#" + x.id, "data-id": x.id, class: "l" + x.level, onclick: (e) => {
       e.preventDefault();
       document.getElementById(x.id).scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
     }}, x.text)));
-    wrap.append(h("details", {class: "toc"}, h("summary", {}, icon("list", 15), tr("toc_title")), nav));
+    wrap.append(h("details", {class: "toc"}, h("summary", {}, icon("list", 15), tocTitle), nav));
   }
   wrap.append(article);
   return wrap;

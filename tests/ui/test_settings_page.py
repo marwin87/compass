@@ -90,7 +90,7 @@ def test_the_logo_and_tagline_are_always_on_the_settings_page(
 ) -> None:
     authed.cookies.set("lang", lang)
     page = authed.get("/settings").text
-    assert 'class="slogo" href="/"' in page and ">Compass<" in page
+    assert 'class="slogo" href="/"' in page and ">Compass <" in page
     assert STRINGS[lang]["tagline"] in page  # the same description as on the notes page
 
 

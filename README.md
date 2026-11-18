@@ -5,7 +5,7 @@
 
 A personal knowledge base: short notes in one place, found in a fraction of a second after a few typed letters. One instance serves one person.
 
-Status: early development (see `context/foundation/roadmap.md`). Right now you can log in with a password, save notes (title, body, tags), edit and delete them, and find them fast: results are ranked by relevance (exact tag, then title, then body), and typos and missing Polish letters are forgiven (`zlozonosc` finds "złożoność").
+Status: early development (see `context/foundation/roadmap.md`). Right now you can log in with a password, save notes (title, body, tags, category), translate them with AI (optional), edit and delete them, and find them fast: results are ranked by relevance (exact tag, then title, then body), and typos and missing Polish letters are forgiven (`zlozonosc` finds "złożoność").
 
 **Stack:** Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [uv](https://docs.astral.sh/uv/).
 
@@ -29,6 +29,31 @@ The **Settings** page (`/settings`, from the side panel) has Appearance (theme, 
 width, default list order), Categories and Tags (search, rename, merge, delete), Backup (export and import),
 Keyboard shortcuts, a Danger zone (clear all data) and About (version, counts, database size and path). Preferences are stored on the server (`GET`/`PUT /api/settings`),
 so they follow you between browsers; the language is a cookie.
+
+## Categories
+
+Every note has exactly one category (new notes start in the default "Uncategorized"). The side panel lists
+them with note counts, shows the first six and folds the rest behind **Show more** (animated, like the tags);
+clicking one filters the list. Settings → Categories creates, renames and deletes them (only an empty category
+can be deleted).
+
+## AI
+
+<table><tr><td>
+
+<img src="docs/ai-badge.svg" alt="AI" height="20" align="absmiddle"> **Optional, off by default.** With AI off (or not configured) the app looks and works exactly as before, with no AI controls anywhere.
+
+- **Translate PL↔EN:** the translate button in a note opens a preview (the note is never changed). The direction
+  (`PL→EN` or `EN→PL`) is guessed from the note and a swap button reverses it. Code blocks, inline code and URLs are kept as they are.
+- **Where AI is marked:** everything AI carries the violet-pink frame and the `AI` tag, and an `AI` badge next to the Compass logo
+  shows that AI is on and ready.
+
+**Set up:** Settings → AI: switch it on, pick a connection and a model. **OpenRouter** needs `OPENROUTER_API_KEY` in `.env`
+(the key is never stored in settings and never returned by the API); **Local** points at an OpenAI-compatible server,
+e.g. Ollama at `localhost:11434/v1`. The page shows what is still missing and whether the note text leaves your machine
+(it does with OpenRouter and with any non-local address).
+
+</td></tr></table>
 
 ## Tags
 
@@ -66,6 +91,11 @@ after you confirm. Nothing is skipped and importing the same file twice gives th
 - categories come from the file's `categories` list (including empty ones) and from each note's
   `category`; older exports without them import into "Uncategorized";
 - creation dates are kept, ids are new, and notes are added oldest first so the list looks the same.
+
+## Demo data
+
+`demo/compass-demo.json` is an export file with 54 sample notes in 12 categories, in Polish and English (see
+`demo/README.md`). Load it with Settings → Backup → Import; it replaces everything, so export first if you have notes.
 
 ## Run with Docker
 

@@ -19,11 +19,11 @@ body{background:radial-gradient(1000px 500px at 80% -10%,rgba(82,117,255,.11),tr
 .snav{position:sticky;top:0;align-self:start;height:100vh;padding:22px 16px;border-right:1px solid var(--line);background:var(--side);display:flex;flex-direction:column;gap:6px}
 .slogo{display:block;color:inherit;text-decoration:none;margin:0 0 18px}
 .slogo .tagline{font-size:12px;font-weight:400;color:var(--faint);line-height:1.2;margin-top:3px}
-.sback{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-size:13px;padding:4px 6px;margin:0 0 14px -6px;border-radius:8px}
-.sback:hover{color:var(--ink);background:rgba(255,255,255,.04)}
+.sback{width:100%;margin:0 0 14px}
 .snav h1{font-size:22px;margin:12px 4px 14px;letter-spacing:-.01em}
 .snav nav{display:grid;gap:2px}
 .slogout{margin-top:auto}
+.slogout .btn{width:100%}
 .snav nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;color:var(--muted);text-decoration:none;border:1px solid transparent;transition:background var(--ease),color var(--ease)}
 .snav nav a:hover{background:rgba(255,255,255,.04);color:var(--ink)}
 .snav nav a.on{background:var(--accent-soft);color:var(--ink);border-color:rgba(99,125,255,.35);font-weight:600}
@@ -108,7 +108,7 @@ a.btn{text-decoration:none}
 @media (max-width:900px){
   .sapp{grid-template-columns:minmax(0,1fr)}
   .snav{min-width:0;position:sticky;top:0;z-index:10;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 14px;border-right:0;border-bottom:1px solid var(--line);gap:8px}
-  .sback{margin:0}
+  .sback{width:auto;margin:0}
   .slogo{margin:0 8px 0 0}
   .slogo .tagline{display:none}
   .slogo .logo{font-size:17px}
@@ -157,8 +157,8 @@ SETTINGS_HTML = (
 <body>
 <div class="sapp">
   <aside class="snav">
-    <a class="slogo" href="/" aria-label="Compass"><div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass</div><div class="tagline">[[tagline]]</div></div></div></a>
-    <a class="sback" href="/"><span class="ic" data-icon="chevron-left" data-size="16"></span>[[settings_back]]</a>
+    <a class="slogo" href="/" aria-label="Compass"><div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass <span class="aitag" data-ai hidden><span class="ic" data-icon="spark" data-size="10"></span>AI</span></div><div class="tagline">[[tagline]]</div></div></div></a>
+    <a class="btn primary newbtn sback" href="/"><span class="ic" data-icon="chevron-left" data-size="16"></span>[[settings_back]]</a>
     <h1>[[settings_title]]</h1>
     <nav id="snav" aria-label="[[settings_title]]">
 """
@@ -342,6 +342,7 @@ async function loadAiStatus() {
     if (e.message !== "not authenticated") $("#ai-status").textContent = tr("ai_status_failed");
     return;
   }
+  setAiReady(d.enabled && d.configured);   // the logo badge follows the switch at once
   const where = tr(d.leaves_machine ? "ai_leaves" : "ai_stays");
   const state = d.configured ? tr(d.enabled ? "ai_ready" : "ai_idle") : tr("ai_missing", {items: d.missing.map((m) => MISSING_LABELS[m]).join(", ")});
   $("#ai-status").replaceChildren(h("span", {class: "aistate " + (d.configured ? "ok" : "bad")}, state), h("br"), where);
@@ -624,6 +625,7 @@ const unlockNav = () => { if (navLock !== null) { navLock = null; updateNav(); }
 addEventListener("scroll", () => { if (!navQueued) { navQueued = true; requestAnimationFrame(updateNav); } }, {passive: true});
 updateNav();
 fillIcons();
+setAiReady(AI_READY);
 """
 
 SETTINGS_HTML = SETTINGS_HTML.replace("/*CORE*/", core.CORE_JS).replace(

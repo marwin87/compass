@@ -101,7 +101,9 @@ def test_importing_the_demo_file_brings_its_notes_and_categories(
     app.locator("#importfile").set_input_files(str(DEMO))
     app.get_by_role("dialog").get_by_role("button", name=T["import_replace"]).click()
     expect(app.locator("#toast")).to_have_text(T["import_done"].format(n=demo["count"]))
-    assert len(api.get("/api/notes").json()) == demo["count"]
+    assert (
+        api.get("/api/export").json()["count"] == demo["count"]
+    )  # /api/notes lists at most 50
     names = {c["name"] for c in api.get("/api/categories").json()}
     assert set(demo["categories"]) <= names
 

@@ -36,3 +36,21 @@ def test_login_page_is_styled_and_posts_to_login() -> None:
     assert 'action="/login"' in page.text
     assert 'name="password"' in page.text
     assert "fonts.googleapis" not in page.text
+
+
+def test_login_page_has_a_show_password_button_in_both_languages() -> None:
+    with TestClient(app, follow_redirects=False) as anon:
+        for lang, label in (("pl", "Pokaż hasło"), ("en", "Show password")):
+            page = anon.get("/login", headers={"accept-language": lang}).text
+            assert f'aria-label="{label}"' in page and 'class="pwtoggle"' in page
+
+
+def test_login_logo_matches_the_app_with_the_tagline() -> None:
+    from compass.ui.i18n import STRINGS
+
+    with TestClient(app, follow_redirects=False) as anon:
+        page = anon.get("/login", headers={"accept-language": "en"}).text
+    assert STRINGS["en"]["tagline"] in page and "🧭" not in page
+    assert (
+        '<circle cx="12" cy="12" r="10"/><polygon' in page
+    )  # the notes page's compass icon

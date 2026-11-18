@@ -221,3 +221,21 @@ def test_page_has_the_notes_ui_and_never_uses_inner_html(authed: TestClient) -> 
     assert (
         "fonts.googleapis" not in page.text
     )  # no external requests: notes stay on this server
+
+
+def test_ai_components_show_only_when_ai_is_enabled_and_configured() -> None:
+    from compass.ui.page import render_index
+    from compass.ui.settings_page import render_settings
+
+    local = {"ai_connection": "local", "ai_address": "localhost:11434/v1"}
+    ready = {**local, "ai_enabled": True, "ai_model_local": "m1"}
+    for render in (render_index, render_settings):
+        assert "const AI_READY = false;" in render("en")  # off by default
+        assert "const AI_READY = false;" in render("en", {**ready, "ai_enabled": False})
+        assert "const AI_READY = false;" in render(
+            "en", {**local, "ai_enabled": True}
+        )  # on, but no model
+        assert "const AI_READY = true;" in render("en", ready)
+        assert 'class="aitag" data-ai hidden' in render(
+            "en"
+        )  # the logo badge starts hidden

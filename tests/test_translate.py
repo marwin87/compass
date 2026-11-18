@@ -12,6 +12,7 @@ from compass import ai
 from compass.db import connect
 
 KEY = "sk-secret-123"
+EN = {"to": "en"}
 
 
 class Fake:
@@ -91,8 +92,8 @@ def test_translates_and_changes_nothing(authed: TestClient, fake: Fake) -> None:
     setup_ai(authed, fake)
     nid = add(authed)
     before = rows()
-    r = authed.post(f"/api/notes/{nid}/translate")
-    assert r.status_code == 200 and r.json() == {"lang": "", "text": "Hello world"}
+    r = authed.post(f"/api/notes/{nid}/translate", params=EN)
+    assert r.status_code == 200 and r.json() == {"lang": "en", "text": "Hello world"}
     assert rows() == before
     (req,) = fake.requests
     assert req["path"] == "/chat/completions" and req["auth"] is None
@@ -107,17 +108,17 @@ def test_openrouter_sends_the_key_and_never_returns_it(
     monkeypatch.setenv("OPENROUTER_API_KEY", KEY)
     monkeypatch.setattr(ai, "OPENROUTER_URL", fake.url)
     setup_ai(authed, fake, ai_connection="openrouter")
-    r = authed.post(f"/api/notes/{add(authed)}/translate")
+    r = authed.post(f"/api/notes/{add(authed)}/translate", params=EN)
     assert r.status_code == 200 and KEY not in r.text
     assert fake.requests[0]["auth"] == f"Bearer {KEY}"
 
 
 def test_off_or_unconfigured_makes_no_call(authed: TestClient, fake: Fake) -> None:
     nid = add(authed)
-    r = authed.post(f"/api/notes/{nid}/translate")
+    r = authed.post(f"/api/notes/{nid}/translate", params=EN)
     assert r.status_code == 409 and r.json()["detail"] == {"code": "not_enabled"}
     setup_ai(authed, fake, ai_model_local="")
-    r = authed.post(f"/api/notes/{nid}/translate")
+    r = authed.post(f"/api/notes/{nid}/translate", params=EN)
     assert r.status_code == 409 and r.json()["detail"] == {"code": "not_configured"}
     assert fake.requests == []
 
@@ -126,9 +127,9 @@ def test_provider_errors_and_garbage_are_502(authed: TestClient, fake: Fake) -> 
     setup_ai(authed, fake)
     nid = add(authed)
     fake.status = 500
-    assert authed.post(f"/api/notes/{nid}/translate").status_code == 502
+    assert authed.post(f"/api/notes/{nid}/translate", params=EN).status_code == 502
     fake.status, fake.reply = 200, None  # not JSON
-    assert authed.post(f"/api/notes/{nid}/translate").status_code == 502
+    assert authed.post(f"/api/notes/{nid}/translate", params=EN).status_code == 502
 
 
 def test_a_slow_provider_times_out(
@@ -137,42 +138,51 @@ def test_a_slow_provider_times_out(
     setup_ai(authed, fake)
     monkeypatch.setattr(ai, "TIMEOUT", 0.2)
     fake.delay = 1
-    r = authed.post(f"/api/notes/{add(authed)}/translate")
+    r = authed.post(f"/api/notes/{add(authed)}/translate", params=EN)
     assert r.status_code == 504 and r.json()["detail"] == {"code": "timeout"}
 
 
 def test_unreachable_server_is_502(authed: TestClient, fake: Fake) -> None:
     setup_ai(authed, fake, ai_address="http://127.0.0.1:1")
-    assert authed.post(f"/api/notes/{add(authed)}/translate").status_code == 502
+    assert (
+        authed.post(f"/api/notes/{add(authed)}/translate", params=EN).status_code == 502
+    )
 
 
 def test_empty_body_makes_no_call_and_unknown_note_is_404(
     authed: TestClient, fake: Fake
 ) -> None:
     setup_ai(authed, fake)
-    r = authed.post(f"/api/notes/{add(authed, ' ')}/translate")
-    assert r.json() == {"lang": "", "text": ""} and fake.requests == []
-    assert authed.post("/api/notes/9999/translate").status_code == 404
+    r = authed.post(f"/api/notes/{add(authed, ' ')}/translate", params=EN)
+    assert r.json() == {"lang": "en", "text": ""} and fake.requests == []
+    assert authed.post("/api/notes/9999/translate", params=EN).status_code == 404
 
 
 def test_login_required() -> None:
     from compass.main import app
 
-    assert TestClient(app).post("/api/notes/1/translate").status_code == 401
+    assert TestClient(app).post("/api/notes/1/translate", params=EN).status_code == 401
 
 
-@pytest.mark.parametrize(
-    ("reply", "lang", "text"),
-    [
-        ("[en]\nHello", "en", "Hello"),
-        ("[PL] \nCześć\n\nświecie", "pl", "Cześć\n\nświecie"),
-        ("Hello [en]", "", "Hello [en]"),
-    ],
-)
-def test_the_language_line_is_split_off(
-    authed: TestClient, fake: Fake, reply: str, lang: str, text: str
+@pytest.mark.parametrize(("to", "source"), [("en", "Polish"), ("pl", "English")])
+def test_the_direction_comes_from_the_client(
+    authed: TestClient, fake: Fake, to: str, source: str
 ) -> None:
     setup_ai(authed, fake)
-    fake.reply = reply
-    r = authed.post(f"/api/notes/{add(authed)}/translate")
-    assert r.json() == {"lang": lang, "text": text}
+    r = authed.post(f"/api/notes/{add(authed)}/translate", params={"to": to})
+    assert r.json()["lang"] == to
+    system = fake.requests[0]["body"]["messages"][0]["content"]
+    assert f"from {source} into" in system
+
+
+def test_a_missing_or_unknown_direction_is_refused(
+    authed: TestClient, fake: Fake
+) -> None:
+    setup_ai(authed, fake)
+    nid = add(authed)
+    assert authed.post(f"/api/notes/{nid}/translate").status_code == 422
+    assert (
+        authed.post(f"/api/notes/{nid}/translate", params={"to": "de"}).status_code
+        == 422
+    )
+    assert fake.requests == []

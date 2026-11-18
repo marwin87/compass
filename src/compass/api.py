@@ -91,14 +91,15 @@ AI_STATUS = {"not_enabled": 409, "not_configured": 409, "timeout": 504, "failed"
 
 
 @router.post("/{note_id}/translate")
-def translate(note_id: int) -> dict[str, str]:  # {"lang": "en"|"pl"|"", "text": ...}
-    """A PL<->EN preview of the note body; nothing is saved. A plain `def`: runs in the threadpool."""
+def translate(
+    note_id: int, to: Literal["en", "pl"]
+) -> dict[str, str]:  # {"lang": to, "text": ...}
+    """A preview of the note body translated into `to`; nothing is saved. A plain `def`: runs in the threadpool."""
     note = notes.get_note(note_id)
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
     try:
-        lang, text = ai.translate(note.body, settings.current())
-        return {"lang": lang, "text": text}
+        return {"lang": to, "text": ai.translate(note.body, settings.current(), to)}
     except ai.AIError as problem:
         raise HTTPException(
             status_code=AI_STATUS[problem.code], detail={"code": problem.code}

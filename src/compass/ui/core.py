@@ -9,6 +9,7 @@ code, contains only DOM calls (never HTML strings) and makes no external request
 import json
 from collections.abc import Mapping
 
+from compass import ai
 from compass import settings as store
 from compass.ui.i18n import STRINGS
 
@@ -74,6 +75,7 @@ const ICONS = {
   "filter-x": [["path", {d: "M13.013 3H2l8 9.46V19l4 2v-8.54l.9-1.055"}], ["path", {d: "m22 3-5 5"}], ["path", {d: "m17 3 5 5"}]],
   message: [["path", {d: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z"}]],
   spark: [["path", {d: "M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z", fill: "currentColor"}], ["path", {d: "M19 15l.9 2.1 2.1.9-2.1.9L19 21l-.9-2.1-2.1-.9 2.1-.9z", fill: "currentColor"}]],
+  swap: [["path", {d: "M8 3 4 7l4 4"}], ["path", {d: "M4 7h16"}], ["path", {d: "m16 21 4-4-4-4"}], ["path", {d: "M20 17H4"}]],
   languages: [["path", {d: "m5 8 6 6"}], ["path", {d: "m4 14 6-6 2-3"}], ["path", {d: "M2 5h12"}], ["path", {d: "M7 2h1"}], ["path", {d: "m22 22-5-10-5 10"}], ["path", {d: "M14 18h6"}]],
   branch: [["line", {x1: 6, y1: 3, x2: 6, y2: 15}], ["circle", {cx: 18, cy: 6, r: 3}], ["circle", {cx: 6, cy: 18, r: 3}], ["path", {d: "M18 9a9 9 0 0 1-9 9"}]],
   code: [["polyline", {points: "16 18 22 12 16 6"}], ["polyline", {points: "8 6 2 12 8 18"}]],
@@ -122,6 +124,16 @@ function categoryError(detail) {
 }
 
 // Everything AI is marked the same way: gradient frame (.aiframe), the spark icon and the AI tag
+// Which way a translation goes by default: a note with Polish letters or mostly Polish little words is PL, otherwise EN; the user can swap it.
+const noteLang = (text) => {
+  const w = text.toLowerCase().match(/\p{L}+/gu) || [];
+  const pl = (text.match(/[ąćęłńóśźż]/gi) || []).length + w.filter((x) => /^(i|w|z|na|nie|się|jest|do|że|to|jak|po|dla|przy|oraz)$/.test(x)).length;
+  const en = w.filter((x) => /^(the|and|is|of|to|in|for|with|are|it|that|you|this)$/.test(x)).length;
+  return pl >= en ? "pl" : "en";
+};
+const translateLabel = (to) => tr(to === "en" ? "translate_pl_en" : "translate_en_pl");
+// AI components: every one carries `data-ai` and starts `hidden`; it shows only while AI is enabled AND configured (AI_READY).
+const setAiReady = (on) => document.querySelectorAll("[data-ai]").forEach((el) => { el.hidden = !on; });
 const aiTag = () => h("span", {class: "aitag"}, icon("spark", 10), "AI");
 const AI_ERRORS = {not_enabled: "ai_err_not_enabled", not_configured: "ai_err_not_configured", timeout: "ai_err_timeout", failed: "ai_err_failed"};
 
@@ -149,7 +161,11 @@ def inject(page: str, lang: str, settings: Mapping[str, object] | None = None) -
     """Fill the I18N and SETTINGS constants and the theme of an already `fill`ed page."""
     values = dict(store.defaults() if settings is None else settings)
     callouts = {  # both languages: a translation preview names its callouts in the language it is in
-        code: {k: v for k, v in table.items() if k.startswith("callout_")}
+        code: {
+            k: v
+            for k, v in table.items()
+            if k.startswith("callout_") or k == "toc_title"
+        }
         for code, table in STRINGS.items()
     }
     payload = json.dumps(
@@ -157,11 +173,17 @@ def inject(page: str, lang: str, settings: Mapping[str, object] | None = None) -
         ensure_ascii=False,
     )
     blob = json.dumps(values, ensure_ascii=False)
+    state = ai.status({**store.defaults(), **values})
+    ready = bool(
+        state["enabled"] and state["configured"]
+    )  # the one rule for every AI component
     script = (
         "const I18N = "
         + payload.replace("</", "<\\/")
         + ";\nconst SETTINGS = "
         + blob.replace("</", "<\\/")
+        + ";\nconst AI_READY = "
+        + ("true" if ready else "false")
         + ";"
     )
     theme = values.get("theme")

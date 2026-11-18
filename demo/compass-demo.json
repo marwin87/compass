@@ -1,18 +1,47 @@
 {
   "format": "compass-export",
   "exported_at": "2026-11-17T18:00:00+00:00",
-  "count": 26,
+  "count": 54,
   "categories": [
     "Algorytmy",
     "Bazy danych",
+    "Books",
     "Compass",
     "Dom",
+    "Finance",
     "Nauka",
-    "Rozmowa"
+    "Pomysły",
+    "Programming",
+    "Programowanie",
+    "Rozmowa",
+    "Travel",
+    "Zdrowie"
   ],
   "notes": [
     {
-      "id": 26,
+      "title": "Standup po angielsku: jak to ogarnąć",
+      "category": "Rozmowa",
+      "tags": [
+        "rozmowa",
+        "wskazówki"
+      ],
+      "created_at": "2026-11-18T08:30:00+00:00",
+      "body": "Notatka na daily z zespołem międzynarodowym: dużo angielskich zwrotów w polskim zdaniu.\n\n## Co powiedzieć\n\nZacznij od krótkiego update: yesterday I finished the login flow, today I'm working on the code review, and I'm blocked on the API keys.\n\n## Frazy, które się przydają\n\n- „Mogę to wziąć” → I can take that one\n- „Potrzebuję pomocy” → I could use a hand with the migration\n- „Nie zdążę na czas” → I'm going to miss the deadline, here is why\n\n## Na koniec\n\nPo standupie zapisz action items i wyślij je na kanał, żeby nikt nie musiał pytać, who owns what.",
+      "id": 54
+    },
+    {
+      "title": "Release notes: wersja 2.4 (mixed)",
+      "category": "Programowanie",
+      "tags": [
+        "kod",
+        "tips"
+      ],
+      "created_at": "2026-11-18T07:50:00+00:00",
+      "body": "## What's new\n\nThis release adds filtering by category and a faster search. Wyszukiwanie jest teraz odporne na literówki, a results are ranked by relevance.\n\n## Fixes\n\n- Fixed a bug where the category badge disappeared (błąd znikającej kategorii)\n- Settings page: the logout button now matches the main page\n\n## Upgrade notes\n\nPrzed aktualizacją zrób export swoich notatek. After the upgrade, import is not needed: your data stays in place.",
+      "id": 53
+    },
+    {
+      "id": 52,
       "title": "REST vs GraphQL: porównanie",
       "body": "Porównanie dwóch popularnych stylów budowania API, przydatne na rozmowie.\n\n## W skrócie\n\n| Cecha | REST | GraphQL |\n| --- | --- | --- |\n| Endpointy | wiele (jeden na zasób) | jeden |\n| Kształt odpowiedzi | ustala serwer | ustala klient |\n| Over-fetching | częsty | unikany |\n| Cache HTTP | prosty | trudniejszy |\n| Narzędzia | dojrzałe | rozwijane |\n\n## Kiedy REST\n\nREST jest prosty i dobrze współpracuje z cache HTTP. Sprawdza się, gdy zasoby są oczywiste, a klienci mają podobne potrzeby.\n\n## Kiedy GraphQL\n\nGraphQL daje klientowi precyzyjną kontrolę nad danymi. Sprawdza się przy wielu różnych klientach (web, mobile) i złożonych relacjach.\n\n> [!IMPORTANT]\n> Na rozmowie nie wybieraj „lepszego”. Pokaż, że rozumiesz kompromisy i potrafisz uzasadnić wybór kontekstem projektu.\n\n## Pytania do przećwiczenia\n\n1. Jak rozwiążesz problem N+1 w GraphQL?\n2. Jak zabezpieczysz zbyt kosztowne zapytania?\n3. Jak wersjonujesz REST, a jak GraphQL?",
       "tags": [
@@ -24,7 +53,30 @@
       "created_at": "2026-11-17T09:10:00+00:00"
     },
     {
-      "id": 25,
+      "title": "The DRY principle and its traps",
+      "body": "DRY does not mean \"never repeat code\". It means: every piece of knowledge has one source.\n\n- Two similar snippets are not duplicates if they change for different reasons\n- A bad abstraction costs more than three copies\n- Rule of three: extract only on the third repetition",
+      "tags": [
+        "architecture",
+        "basics",
+        "code"
+      ],
+      "category": "Programming",
+      "created_at": "2026-11-17T07:45:00+00:00",
+      "id": 51
+    },
+    {
+      "title": "Sen: co naprawdę pomaga",
+      "body": "- Stała pora wstawania, nawet w weekend\n- Bez ekranu godzinę przed snem\n- Chłodny pokój (ok. 18°C)\n- Kawa najpóźniej o 14:00\n- Ciężki posiłek minimum 3 godziny przed snem",
+      "tags": [
+        "nawyki",
+        "wskazówki"
+      ],
+      "category": "Zdrowie",
+      "created_at": "2026-11-16T22:10:00+00:00",
+      "id": 50
+    },
+    {
+      "id": 49,
       "title": "Python: dekoratory i generatory",
       "body": "Dekoratory i generatory to dwa najczęściej pytane mechanizmy Pythona na rozmowach.\n\n## Dekoratory\n\nDekorator to funkcja, która przyjmuje funkcję i zwraca nową, rozszerzoną.\n\n```python\nimport functools\nimport time\n\ndef timed(fn):\n    @functools.wraps(fn)\n    def wrapper(*args, **kwargs):\n        start = time.perf_counter()\n        try:\n            return fn(*args, **kwargs)\n        finally:\n            print(f\"{fn.__name__}: {time.perf_counter() - start:.3f}s\")\n    return wrapper\n\n@timed\ndef slow(n):\n    return sum(range(n))\n```\n\n> [!NOTE]\n> `functools.wraps` zachowuje nazwę i docstring oryginalnej funkcji.\n\n## Generatory\n\nGenerator produkuje wartości **leniwie**, jedna po drugiej, zamiast budować całą listę w pamięci.\n\n```python\ndef evens(limit):\n    for n in range(limit):\n        if n % 2 == 0:\n            yield n\n\nprint(list(evens(10)))  # [0, 2, 4, 6, 8]\n```\n\n## Kiedy co\n\n- Dekorator: dodajesz zachowanie (logowanie, cache, uprawnienia) bez zmiany funkcji.\n- Generator: przetwarzasz duże lub nieskończone strumienie danych.",
       "tags": [
@@ -36,7 +88,18 @@
       "created_at": "2026-11-16T18:40:00+00:00"
     },
     {
-      "id": 24,
+      "title": "Pomysł: tablica nawyków w Compass",
+      "body": "Mała tabelka tydzień x nawyk w osobnej notatce. Odhaczanie bez zmiany treści? Raczej nie, wystarczy lista checkboxów w Markdown.",
+      "tags": [
+        "compass",
+        "plan"
+      ],
+      "category": "Pomysły",
+      "created_at": "2026-11-16T10:45:00+00:00",
+      "id": 48
+    },
+    {
+      "id": 47,
       "title": "Cheatsheet: Git i Docker",
       "body": "Szybka ściąga na co dzień.\n\n## Git\n\n```bash\ngit status\ngit switch -c feature/kategorie\ngit add -p\ngit commit -m \"feat(categories): add category filter\"\ngit rebase -i origin/main\ngit push --force-with-lease\n```\n\n> [!WARNING]\n> Nie używaj `git push --force` na wspólnych gałęziach. `--force-with-lease` jest bezpieczniejsze.\n\n## Docker\n\n```bash\ndocker compose up --build        # start i przebudowanie\ndocker compose down -v           # kasuje też wolumeny (dane!)\ndocker logs -f compass-1         # logi na żywo\ndocker image prune               # sprzątanie\n```\n\n## Różnice, które warto pamiętać\n\n| Polecenie | Co robi | Uwaga |\n| --- | --- | --- |\n| `git merge` | łączy historię | zostawia commit scalający |\n| `git rebase` | przepisuje historię | nie na opublikowanych gałęziach |\n| `docker stop` | zatrzymuje kontener | dane w wolumenie zostają |\n| `docker down -v` | usuwa kontenery i wolumeny | **kasuje dane** |",
       "tags": [
@@ -48,7 +111,7 @@
       "created_at": "2026-11-16T08:15:00+00:00"
     },
     {
-      "id": 23,
+      "id": 46,
       "title": "B-drzewo od środka (długa notatka)",
       "body": "B-drzewo to struktura, która sprawia, że baza znajduje wiersze bez przeglądania całej tabeli. Ta notatka jest długa celowo: ma pokazać spis treści i komfort czytania.\n\n## Po co indeks\n\nBez indeksu `SELECT ... WHERE email = 'ala@example.com'` musi przejrzeć każdy wiersz tabeli (*full table scan*). Przy milionie rekordów to setki milisekund; z indeksem zwykle ułamek milisekundy.\n\n> [!IMPORTANT]\n> Indeks przyspiesza odczyty, ale spowalnia zapisy i zajmuje miejsce. Dodawaj go tam, gdzie naprawdę szukasz.\n\n## Jak jest zbudowane B-drzewo\n\nDrzewo ma korzeń, węzły pośrednie i liście. Każdy węzeł mieści wiele kluczy, dlatego drzewo jest **płytkie**: nawet miliard wierszy to zwykle 3–4 poziomy.\n\n### Wyszukiwanie\n\n1. Zacznij w korzeniu.\n2. Wybierz gałąź, której zakres obejmuje szukany klucz.\n3. Powtarzaj, aż dojdziesz do liścia.\n\n### Wstawianie\n\nWstawienie dodaje klucz do liścia. Gdy liść się przepełni, **dzieli się na dwa**, a środkowy klucz idzie poziom wyżej.\n\n## Przykłady w SQL\n\n```sql\n-- indeks na jednej kolumnie\nCREATE INDEX idx_users_email ON users (email);\n\n-- indeks złożony: kolejność kolumn ma znaczenie\nCREATE INDEX idx_orders_user_date ON orders (user_id, created_at);\n\nEXPLAIN SELECT * FROM orders\nWHERE user_id = 42 AND created_at > '2026-01-01';\n```\n\n> [!TIP]\n> Użyj `EXPLAIN`, żeby sprawdzić, czy zapytanie faktycznie korzysta z indeksu.\n\n## Porównanie\n\n| Rodzaj zapytania | Z indeksem | Bez indeksu |\n| --- | --- | --- |\n| `WHERE id = 5` | bardzo szybko | skan całej tabeli |\n| `WHERE name LIKE 'A%'` | szybko | skan |\n| `WHERE name LIKE '%a'` | zwykle skan | skan |\n| `ORDER BY created_at` | szybko | sortowanie |\n\n## Najczęstsze błędy\n\n- Indeks na kolumnie o bardzo małej różnorodności (np. płeć).\n- Funkcja na kolumnie w `WHERE` (`WHERE lower(email) = ...`) wyłącza zwykły indeks.\n- Zbyt wiele indeksów na tabeli z intensywnymi zapisami.\n\n> [!SUCCESS]\n> Dobry indeks to taki, który widać w planie zapytania i który realnie skraca czas odpowiedzi.",
       "tags": [
@@ -61,7 +124,18 @@
       "created_at": "2026-11-15T20:05:00+00:00"
     },
     {
-      "id": 22,
+      "title": "The 50/30/20 budget",
+      "body": "50% needs (rent, food, bills)\n30% wants\n20% savings and paying off debt\n\nIt is a starting point, not a dogma. With high rent start from 60/20/20.",
+      "tags": [
+        "basics",
+        "money"
+      ],
+      "category": "Finance",
+      "created_at": "2026-11-15T18:00:00+00:00",
+      "id": 45
+    },
+    {
+      "id": 44,
       "title": "Przewodnik: Markdown w Compass",
       "body": "Compass wyświetla notatki jako **Markdown**. Treść w bazie zostaje zwykłym tekstem, a stare notatki wyglądają tak samo jak dawniej.\n\n> [!TIP]\n> Przełącz na **Tryb czytania** (ikona książki w prawym górnym rogu notatki), żeby czytać w skupieniu. Escape wychodzi z trybu.\n\n## Formatowanie tekstu\n\nMożesz użyć **pogrubienia**, *kursywy*, ~~skreślenia~~ i `kodu w linii`. Linki wyglądają tak: [dokumentacja FastAPI](https://fastapi.tiangolo.com). Zwykły adres, np. https://www.sqlite.org, też zamieni się w link.\n\nPojedynczy enter zachowuje łamanie wiersza,\nwięc stare notatki zapisane „po staremu” czyta się jak wcześniej.\n\n## Listy\n\n- Lista punktowana\n  - zagnieżdżona\n    - i jeszcze głębiej\n- Drugi punkt\n\n1. Pierwszy krok\n2. Drugi krok\n   - z podpunktem\n3. Trzeci krok\n\n## Callouty\n\n> [!INFO]\n> Informacja: coś, co warto wiedzieć.\n\n> [!TIP]\n> Wskazówka: skrót `Ctrl K` (albo `⌘ K`) przenosi do wyszukiwarki.\n\n> [!WARNING]\n> Ostrzeżenie: import zastępuje wszystkie dane.\n\n> [!IMPORTANT]\n> Ważne: eksportuj notatki przed większymi zmianami.\n\n> [!SUCCESS]\n> Sukces: kopia zapasowa gotowa.\n\n> [!NOTE]\n> Notatka dodatkowa, mniej ważna.\n\n## Cytaty i kod\n\n> Prostota jest szczytem wyrafinowania.\n\n```python\ndef fib(n: int) -> int:\n    # liczby Fibonacciego, iteracyjnie\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n```\n\n## Tabela\n\n| Element | Składnia | Efekt |\n| --- | :---: | ---: |\n| Nagłówek | `## Tekst` | sekcja |\n| Pogrubienie | `**tekst**` | **tekst** |\n| Lista | `- punkt` | • punkt |\n\n---\n\nSpis treści pojawia się sam, gdy notatka ma co najmniej trzy nagłówki `##` lub `###`.",
       "tags": [
@@ -72,7 +146,18 @@
       "created_at": "2026-11-15T12:00:00+00:00"
     },
     {
-      "id": 21,
+      "title": "Lisbon in three days",
+      "body": "Day 1: Alfama, tram 28, Miradouro da Senhora do Monte\nDay 2: Belém (monastery, pastéis de Belém), MAAT museum\nDay 3: Sintra by train, Pena Palace\n\nGet a Viva Viagem card for transport. Wear shoes with good soles: the cobblestones are slippery.",
+      "tags": [
+        "lists",
+        "plan"
+      ],
+      "category": "Travel",
+      "created_at": "2026-11-14T21:00:00+00:00",
+      "id": 43
+    },
+    {
+      "id": 42,
       "title": "English note: how to learn faster",
       "body": "Spaced repetition beats cramming. Test yourself instead of rereading, mix topics (interleaving), and explain the idea in your own words.\n\nThe search in this app also works for English text.",
       "tags": [
@@ -83,7 +168,30 @@
       "created_at": "2026-11-14T13:33:00+00:00"
     },
     {
-      "id": 20,
+      "title": "Code review: what I look for",
+      "body": "Checklist before approving a PR:\n\n1. Does the code do what the PR says?\n2. Are edge cases tested?\n3. Do the names say what things do?\n4. Does anything leak (passwords, logs with personal data)?\n5. Is the change small enough to actually review?",
+      "tags": [
+        "code",
+        "rozmowa",
+        "tips"
+      ],
+      "category": "Programming",
+      "created_at": "2026-11-13T16:20:00+00:00",
+      "id": 41
+    },
+    {
+      "title": "Atomic Habits: the key ideas",
+      "body": "## The four laws\n\n1. Make it obvious\n2. Make it attractive\n3. Make it easy\n4. Make it satisfying\n\n> [!TIP]\n> The two-minute rule: start a new habit with a version that takes two minutes.",
+      "tags": [
+        "habits",
+        "learning"
+      ],
+      "category": "Books",
+      "created_at": "2026-11-12T20:30:00+00:00",
+      "id": 40
+    },
+    {
+      "id": 39,
       "title": "Shortcuts: Compass",
       "body": "/ — szukaj, N — nowa notatka, ↑ ↓ — wybór z listy, Esc — czyść.\n\nWskazówka: wpisz „zlozonosc” bez polskich liter albo „indkes” z literówką — i tak znajdzie.",
       "tags": [
@@ -94,7 +202,18 @@
       "created_at": "2026-11-12T17:20:00+00:00"
     },
     {
-      "id": 19,
+      "title": "Plan treningowy na 4 tygodnie",
+      "body": "## Tydzień 1–2\n\n- Pon: góra ciała\n- Śr: dół ciała\n- Pt: cardio 30 min\n\n## Tydzień 3–4\n\nTo samo, ale +1 seria w każdym ćwiczeniu i niedzielny spacer 60 minut.\n\n> [!NOTE]\n> Najważniejsze jest nie zrobić przerwy dłuższej niż 2 dni.",
+      "tags": [
+        "listy",
+        "nawyki"
+      ],
+      "category": "Zdrowie",
+      "created_at": "2026-11-11T07:00:00+00:00",
+      "id": 38
+    },
+    {
+      "id": 37,
       "title": "Zakupy na weekend",
       "body": "- pomidory, ogórki, rukola\n- mleko, jajka, ser żółty\n- kawa (ziarnista)\n- baterie AA\n- prezent dla Kasi 🎁",
       "tags": [
@@ -104,7 +223,19 @@
       "created_at": "2026-11-10T10:07:00+00:00"
     },
     {
-      "id": 18,
+      "title": "Testing: the pyramid and its traps",
+      "body": "## The test pyramid\n\n- **Unit**: many, fast, cheap\n- **Integration**: some, check the connections\n- **E2E**: few, slow, the most brittle\n\n> [!TIP]\n> A test that cannot fail checks nothing. Break the code on purpose and see whether the test notices.\n\n## Typical traps\n\n- tests that depend on order\n- `sleep` instead of waiting for a state\n- mocking everything",
+      "tags": [
+        "code",
+        "testing",
+        "theory"
+      ],
+      "category": "Programming",
+      "created_at": "2026-11-09T11:05:00+00:00",
+      "id": 36
+    },
+    {
+      "id": 35,
       "title": "Przepis: naleśniki (jak od babci)",
       "body": "Składniki: 250 g mąki, 2 jajka, 500 ml mleka, szczypta soli, 2 łyżki oleju.\n\n1. Wymieszaj mąkę z jajkami i połową mleka na gładkie ciasto.\n2. Dolej resztę mleka, sól i olej.\n3. Odstaw na 15 minut.\n4. Smaż na rozgrzanej patelni po ok. 1 minucie z każdej strony.\n\nPodawać z dżemem lub serkiem waniliowym.",
       "tags": [
@@ -115,7 +246,29 @@
       "created_at": "2026-11-08T14:54:00+00:00"
     },
     {
-      "id": 17,
+      "title": "Pomysł: wspólna lista zakupów",
+      "body": "Notatka, którą widzi druga osoba w domu. Wymaga kont, więc na razie eksport i wklejenie na czat.",
+      "tags": [
+        "listy",
+        "plan"
+      ],
+      "category": "Pomysły",
+      "created_at": "2026-11-08T09:25:00+00:00",
+      "id": 34
+    },
+    {
+      "title": "Emergency fund: how much and where",
+      "body": "Goal: 3–6 months of living costs. Keep it in a separate savings account that is not at hand for everyday purchases. Top it up first, invest later.",
+      "tags": [
+        "money",
+        "theory"
+      ],
+      "category": "Finance",
+      "created_at": "2026-11-07T12:30:00+00:00",
+      "id": 33
+    },
+    {
+      "id": 32,
       "title": "Szybkie notatki o SQL",
       "body": "Luźna lista: EXPLAIN pokazuje plan zapytania, LIMIT bez ORDER BY daje przypadkowe wiersze, COUNT(*) a COUNT(kolumna) to nie to samo.",
       "tags": [
@@ -125,7 +278,17 @@
       "created_at": "2026-11-06T18:41:00+00:00"
     },
     {
-      "id": 16,
+      "title": "Packing list (weekend)",
+      "body": "- documents, card, some cash\n- charger, power bank\n- medicines\n- toiletries\n- 2 T-shirts, a hoodie, underwear\n- rain jacket",
+      "tags": [
+        "lists"
+      ],
+      "category": "Travel",
+      "created_at": "2026-11-05T17:30:00+00:00",
+      "id": 31
+    },
+    {
+      "id": 30,
       "title": "SQL: JOIN w pigułce",
       "body": "INNER JOIN — tylko pasujące wiersze z obu tabel.\nLEFT JOIN — wszystkie z lewej, brakujące z prawej jako NULL.\nFULL OUTER JOIN — wszystko z obu stron.\n\nSELECT u.name, o.total\nFROM users u LEFT JOIN orders o ON o.user_id = u.id;",
       "tags": [
@@ -136,7 +299,18 @@
       "created_at": "2026-11-04T11:28:00+00:00"
     },
     {
-      "id": 15,
+      "title": "Regex cheat sheet",
+      "body": "^ start, $ end\n\\d digit, \\w word character, \\s whitespace\n+ one or more, * zero or more, ? optional\n(?:...) non-capturing group\n\nEmail (simplified): ^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$",
+      "tags": [
+        "code",
+        "tips"
+      ],
+      "category": "Programming",
+      "created_at": "2026-11-03T19:10:00+00:00",
+      "id": 29
+    },
+    {
+      "id": 28,
       "title": "Fotosynteza",
       "body": "6CO₂ + 6H₂O + światło → C₆H₁₂O₆ + 6O₂. Zachodzi w chloroplastach.\n\nFaza jasna: tylakoidy, powstaje ATP i NADPH.\nFaza ciemna (cykl Calvina): stroma, wiązanie CO₂.",
       "tags": [
@@ -148,7 +322,18 @@
       "created_at": "2026-11-02T15:15:00+00:00"
     },
     {
-      "id": 14,
+      "title": "The Pragmatic Programmer: notes",
+      "body": "- Don't repeat yourself (DRY)\n- Rubber duck: explain the problem to someone, even a duck\n- Fix broken windows at once\n- Learn a new language every year",
+      "tags": [
+        "code",
+        "learning"
+      ],
+      "category": "Books",
+      "created_at": "2026-11-01T19:20:00+00:00",
+      "id": 27
+    },
+    {
+      "id": 26,
       "title": "Scrum — role i wydarzenia",
       "body": "Zespół, Product Owner i Scrum Master pracują w sprintach (1–4 tygodnie) z planningiem, daily, review i retro.\n\nPO zarządza backlogiem i priorytetami, SM usuwa przeszkody i dba o proces. Sprint kończy się działającym przyrostem.",
       "tags": [
@@ -159,7 +344,29 @@
       "created_at": "2026-10-31T19:02:00+00:00"
     },
     {
-      "id": 13,
+      "title": "Pomysł: tygodniowy przegląd",
+      "body": "Niedziela, 20 minut: przejrzyj notatki z tygodnia, otaguj, usuń duplikaty, wybierz 3 sprawy na kolejny tydzień.",
+      "tags": [
+        "nawyki",
+        "plan"
+      ],
+      "category": "Pomysły",
+      "created_at": "2026-10-31T17:55:00+00:00",
+      "id": 25
+    },
+    {
+      "title": "Nawodnienie i pierwsze objawy odwodnienia",
+      "body": "Pragnienie to już opóźniony sygnał. Wcześniej: ból głowy, gorsza koncentracja, ciemny mocz. Cel: ok. 2 litry płynów dziennie, więcej przy upale i treningu.",
+      "tags": [
+        "nawyki",
+        "podstawy"
+      ],
+      "category": "Zdrowie",
+      "created_at": "2026-10-30T13:15:00+00:00",
+      "id": 24
+    },
+    {
+      "id": 23,
       "title": "Docker: obraz i kontener",
       "body": "Obraz to szablon, kontener to uruchomiona instancja. Kontener współdzieli jądro hosta, więc jest lżejszy niż maszyna wirtualna.\n\ndocker compose up --build\ndocker compose down -v   # kasuje też dane na wolumenie",
       "tags": [
@@ -170,7 +377,18 @@
       "created_at": "2026-10-29T12:49:00+00:00"
     },
     {
-      "id": 12,
+      "title": "Where technical debt comes from",
+      "body": "Technical debt is a deliberate shortcut you have to pay back. The trouble starts when nobody remembers taking it.\n\nWrite shortcuts down at once (a comment with the reason and the condition for paying it back), and pick one to pay off every sprint.",
+      "tags": [
+        "architecture",
+        "theory"
+      ],
+      "category": "Programming",
+      "created_at": "2026-10-28T08:30:00+00:00",
+      "id": 22
+    },
+    {
+      "id": 21,
       "title": "Git: merge vs rebase",
       "body": "Merge łączy gałęzie commitem scalającym (zachowuje historię), rebase przepisuje commity na nową bazę (liniowa historia).\n\nNie rebase'uj gałęzi współdzielonych.\nrebase -i do porządkowania commitów przed PR.\n\ngit checkout feature\ngit rebase main",
       "tags": [
@@ -181,19 +399,41 @@
       "created_at": "2026-10-27T16:36:00+00:00"
     },
     {
-      "id": 11,
-      "title": "Średnia vs mediana",
-      "body": "Średnia jest wrażliwa na wartości odstające, mediana — odporna. Przy skośnych rozkładach (np. zarobki) lepsza jest mediana.",
+      "title": "Compound interest",
+      "body": "## Formula\n\n`K = P * (1 + r)^n`\n\n| Years | 1000 at 6% |\n| --- | --- |\n| 10 | about 1790 |\n| 20 | about 3207 |\n| 30 | about 5743 |\n\n> [!IMPORTANT]\n> Time matters most, not the size of the deposit.",
       "tags": [
-        "nauka",
-        "podstawy",
-        "statystyka"
+        "money",
+        "theory"
+      ],
+      "category": "Finance",
+      "created_at": "2026-10-26T20:05:00+00:00",
+      "id": 20
+    },
+    {
+      "id": 19,
+      "title": "Mean vs median",
+      "body": "The mean is sensitive to outliers, the median is robust. For skewed distributions (e.g. salaries) the median is the better choice.",
+      "tags": [
+        "basics",
+        "learning",
+        "statistics"
       ],
       "category": "Nauka",
       "created_at": "2026-10-25T09:23:00+00:00"
     },
     {
-      "id": 10,
+      "title": "Packing in carry-on only",
+      "body": "Liquids up to 100 ml in one clear bag. Wear the heavy things. Rolling clothes saves space. Keep photos of your documents on the phone, just in case.",
+      "tags": [
+        "lists",
+        "tips"
+      ],
+      "category": "Travel",
+      "created_at": "2026-10-24T08:10:00+00:00",
+      "id": 18
+    },
+    {
+      "id": 17,
       "title": "Wartość p i istotność statystyczna",
       "body": "p to prawdopodobieństwo uzyskania wyników co najmniej tak skrajnych, zakładając prawdziwość H0.\n\np < α (zwykle 0,05) → odrzucamy H0\np NIE jest prawdopodobieństwem, że H0 jest prawdziwa\nIstotność statystyczna to nie istotność praktyczna.",
       "tags": [
@@ -205,9 +445,20 @@
       "created_at": "2026-10-23T13:10:00+00:00"
     },
     {
-      "id": 9,
-      "title": "Opowiedz o porażce",
-      "body": "Wybierz realną, ale nie krytyczną porażkę; skup się na wnioskach i tym, co zmieniłeś.\n\n- Nie udawaj, że porażek nie było\n- Bierz odpowiedzialność, nie obwiniaj innych\n- Zakończ konkretną zmianą w działaniu",
+      "title": "Rozciąganie przy biurku",
+      "body": "Co godzinę, 2 minuty: barki w tył x10, skłony szyi, wyprost nadgarstków, wstań i przejdź się. Ustaw przypomnienie, bo sam nie zapamiętasz.",
+      "tags": [
+        "nawyki",
+        "wskazówki"
+      ],
+      "category": "Zdrowie",
+      "created_at": "2026-10-22T09:40:00+00:00",
+      "id": 16
+    },
+    {
+      "id": 15,
+      "title": "Tell me about a failure",
+      "body": "Pick a real but not critical failure; focus on the lessons and what you changed.\n\n- Don't pretend there were no failures\n- Take responsibility, don't blame others\n- End with a concrete change in how you work",
       "tags": [
         "rozmowa",
         "soft skills"
@@ -216,9 +467,20 @@
       "created_at": "2026-10-21T17:57:00+00:00"
     },
     {
-      "id": 8,
-      "title": "Metoda STAR",
-      "body": "Struktura odpowiedzi na pytania behawioralne: Sytuacja → Zadanie → Działanie → Rezultat.\n\nS: krótki kontekst (1–2 zdania)\nT: co było Twoim celem\nA: co TY zrobiłeś (najdłuższa część)\nR: mierzalny efekt i czego się nauczyłeś",
+      "title": "Remember: Make It Stick",
+      "body": "The best ways to learn: retrieval practice, spaced repetition, mixing topics. The worst (and most popular): re-reading the same text again and again.",
+      "tags": [
+        "learning",
+        "theory"
+      ],
+      "category": "Books",
+      "created_at": "2026-10-20T21:15:00+00:00",
+      "id": 14
+    },
+    {
+      "id": 13,
+      "title": "The STAR method",
+      "body": "A structure for behavioral questions: Situation → Task → Action → Result.\n\nS: short context (1–2 sentences)\nT: what your goal was\nA: what YOU did (the longest part)\nR: a measurable outcome and what you learned",
       "tags": [
         "rozmowa",
         "soft skills"
@@ -227,19 +489,40 @@
       "created_at": "2026-10-19T10:44:00+00:00"
     },
     {
-      "id": 7,
-      "title": "Kody statusu HTTP",
-      "body": "2xx sukces, 3xx przekierowanie, 4xx błąd klienta, 5xx błąd serwera.\n\n401 = brak uwierzytelnienia, 403 = brak uprawnień\n404 nie znaleziono, 409 konflikt\n429 za dużo żądań\n502/503 problem z bramą lub usługa niedostępna",
+      "title": "Annual tax return: what to gather",
+      "body": "- employer's income statement\n- invoices for energy-saving upgrades\n- donation receipts\n- internet bills\n- bank account number for the refund",
+      "tags": [
+        "lists",
+        "money"
+      ],
+      "category": "Finance",
+      "created_at": "2026-10-18T10:00:00+00:00",
+      "id": 12
+    },
+    {
+      "id": 11,
+      "title": "HTTP status codes",
+      "body": "2xx success, 3xx redirect, 4xx client error, 5xx server error.\n\n401 = not authenticated, 403 = not allowed\n404 not found, 409 conflict\n429 too many requests\n502/503 bad gateway or service unavailable",
       "tags": [
         "api",
-        "podstawy",
+        "basics",
         "sieci"
       ],
       "category": "Rozmowa",
       "created_at": "2026-10-17T14:31:00+00:00"
     },
     {
-      "id": 6,
+      "title": "Nazwa dla projektu pobocznego",
+      "body": "Kompas, Latarnia, Notes na wiatr, Szuflada, Kajet. Najlepiej brzmi Kajet, ale domena zajęta.",
+      "tags": [
+        "luźne"
+      ],
+      "category": "Pomysły",
+      "created_at": "2026-10-16T23:00:00+00:00",
+      "id": 10
+    },
+    {
+      "id": 9,
       "title": "REST vs GraphQL",
       "body": "REST: wiele zasobów pod osobnymi URL-ami, prosty cache HTTP, dojrzałe narzędzia.\nGraphQL: jeden endpoint, klient sam określa kształt odpowiedzi; brak over- i under-fetchingu, ale trudniejszy w cache'owaniu i limitowaniu kosztu zapytań.",
       "tags": [
@@ -251,7 +534,7 @@
       "created_at": "2026-10-15T18:18:00+00:00"
     },
     {
-      "id": 5,
+      "id": 8,
       "title": "Wyszukiwanie binarne",
       "body": "Szukanie w posortowanej tablicy przez dzielenie zakresu na pół — O(log n).\n\ndef bsearch(a, x):\n    lo, hi = 0, len(a) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if a[mid] == x: return mid\n        if a[mid] < x: lo = mid + 1\n        else: hi = mid - 1\n    return -1",
       "tags": [
@@ -263,7 +546,18 @@
       "created_at": "2026-10-13T11:05:00+00:00"
     },
     {
-      "id": 4,
+      "title": "Japan: ideas for someday",
+      "body": "Tokyo, Kyoto, Nara, Hiroshima. Best time: end of March (sakura) or November (autumn leaves). A rail pass only pays off if we travel between cities more than twice.",
+      "tags": [
+        "plan",
+        "pomysły"
+      ],
+      "category": "Travel",
+      "created_at": "2026-10-12T22:45:00+00:00",
+      "id": 7
+    },
+    {
+      "id": 6,
       "title": "Złożoność obliczeniowa (Big O)",
       "body": "Opis, jak rośnie czas lub pamięć algorytmu wraz z rozmiarem danych n — w najgorszym przypadku.\n\nO(1) dostęp po indeksie\nO(log n) wyszukiwanie binarne\nO(n log n) dobre sortowania\nO(n²) pętla w pętli",
       "tags": [
@@ -276,7 +570,18 @@
       "created_at": "2026-10-11T15:52:00+00:00"
     },
     {
-      "id": 3,
+      "title": "Idee do bloga",
+      "body": "1. Jak ucząc się SQL, zrozumiałem indeksy\n2. Wywiad techniczny od środka\n3. Dlaczego prowadzę notatki w jednym miejscu",
+      "tags": [
+        "listy",
+        "plan"
+      ],
+      "category": "Pomysły",
+      "created_at": "2026-10-10T14:00:00+00:00",
+      "id": 5
+    },
+    {
+      "id": 4,
       "title": "Normalizacja (1NF–3NF)",
       "body": "Porządkowanie tabel, by usunąć redundancję i anomalie aktualizacji.\n\n1NF: wartości atomowe\n2NF: brak zależności od części klucza\n3NF: brak zależności przechodnich\n\nDenormalizacja bywa świadomym wyborem dla wydajności.",
       "tags": [
@@ -286,6 +591,16 @@
       ],
       "category": "Bazy danych",
       "created_at": "2026-10-09T19:39:00+00:00"
+    },
+    {
+      "title": "To read this year",
+      "body": "- Designing Data-Intensive Applications\n- Refactoring (Fowler)\n- Deep Work\n- Thinking, Fast and Slow\n- Modern Operating Systems (ch. 2–3)",
+      "tags": [
+        "lists"
+      ],
+      "category": "Books",
+      "created_at": "2026-10-08T18:00:00+00:00",
+      "id": 3
     },
     {
       "id": 2,
