@@ -28,7 +28,7 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
 
 <img src="docs/screenshots/ai-settings.png" alt="Settings: AI features" width="860">
 
-**AI is optional and off by default.** Settings → AI features: OpenRouter or a local model (e.g. Ollama), a model for writing and one for embeddings, the chat index, and a status line that says whether your notes leave the machine.
+**AI is optional and off by default.** Settings → AI features: OpenRouter or a local model (e.g. Ollama), a model for writing, one for embeddings and one for reading images (vision), the chat index, and a status line that says whether your notes leave the machine.
 
 <img src="docs/screenshots/list.png" alt="Note list, side panel and reader" width="860">
 
@@ -46,7 +46,9 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
 
 **Settings:** theme, language, reading options, categories, tags, backup.
 
-**Stack:** Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [uv](https://docs.astral.sh/uv/).
+## Stack
+
+Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [pypdf](https://pypdf.readthedocs.io/) (PDF import), [uv](https://docs.astral.sh/uv/).
 
 ## Configuration
 
@@ -98,7 +100,7 @@ can be deleted).
 - **Where AI is marked:** everything AI carries the violet-pink frame and the `AI` tag, and an `AI` badge next to the Compass logo
   shows that AI is on and ready.
 
-**Set up:** Settings → AI features: switch it on, pick a connection, a model (writes text: chat answers, translations, summaries, import) and, for the chat, an embedding model (finds notes by meaning). **OpenRouter** needs `OPENROUTER_API_KEY` in `.env`
+**Set up:** Settings → AI features: switch it on, pick a connection, a model (writes text: chat answers, translations, summaries, import) for the chat, an embedding model (finds notes by meaning) and, for images and scanned PDFs, a vision model (reads the text on a picture). **OpenRouter** needs `OPENROUTER_API_KEY` in `.env`
 (the key is never stored in settings and never returned by the API); **Local** points at an OpenAI-compatible server,
 e.g. Ollama at `localhost:11434/v1` (`ollama pull nomic-embed-text` for embeddings). The page shows what is still missing and whether the note text leaves your machine
 (it does with OpenRouter and with any non-local address).
@@ -107,9 +109,11 @@ e.g. Ollama at `localhost:11434/v1` (`ollama pull nomic-embed-text` for embeddin
 
 ## How the AI works
 
-Compass talks to one **OpenAI-compatible API** (`/chat/completions` and `/embeddings`), either OpenRouter or a local server. It uses only the Python standard library for this (`urllib`): no SDK, no vector database, no numpy. The API key lives only in the server's environment; it is never stored in settings and never returned by the API. A failing provider shows a clear message (not enabled, not configured, timeout, provider error) and never breaks the app or changes your notes.
+Compass talks to one **OpenAI-compatible API** (`/chat/completions` and `/embeddings`), either OpenRouter or a local server. It uses only the Python standard library for the model calls (`urllib`): no SDK, no vector database, no numpy. The one extra library is `pypdf` (with Pillow), which reads PDFs. The API key lives only in the server's environment; it is never stored in settings and never returned by the API. A failing provider shows a clear message (not enabled, not configured, timeout, provider error) and never breaks the app or changes your notes.
 
-Translate, summarize and import are single model calls on one note or file. **The chat is the core of the AI and is a RAG pipeline:**
+Translate and summarize are a single model call on one note. **Import** reads a file into text blocks (Word and text files by their own parsers, a PDF with `pypdf`, an image or a scanned PDF page through the vision model), cuts them into parts of about 8,000 characters, and asks the model to write self-contained Markdown notes with a category and tags chosen from the existing ones first (parts run side by side and each note is streamed to the review screen as soon as it is written); a second call per part lists what the notes missed. Nothing is saved until you confirm.
+
+**The chat is the core of the AI and is a RAG pipeline:**
 
 ```mermaid
 flowchart LR
