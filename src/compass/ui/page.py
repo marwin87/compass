@@ -734,9 +734,8 @@ document.addEventListener("keydown", (e) => {
   }
 });
 fillIcons();
-loadCategories();
 loadTags();
-load();
+loadCategories().then(() => load());   // categories first: the note's category badge and the total need them
 """
     + r"""</script>
 </body>
