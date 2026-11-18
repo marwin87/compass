@@ -7,6 +7,36 @@ A personal knowledge base: short notes in one place, found in a fraction of a se
 
 Status: early development (see `context/foundation/roadmap.md`). Right now you can log in with a password, save notes (title, body, tags, category), translate them with AI (optional), edit and delete them, and find them fast: results are ranked by relevance (exact tag, then title, then body), and typos and missing Polish letters are forgiven (`zlozonosc` finds "złożoność").
 
+## Screenshots
+
+<img src="docs/screenshots/ai-summary.png" alt="AI summary of a long note" width="860">
+
+**AI summary:** one click writes a short summary and key points above the note. It is kept next to the note (the note itself is never changed) and marked as outdated once you edit the note.
+
+<img src="docs/screenshots/ai-translate.png" alt="AI translation preview" width="860">
+
+**AI translation PL↔EN:** a preview in place of the note, with the direction guessed from its text and a swap button. Code blocks and URLs are kept as they are.
+
+<img src="docs/screenshots/ai-settings.png" alt="Settings: AI features" width="860">
+
+**AI is optional and off by default.** Settings → AI features: OpenRouter or a local model (e.g. Ollama), with a status line that says whether your notes leave the machine.
+
+<img src="docs/screenshots/list.png" alt="Note list, side panel and reader" width="860">
+
+**Notes:** categories and tags in the side panel, the list in the middle, the Markdown reader on the right.
+
+<img src="docs/screenshots/search.png" alt="Search forgiving a typo" width="860">
+
+**Search:** `indkes` finds "Indeks"; typos and missing Polish letters are forgiven.
+
+<img src="docs/screenshots/editor.png" alt="Note editor" width="860">
+
+**Editor:** Markdown with a toolbar and preview, tags and a category.
+
+<img src="docs/screenshots/settings.png" alt="Settings" width="860">
+
+**Settings:** theme, language, reading options, categories, tags, backup. Regenerate all screenshots with `uv run python scripts/screenshots.py` (demo data, temporary database, a stub instead of a real AI model).
+
 **Stack:** Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [uv](https://docs.astral.sh/uv/).
 
 ## Configuration
