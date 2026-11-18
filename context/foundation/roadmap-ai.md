@@ -24,7 +24,7 @@ milestone_status: open
 
 **M-03: AI features** — Status: open
 
-- **Intent:** With an API key configured on the server and AI switched on, the user can translate a note, import notes from a PDF, MS Word or Excel file with suggested categories and tags, and talk to their notes, while search speed and everything that exists today stay unchanged.
+- **Intent:** With an API key configured on the server and AI switched on, the user can translate a note, import notes from a PDF or MS Word file (and from text files and images) with suggested categories and tags, and talk to their notes, while search speed and everything that exists today stay unchanged.
 - **Source materials:** `context/foundation/prd-ai.md` (v1); archived greenfield notes `context/foundation/archive/shape-notes-2026-11-18-0851.md` (`Forward: rag`, input material only).
 - **Done when:** every F-NN and S-NN below is `done`.
 - **Scope anchors:** FR-010 to FR-018 (new); FR-007, FR-008, FR-009 (preserved); Success Criteria §Guardrails (search speed, no key = app as today, provider failure handled, export and import intact).
@@ -32,7 +32,7 @@ milestone_status: open
 
 ## Vision recap
 
-Compass finds notes in a fraction of a second, but without an LLM it is a plain note search tool. M-03 lifts it: notes written in another language can be read in PL or EN, notes locked in PDF, Word and Excel files come in already split into topics with a category and tags, and the knowledge base can be asked questions with sources named.
+Compass finds notes in a fraction of a second, but without an LLM it is a plain note search tool. M-03 lifts it: notes written in another language can be read in PL or EN, notes locked in PDF and Word files (and in images) come in already split into topics with a category and tags, and the knowledge base can be asked questions with sources named.
 
 ## North star
 
@@ -49,9 +49,9 @@ Compass finds notes in a fraction of a second, but without an LLM it is a plain 
 | S-02 | import-word-file   | import one MS Word file, see it split into proposed notes, review them and save the ones I confirm      | F-01          | FR-014, FR-018                   | done    |
 | S-03 | import-suggestions | see a suggested category and tags on every proposed note, taken from existing ones first               | S-02          | FR-015                           | done    |
 | S-04 | import-rich-text   | get imported text rewritten with headings, lists and tables so it reads better                          | S-02          | FR-016                           | done    |
-| S-05 | import-pdf-excel   | import PDF and Excel files through the same review flow                                                | S-02          | FR-014                           | pending |
+| S-05 | import-pdf         | import a PDF file through the same review flow                                                         | S-02          | FR-014 (PDF only)                | pending |
 | S-06 | chat-with-notes    | ask questions of my notes and get answers that name the notes they come from                           | F-01          | FR-017                           | done    |
-| S-07 | import-image       | import notes from an image (photo, screenshot, scan) through the same review flow                      | S-02          | — (new, extend the PRD)          | pending |
+| S-07 | import-image       | import notes from an image (photo, screenshot, scan) through the same review flow                      | S-02          | FR-019                           | done    |
 | S-08 | import-text-file   | import notes from a plain text file (.txt, .md) through the same review flow                           | S-02          | — (new, extend the PRD)          | done    |
 | S-09 | summarize-note     | get a summary and the key points of a note, kept with the note, shown above it and included in the backup | F-01       | — (new, extend the PRD)          | done    |
 
@@ -135,16 +135,16 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** silent loss of detail with no original to compare, because the file is not stored; the review screen is the only check.
 - **Status:** done
 
-### S-05: Import PDF and Excel through the same flow
+### S-05: Import a PDF through the same flow
 
-- **Outcome:** user can import PDF and Excel files through the same split, suggest and review flow.
-- **Change ID:** import-pdf-excel
-- **PRD refs:** FR-014
+- **Outcome:** user can import a PDF file through the same split, suggest and review flow as a Word file. PDF only: Excel and other spreadsheets are not planned (see Parked).
+- **Change ID:** import-pdf
+- **PRD refs:** FR-014 (the PRD text still names Excel; read it as PDF and Word)
 - **Prerequisites:** S-02
-- **Parallel with:** S-06
+- **Parallel with:** —
 - **Blockers:** —
-- **Unknowns:** scanned PDFs (PRD Open Question 4); how a spreadsheet becomes topics (no narrative text); file size limit and cost shown before start (PRD Open Question 3).
-- **Risk:** two more parsers with different failure modes; an empty extraction must end in a clear message, not in an empty list.
+- **Unknowns:** how the text is taken out of a PDF (the standard library has no PDF reader: a small dependency or a minimal parser of our own; page order, columns and headers or footers repeated on every page); scanned PDFs, which hold no text (PRD Open Question 4; the image import S-07 already reads pictures with a vision model, but turning PDF pages into images needs a renderer); file size limit and cost shown before start (PRD Open Question 3).
+- **Risk:** one more parser with its own failure modes (broken layout, columns read in the wrong order, text that is really an image); an empty extraction must end in a clear message, not in an empty list. Reuse `importer._blocks` (one more extension and one parser returning `docx.Block`s), the stream and the review card unchanged.
 - **Status:** pending
 
 ### S-06: Talk to the notes with named sources
@@ -163,13 +163,13 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 - **Outcome:** user can import an image (photo of a page, screenshot, scan); the model reads the text on it and the notes go through the same split, review and save flow as a Word file; the image is not stored.
 - **Change ID:** import-image
-- **PRD refs:** — (new; add an FR to `prd-ai.md` before planning)
+- **PRD refs:** FR-019
 - **Prerequisites:** S-02
 - **Parallel with:** S-08, S-09
 - **Blockers:** the chosen model must accept images (vision); a local model often does not.
 - **Unknowns:** how Settings tells the user whether the model can read images; accepted formats (PNG, JPG, WebP) and size limit; several images in one import; handwriting and poor photos (the check for what was missed cannot compare with a source text, so the user is the only check). The same question as scanned PDFs (PRD Open Question 4) and likely the same answer.
 - **Risk:** the image goes to the provider as it is (more data and more cost than text); no source text to check against. Keep the existing stream and review code (`importer.run`, the Settings review card), add only the way the text is read.
-- **Status:** pending
+- **Status:** done
 
 ### S-08: Import notes from a plain text file
 
@@ -204,9 +204,9 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-02       | import-word-file   | Import a Word file as proposed notes with review        | done                  | Word first; the model writes the notes |
 | S-03       | import-suggestions | Suggest category and tags for proposed notes            | done                  | Built on S-02's flow           |
 | S-04       | import-rich-text   | Rewrite imported text with rich-text elements           | done                  | Delivered inside S-02          |
-| S-05       | import-pdf-excel   | Import PDF and Excel files through the same flow        | after S-02            | Open: scans, size limit        |
+| S-05       | import-pdf         | Import a PDF file through the same flow                 | after S-02            | PDF only; open: extractor, scans, size limit |
 | S-06       | chat-with-notes    | Ask questions of the notes with named sources           | done                  | Built in 7 phases, see Done    |
-| S-07       | import-image       | Import notes from an image through the same flow        | after S-02            | Needs a vision model; add FR   |
+| S-07       | import-image       | Import notes from an image through the same flow        | done                  | Vision model set in Settings; FR-019 |
 | S-08       | import-text-file   | Import notes from a .txt or .md file                    | done                  | FR still to add to the PRD     |
 | S-09       | summarize-note     | Summarize a note (summary and key points), kept with the note | done            | FR still to add to the PRD     |
 
@@ -214,9 +214,9 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 1. **Which model provider and model?** — Resolved 2026-11-18: OpenRouter or a local model through one common client; the model name is set in Settings.
 2. **Which file format is imported first?** — Resolved 2026-11-18: Word (S-02 done).
-3. **Are scanned PDFs in scope?** — Owner: user. Block: S-05.
+3. **Are scanned PDFs in scope?** — Owner: user. Block: S-05. (Images are already imported through a vision model, S-07; a scanned PDF would need its pages turned into images first.)
 4. **Should import limit file size or show an estimated cost first?** — Owner: user. Block: S-05.
-5. **Does S-06 (conversation) fit in the 6-week budget with everything else?** — S-06 is delivered (2026-11-18). S-07 to S-09 were added after S-02 and add to the scope; S-05 and S-07 are still pending, so the 6 weeks need another look.
+5. **Does S-06 (conversation) fit in the 6-week budget with everything else?** — S-06 is delivered (2026-11-18). S-07 to S-09 were added after S-02 and add to the scope; S-07, S-08 and S-09 are delivered, only S-05 is still pending, so the 6 weeks are no longer a worry.
 6. **Expected query rate and data volume** — Owner: user. Block: roadmap-wide (does not gate any slice).
 
 ## Parked
@@ -224,6 +224,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Study mode (flashcards and spaced repetition)** — Why parked: PRD v1 Non-Goals; not part of this scope.
 - **Translation into languages other than PL and EN** — Why parked: `prd-ai.md` Non-Goals; more languages may come later.
 - **Saving a translation as a note** — Why parked: `prd-ai.md` Non-Goals.
+- **Excel and other spreadsheet import** — Why parked: decided 2026-11-18, not worth it: a table has no narrative text to split into topics, so the flow gives little. S-05 is PDF only; `prd-ai.md` FR-014 still names Excel.
 - **Storing the original file or images of an import** — Why parked: `prd-ai.md` Non-Goals.
 
 ## Milestone History
@@ -245,6 +246,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 - **S-09: Summarize a note** — Done 2026-11-18 → closed in the roadmap directly. `POST /api/notes/{id}/summarize` writes a short summary and 3 to 7 key points in the language of the note and **keeps** it (table `note_summaries`, one per note, `src/compass/summaries.py`; not searched, deleted with the note); `GET` and `DELETE /api/notes/{id}/summary` read and remove it. It remembers a digest of the title and text it came from, so after an edit it shows as outdated (still readable, Refresh writes a new one), also when the edit happened while the model was working. Export and import carry it as an optional `summary` field of the note (a file without summaries is unchanged, a malformed one is refused). UI: the note panel got an AI strip (Summarize, Translate; one AI tag, on the right) instead of toolbar icons; the summary opens above the note in an AI block, open by default, with Copy, Refresh, collapse and a close button that deletes it; translation is unchanged (replaces the note, not kept). Rule added for every AI job: the "block the page during AI work" setting (`aiBusy`). Known limits: one call per note (20 000 characters at most, no splitting); the answer is not streamed. Lesson: where a result has lasting value (a summary) keep it from the start, where it is a one-off preview (a translation) do not; and a layout study (`docs/prototypes/ai-note-actions.html`) before moving buttons settled the placement in one round.
 
-- **S-06: Talk to the notes with named sources** — Done 2026-11-18 → closed in the roadmap directly. Split into seven phases, each shippable. **Embeddings** (`ai.embed`, `/embeddings` of the same connection; a separate embedding model per connection in Settings, empty = keyword search only). **Vector index** (`chunks.py`, table `note_chunks`: notes cut at headings, about 1200 characters, each chunk starting with the title; unit vectors as float32 blobs, brute-force `math.sumprod`, no extension; derived data, cascade-deleted with the note, stale when the text or the model changed, filled lazily or by "Build index" in Settings → AI, `GET/POST /api/ai/index`). **Retrieval** (`ask.py`: vector hits plus the best chunk of each keyword hit, merged by reciprocal rank fusion, cut to 8 notes, 2 chunks per note and 12 000 characters; read only, the search index is untouched). **Chat** (`chat.py`, tables `conversations` and `chat_messages`, `/api/chats`, `POST /api/chats/{id}/ask` streams JSON lines: `indexing`, `excerpts`, `delta`, `done`, `error`; last 6 turns are sent; the answer cites `[n]` and the server renumbers citations after the notes, one source per note, and drops invented numbers; a question and its answer are saved together only when complete). **UI** (`ui/chatpanel.py`: the "Ask" button with the AI frame and badge in the search bar, a chat panel in the detail column kept alive while a source note is open, a rounded custom dropdown of conversations, saved conversations, Stop, Retry). **Backup**: conversations travel in the export as an optional `conversations` field and are re-pointed at the notes' new ids on import; the vector index is not exported and refills on the next question. Covers FR-017 and answers PRD Open Question 6 (no embedding model = keyword search). Known limits: tested against a fake provider only, not yet against a real model or Ollama; brute-force search is fine to about 50 000 chunks; at most 20 changed notes are embedded per question, the rest waits for "Build index"; Stop discards the answer instead of keeping the part written; a follow-up question reuses only the previous question for search. Lesson: citation numbers belong to the server, not the model (renumber and validate them after the answer); derived data (the index) should be rebuilt lazily from the source instead of synced on every write; and a fake OpenAI-compatible server in tests (`Fake`, with `embedder` and `sse`) made a streaming, multi-call feature testable end to end.
+- **S-06: Talk to the notes with named sources** — Done 2026-11-18 → closed in the roadmap directly. Split into seven phases, each shippable. **Embeddings** (`ai.embed`, `/embeddings` of the same connection; a separate embedding model per connection in Settings, empty = keyword search only). **Vector index** (`chunks.py`, table `note_chunks`: notes cut at headings, about 1200 characters, each chunk starting with the title; unit vectors as float32 blobs, brute-force `math.sumprod`, no extension; derived data, cascade-deleted with the note, stale when the text or the model changed, filled lazily or by "Build index" in Settings → AI, `GET/POST /api/ai/index`). **Retrieval** (`ask.py`: vector hits plus the best chunk of each keyword hit, merged by reciprocal rank fusion, cut to 8 notes, 2 chunks per note and 12 000 characters; read only, the search index is untouched). **Chat** (`chat.py`, tables `conversations` and `chat_messages`, `/api/chats`, `POST /api/chats/{id}/ask` streams JSON lines: `indexing`, `excerpts`, `delta`, `done`, `error`; last 6 turns are sent; the answer cites `[n]` and the server renumbers citations after the notes, one source per note, and drops invented numbers; a question and its answer are saved together only when complete). **UI** (`ui/chatpanel.py`: the "Ask" button with the AI frame and badge in the search bar, a chat panel in the detail column kept alive while a source note is open, a rounded custom dropdown of conversations, saved conversations, Stop, Retry). **Backup**: conversations travel in the export as an optional `conversations` field and are re-pointed at the notes' new ids on import; the vector index is not exported and refills on the next question. Covers FR-017 and answers PRD Open Question 6 (no embedding model = keyword search). Known limits: first tested against a fake provider; later measured on a real provider (OpenRouter): free models took 22 to 50 s just to embed a question and 3 of 5 questions timed out, a fast paid model and embedding model brought a whole answer to about 2 s (the log of each stage is in `ask.py` and `chat.py`); not tested against Ollama; brute-force search is fine to about 50 000 chunks; at most 20 changed notes are embedded per question, the rest waits for "Build index"; Stop discards the answer instead of keeping the part written; a follow-up question reuses only the previous question for search. Lesson: citation numbers belong to the server, not the model (renumber and validate them after the answer); derived data (the index) should be rebuilt lazily from the source instead of synced on every write; and a fake OpenAI-compatible server in tests (`Fake`, with `embedder` and `sse`) made a streaming, multi-call feature testable end to end.
+
+- **S-07: Import notes from an image** — Done 2026-11-18 → closed in the roadmap directly. A new model role, **Vision model** (`ai_vision_model_openrouter` / `ai_vision_model_local`, Settings → AI features; empty = no image import), and `ai.read_image`: one non-streamed call with the image as a data URL that returns the text as Markdown. `.png`, `.jpg`, `.jpeg` and `.webp` go through the same `POST /api/import/file`: `importer._blocks` reads the image into text, `textfile.extract` turns it into blocks, and from there it is the Word and text flow (split, category and tags, review, `POST /api/notes/bulk`). The prompt writes all visible text and tables as Markdown, a diagram or flow whose elements carry text as a plain-text list of elements and connections, marks unreadable parts `[illegible]`, and answers `NO_TEXT` for a picture without text (refused as `empty`; nothing is described or invented). The type is decided by the first bytes (`not_image`), a missing vision model is `no_vision`, both before any model call; images may be 10 MB (`MAX_IMAGE_BYTES`), documents stay at 5 MB. Covers FR-019 (added to the PRD) and answers the image half of PRD Open Question 4 (scans). Tested with a fake provider and by hand on a real model. Known limits: one image per import; a retry of one failed part reads the image again; no resizing; the "what is missing" check compares the notes with the model's own reading, so the user's review is the only check of the reading; the response waits for the vision call (up to 120 s); handwriting and poor photos depend on the model. Lesson: a new model role is cheap when the settings registry, the role table in the Settings script and one row are the only places to touch (the comment left for "vision later" paid off), and the type of an upload belongs to its bytes, not its name.
 
 (Entries are added by hand when a slice is finished, format: `- **<ID>: <Outcome>** — Done <YYYY-MM-DD> → `context/changes/<change-id>/`. Lesson: —.`)
