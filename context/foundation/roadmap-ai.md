@@ -48,11 +48,11 @@ Compass finds notes in a fraction of a second, but without an LLM it is a plain 
 | S-01 | translate-note     | translate a note PL<->EN, read the preview and copy it, with the note unchanged                        | F-01          | FR-012, FR-013, US-01            | done    |
 | S-02 | import-word-file   | import one MS Word file, see it split into proposed notes, review them and save the ones I confirm      | F-01          | FR-014, FR-018                   | done    |
 | S-03 | import-suggestions | see a suggested category and tags on every proposed note, taken from existing ones first               | S-02          | FR-015                           | done    |
-| S-04 | import-rich-text   | get imported text rewritten with headings, lists and tables so it reads better                          | S-02          | FR-016                           | pending |
+| S-04 | import-rich-text   | get imported text rewritten with headings, lists and tables so it reads better                          | S-02          | FR-016                           | done    |
 | S-05 | import-pdf-excel   | import PDF and Excel files through the same review flow                                                | S-02          | FR-014                           | pending |
 | S-06 | chat-with-notes    | ask questions of my notes and get answers that name the notes they come from                           | F-01          | FR-017                           | pending |
 | S-07 | import-image       | import notes from an image (photo, screenshot, scan) through the same review flow                      | S-02          | — (new, extend the PRD)          | pending |
-| S-08 | import-text-file   | import notes from a plain text file (.txt, .md) through the same review flow                           | S-02          | — (new, extend the PRD)          | pending |
+| S-08 | import-text-file   | import notes from a plain text file (.txt, .md) through the same review flow                           | S-02          | — (new, extend the PRD)          | done    |
 | S-09 | summarize-note     | get a summary and the key points of a note, read the preview and copy it, with the note unchanged      | F-01          | — (new, extend the PRD)          | pending |
 
 ## Baseline
@@ -133,7 +133,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** how to check that the rewrite changed structure only, not meaning (Socrates: the model may change content).
 - **Risk:** silent loss of detail with no original to compare, because the file is not stored; the review screen is the only check.
-- **Status:** pending
+- **Status:** done
 
 ### S-05: Import PDF and Excel through the same flow
 
@@ -181,7 +181,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** text encoding (UTF-8, Windows-1250); a Markdown file already has headings, so check that the model keeps them; whether the file input in Settings becomes one "import a file" control for every format.
 - **Risk:** small: no new parser beyond reading the text into blocks (`docx.Block`), so the rest of the flow is reused as is.
-- **Status:** pending
+- **Status:** done
 
 ### S-09: Summarize a note
 
@@ -203,11 +203,11 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-01       | translate-note     | Translate a note PL<->EN with a copyable preview        | done                  | North star                     |
 | S-02       | import-word-file   | Import a Word file as proposed notes with review        | done                  | Word first; the model writes the notes |
 | S-03       | import-suggestions | Suggest category and tags for proposed notes            | done                  | Built on S-02's flow           |
-| S-04       | import-rich-text   | Rewrite imported text with rich-text elements           | after S-02            |                                |
+| S-04       | import-rich-text   | Rewrite imported text with rich-text elements           | done                  | Delivered inside S-02          |
 | S-05       | import-pdf-excel   | Import PDF and Excel files through the same flow        | after S-02            | Open: scans, size limit        |
 | S-06       | chat-with-notes    | Ask questions of the notes with named sources           | after F-01            | May split; fit in budget open  |
 | S-07       | import-image       | Import notes from an image through the same flow        | after S-02            | Needs a vision model; add FR   |
-| S-08       | import-text-file   | Import notes from a .txt or .md file                    | after S-02            | Add FR to the PRD              |
+| S-08       | import-text-file   | Import notes from a .txt or .md file                    | done                  | FR still to add to the PRD     |
 | S-09       | summarize-note     | Summarize a note (summary and key points) with a preview | after F-01           | Add FR to the PRD              |
 
 ## Open Roadmap Questions
@@ -238,5 +238,9 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **S-02: Import one Word file as proposed notes** — Done 2026-11-18 → closed in the roadmap directly. `POST /api/import/word` streams one JSON line per part (`importer.run`); the model reads the file part by part and writes tidy Markdown notes (headings, lists, tables), a second call per part lists what is missing, and the code lists numbers and links found in no note. A failed part reports its reason (`AIError.detail`, e.g. `HTTP 429`) and can be run again alone (`?parts=`). Review in Settings → Backup: accordions, saving while later parts still arrive, `POST /api/notes/bulk` (all or none). Covers FR-014, FR-018, and already FR-016 (rich text, S-04) and note titles from FR-015 (S-03). Limits: 5 MB file, 100 000 characters of text. Lesson: splitting by headings in code gave poor, cut-up notes; the model has to read and write the notes itself, with a check for what it missed.
 
 - **S-03: Suggest a category and tags for each proposed note** — Done 2026-11-18 → closed in the roadmap directly. The model returns a category and 2 to 5 tags with every note; the prompt lists the existing categories and the 150 most used tags (existing first, new only when none fits). The code maps the answer onto existing names (case and accents ignored), drops bad tags and reserved category names. The review shows an editable category field (datalist of existing ones) and a tags field, and a line naming which names are new; `POST /api/notes/bulk` takes the category by name and creates it when missing (all or none). Also shipped around it: notes stream into the review one by one while the model writes (`ai.stream`), the section moved to Settings → Load Data, and the setting "block the page during AI work" (`aiBusy`, a rule for every AI job). Known limit: parts run in parallel, so a new tag or category proposed in one part is unknown to the others. Lesson: a code-side mapping onto existing names plus a visible "new" marker is a better guard against tag chaos than prompt wording alone.
+
+- **S-04: Rewrite imported text with rich-text elements** — Done 2026-11-18 → closed in the roadmap directly. Delivered inside S-02: the model writes every note as tidy Markdown (headings, lists, tables, fenced code) and keeps all facts. The open question (structure changed, not meaning) is covered by the check step (what the model found missing, plus numbers and links found in no note) and by the user reviewing every note before saving. Known limit: the check is done by the same model that wrote the notes, and there is no original to compare against. Lesson: a quality requirement like this was cheaper to meet inside the main flow than as a separate pass.
+
+- **S-08: Import notes from a plain text file** — Done 2026-11-18 → closed in the roadmap directly. `.txt`, `.md` and `.markdown` go through the same flow as Word. `src/compass/textfile.py` reads blocks (blank-line paragraphs, `#` headings, a fenced code block kept whole); the endpoint became generic, `POST /api/import/file?name=…`, and `importer._blocks` picks the parser by extension (an unknown one is `unsupported`, no model call), so the next format is one parser and one line. Encodings: UTF-8 (BOM or not), then Windows-1250; text is normalised to NFC (macOS can write accented letters decomposed, which would split a tag in two); CR, LF and CRLF line endings all work. `BadDocx` became `BadFile`. Known limits: `.rtf` (TextEdit's default) is not supported, and very old MacRoman files are read as Windows-1250 without an error. Lesson: files from macOS differ from Windows ones in more than the picker (decomposed Unicode, CR line endings); test with real files from the user's own system.
 
 (Entries are added by hand when a slice is finished, format: `- **<ID>: <Outcome>** — Done <YYYY-MM-DD> → `context/changes/<change-id>/`. Lesson: —.`)

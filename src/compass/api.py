@@ -242,9 +242,11 @@ def _lines(events: Iterator[dict[str, object]]) -> Iterator[str]:
         yield json.dumps(event, ensure_ascii=False) + "\n"
 
 
-@import_router.post("/word")
-async def import_word(request: Request, parts: str = "") -> StreamingResponse:
-    """A .docx file (the raw body) turned into proposed notes, streamed as one JSON line per event
+@import_router.post("/file")
+async def import_file(
+    request: Request, name: str = "", parts: str = ""
+) -> StreamingResponse:
+    """A file (the raw body; `name` is its file name, which tells the type: .docx, .txt, .md) turned into proposed notes, streamed as one JSON line per event
     (see `importer.run`): each part arrives as soon as the model has written it, with what the model
     found missing (`omitted`) and the numbers and links found in no note (`unmatched`). `parts` is a
     comma-separated list of part indexes to run again. Nothing is saved and the file is not kept; the
@@ -252,12 +254,12 @@ async def import_word(request: Request, parts: str = "") -> StreamingResponse:
     raw = await _upload(request, MAX_WORD_BYTES)
     current = settings.current()
     try:
-        wanted = await run_in_threadpool(importer.prepare, raw, current)
+        wanted = await run_in_threadpool(importer.prepare, raw, current, name)
     except ai.AIError as problem:
         raise HTTPException(
             status_code=AI_STATUS[problem.code], detail={"code": problem.code}
         ) from None
-    except docx.BadDocx as problem:
+    except docx.BadFile as problem:
         status = 413 if problem.code == "too_large" else 422
         raise HTTPException(status_code=status, detail={"code": problem.code}) from None
     only = {int(p) for p in parts.split(",") if p.strip().isdigit()} or None

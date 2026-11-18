@@ -48,8 +48,8 @@ WITH_HEADINGS = make_docx(
 )
 
 
-def post(c: TestClient, raw: bytes) -> object:
-    return c.post("/api/import/word", content=raw)
+def post(c: TestClient, raw: bytes, name: str = "x.docx") -> object:
+    return c.post("/api/import/file", content=raw, params={"name": name})
 
 
 def test_extract_markdown() -> None:
@@ -114,8 +114,10 @@ def patch_model(
     return calls
 
 
-def events(c: TestClient, raw: bytes, parts: str = "") -> list[dict[str, Any]]:
-    r = c.post("/api/import/word", content=raw, params={"parts": parts})
+def events(
+    c: TestClient, raw: bytes, parts: str = "", name: str = "x.docx"
+) -> list[dict[str, Any]]:
+    r = c.post("/api/import/file", content=raw, params={"parts": parts, "name": name})
     assert r.status_code == 200
     return [json.loads(line) for line in r.text.splitlines()]
 

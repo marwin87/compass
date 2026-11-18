@@ -15,8 +15,8 @@ MAX_XML = 30 * 1024 * 1024  # uncompressed size of document.xml (zip-bomb guard)
 HEADING = re.compile(r"^(?:Heading|Nag[łl]ówek)\s?(\d)$", re.IGNORECASE)
 
 
-class BadDocx(Exception):
-    """code: not_docx | empty | too_large."""
+class BadFile(Exception):
+    """code: not_docx | not_text | empty | too_large | unsupported."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -69,18 +69,18 @@ def _table(tbl: ET.Element) -> Block | None:
 
 
 def extract(raw: bytes) -> list[Block]:
-    """The blocks of a .docx file in reading order. Raises BadDocx."""
+    """The blocks of a .docx file in reading order. Raises BadFile."""
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as z:
             if z.getinfo("word/document.xml").file_size > MAX_XML:
-                raise BadDocx("too_large")
+                raise BadFile("too_large")
             xml = z.read("word/document.xml")
         # ponytail: stdlib ET (expat guards against entity blow-up); defusedxml if files ever come from strangers
         body = ET.fromstring(xml).find(f"{W}body")
     except (zipfile.BadZipFile, KeyError, ET.ParseError):
-        raise BadDocx("not_docx") from None
+        raise BadFile("not_docx") from None
     if body is None:
-        raise BadDocx("not_docx")
+        raise BadFile("not_docx")
     blocks: list[Block] = []
     for child in body:
         found = (
@@ -93,5 +93,5 @@ def extract(raw: bytes) -> list[Block]:
         if found:
             blocks.append(found)
     if not blocks:
-        raise BadDocx("empty")
+        raise BadFile("empty")
     return blocks

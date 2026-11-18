@@ -18,8 +18,9 @@ import threading
 from collections.abc import Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import PurePath
 
-from compass import ai, categories, docx, notes
+from compass import ai, categories, docx, notes, textfile
 from compass.search import fold
 
 MAX_TEXT = (
@@ -308,13 +309,26 @@ def _part_events(
     yield {"type": "check", "index": index, "omitted": omitted, "unchecked": unchecked}
 
 
-def prepare(raw: bytes, s: dict[str, object]) -> list[list[docx.Block]]:
-    """The parts of a .docx file, after every check that can fail before any model call.
-    Raises ai.AIError (AI off or not configured) and docx.BadDocx."""
+TEXT_TYPES = {".txt", ".md", ".markdown"}
+
+
+def _blocks(raw: bytes, name: str) -> list[docx.Block]:
+    """The blocks of a file, read by the parser of its type (the extension of `name`)."""
+    kind = PurePath(name).suffix.lower()
+    if kind == ".docx":
+        return docx.extract(raw)
+    if kind in TEXT_TYPES:
+        return textfile.extract(raw)
+    raise docx.BadFile("unsupported")
+
+
+def prepare(raw: bytes, s: dict[str, object], name: str) -> list[list[docx.Block]]:
+    """The parts of a file (`name` tells its type), after every check that can fail before any model call.
+    Raises ai.AIError (AI off or not configured) and docx.BadFile."""
     ai.ready(s)
-    blocks = docx.extract(raw)
+    blocks = _blocks(raw, name)
     if sum(len(b.text) for b in blocks) > MAX_TEXT:
-        raise docx.BadDocx("too_large")
+        raise docx.BadFile("too_large")
     return windows(blocks)
 
 

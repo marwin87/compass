@@ -243,7 +243,7 @@ SETTINGS_HTML = (
       <h2>[[load_h]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></h2>
       <div class="scard aiframe">
         <div class="srow"><div><div class="sname">[[word_import]]</div><div class="sdesc">[[word_import_desc]]</div></div>
-          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></div></div>
+          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,.txt,.md,.markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" hidden></div></div>
       </div>
       <div class="scard aiframe" id="wordreview" hidden aria-live="polite"></div>
     </section>
@@ -522,7 +522,7 @@ async function importFile(file) {
 // Import from Word (AI): the model writes the notes part by part. Proposals appear as each part is ready,
 // so they can be reviewed and saved while the rest is still coming; a failed part says why and can be run again.
 const WORD_ERRORS = {
-  not_docx: "word_err_not_docx", empty: "word_err_empty", too_large: "word_err_too_large", file_too_large: "import_err_file_too_large",
+  not_docx: "word_err_not_docx", not_text: "word_err_not_text", unsupported: "word_err_unsupported", empty: "word_err_empty", too_large: "word_err_too_large", file_too_large: "import_err_file_too_large",
   not_enabled: "ai_err_not_enabled", not_configured: "ai_err_not_configured", timeout: "ai_err_timeout",
 };
 const PART_ERRORS = {timeout: "ai_err_timeout"};
@@ -648,7 +648,7 @@ async function runWord(r, only) {
   aiBusy(() => $("#wordreview"));
   let finished = false;
   try {
-    const resp = await api("/api/import/word" + (only ? "?parts=" + only.join(",") : ""), {method: "POST", body: await r.file.arrayBuffer(), signal: r.abort.signal});
+    const resp = await api("/api/import/file?name=" + encodeURIComponent(r.file.name) + (only ? "&parts=" + only.join(",") : ""), {method: "POST", body: await r.file.arrayBuffer(), signal: r.abort.signal});
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
       toast(wordError(body.detail), "bad", 6000);
