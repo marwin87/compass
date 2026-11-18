@@ -12,9 +12,9 @@ SECTIONS = (
     "appearance",
     "categories",
     "tags",
-    "backup",
     "shortcuts",
     "ai",
+    "backup",
     "danger",
     "about",
 )

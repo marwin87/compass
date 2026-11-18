@@ -116,25 +116,25 @@ def _with_tags(conn: sqlite3.Connection, rows: Sequence[Sequence[Any]]) -> list[
     ]
 
 
-def create_note(
-    title: str, body: str, tags: Sequence[str] = (), category_id: int | None = None
+def _insert(
+    conn: sqlite3.Connection,
+    title: str,
+    body: str,
+    tags: Sequence[str],
+    category_id: int | None,
 ) -> Note:
+    """Insert one note inside the caller's transaction."""
     clean = normalize_tags(tags)
     created_at = datetime.now(UTC).isoformat(timespec="seconds")
-    conn = connect()
-    try:
-        with conn:
-            category = categories.resolve(conn, category_id)
-            cur = conn.execute(
-                "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
-                (title, body, created_at, category),
-            )
-            note_id = cur.lastrowid
-            assert note_id is not None
-            _save_tags(conn, note_id, clean)
-            index_note(conn, note_id, title, body, clean)
-    finally:
-        conn.close()
+    category = categories.resolve(conn, category_id)
+    cur = conn.execute(
+        "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
+        (title, body, created_at, category),
+    )
+    note_id = cur.lastrowid
+    assert note_id is not None
+    _save_tags(conn, note_id, clean)
+    index_note(conn, note_id, title, body, clean)
     return Note(
         id=note_id,
         title=title,
@@ -143,6 +143,31 @@ def create_note(
         category_id=category,
         tags=clean,
     )
+
+
+def create_note(
+    title: str, body: str, tags: Sequence[str] = (), category_id: int | None = None
+) -> Note:
+    conn = connect()
+    try:
+        with conn:
+            return _insert(conn, title, body, tags, category_id)
+    finally:
+        conn.close()
+
+
+def create_many(
+    items: Sequence[tuple[str, str, Sequence[str], int | None]],
+) -> int:
+    """Add several notes (title, body, tags, category_id) in one transaction: all or none."""
+    conn = connect()
+    try:
+        with conn:
+            for title, body, tags, category_id in items:
+                _insert(conn, title, body, tags, category_id)
+    finally:
+        conn.close()
+    return len(items)
 
 
 def get_note(note_id: int) -> Note | None:

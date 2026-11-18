@@ -1,13 +1,15 @@
 import json
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 from starlette.concurrency import run_in_threadpool
+from starlette.responses import StreamingResponse
 
 from compass import about as about_info
-from compass import ai, categories, notes, settings, tags, transfer
+from compass import ai, categories, docx, importer, notes, settings, tags, transfer
 
 router = APIRouter(prefix="/api/notes")
 tags_router = APIRouter(prefix="/api/tags")
@@ -40,6 +42,8 @@ def _category_error(problem: categories.CategoryError) -> HTTPException:
 MAX_IMPORT_BYTES = (
     50 * 1024 * 1024
 )  # an export is a few MB; this only stops runaway uploads
+MAX_WORD_BYTES = 5 * 1024 * 1024
+MAX_BULK = 500  # notes per bulk save
 
 
 class NoteIn(BaseModel):
@@ -65,6 +69,23 @@ class NoteIn(BaseModel):
 def create(data: NoteIn) -> notes.Note:
     try:
         return notes.create_note(data.title, data.body, data.tags, data.category_id)
+    except categories.CategoryError as problem:
+        raise _category_error(problem) from None
+
+
+class BulkIn(BaseModel):
+    notes: list[NoteIn] = Field(min_length=1, max_length=MAX_BULK)
+
+
+@router.post("/bulk", status_code=201)
+def create_bulk(data: BulkIn) -> dict[str, int]:
+    """Save several notes at once (the confirmed proposals of a file import); all or none."""
+    try:
+        return {
+            "created": notes.create_many(
+                [(n.title, n.body, n.tags, n.category_id) for n in data.notes]
+            )
+        }
     except categories.CategoryError as problem:
         raise _category_error(problem) from None
 
@@ -196,24 +217,58 @@ def export_notes() -> Response:
     )
 
 
+async def _upload(request: Request, limit: int) -> bytes:
+    """The raw request body, refused with 413 above `limit` bytes."""
+    too_large = HTTPException(
+        status_code=413,
+        detail={"code": "file_too_large", "limit_mb": limit // (1024 * 1024)},
+    )
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > limit:
+        raise too_large
+    raw = await request.body()
+    if len(raw) > limit:
+        raise too_large
+    return raw
+
+
+def _lines(events: Iterator[dict[str, object]]) -> Iterator[str]:
+    for event in events:
+        yield json.dumps(event, ensure_ascii=False) + "\n"
+
+
+@import_router.post("/word")
+async def import_word(request: Request, parts: str = "") -> StreamingResponse:
+    """A .docx file (the raw body) turned into proposed notes, streamed as one JSON line per event
+    (see `importer.run`): each part arrives as soon as the model has written it, with what the model
+    found missing (`omitted`) and the numbers and links found in no note (`unmatched`). `parts` is a
+    comma-separated list of part indexes to run again. Nothing is saved and the file is not kept; the
+    user saves the confirmed proposals with `POST /api/notes/bulk`."""
+    raw = await _upload(request, MAX_WORD_BYTES)
+    current = settings.current()
+    try:
+        wanted = await run_in_threadpool(importer.prepare, raw, current)
+    except ai.AIError as problem:
+        raise HTTPException(
+            status_code=AI_STATUS[problem.code], detail={"code": problem.code}
+        ) from None
+    except docx.BadDocx as problem:
+        status = 413 if problem.code == "too_large" else 422
+        raise HTTPException(status_code=status, detail={"code": problem.code}) from None
+    only = {int(p) for p in parts.split(",") if p.strip().isdigit()} or None
+    return StreamingResponse(
+        _lines(importer.run(current, wanted, only)),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @import_router.post("")
 async def import_notes(request: Request) -> dict[str, int]:
     """Restore an export file (the JSON body) one to one: everything in the database is replaced
     by the file. It is validated first; nothing changes unless the whole file is valid.
     """
-    too_large = HTTPException(
-        status_code=413,
-        detail={
-            "code": "file_too_large",
-            "limit_mb": MAX_IMPORT_BYTES // (1024 * 1024),
-        },
-    )
-    declared = request.headers.get("content-length")
-    if declared and declared.isdigit() and int(declared) > MAX_IMPORT_BYTES:
-        raise too_large
-    raw = await request.body()
-    if len(raw) > MAX_IMPORT_BYTES:
-        raise too_large
+    raw = await _upload(request, MAX_IMPORT_BYTES)
     try:
         document = json.loads(raw)
         parsed = await run_in_threadpool(transfer.parse_export, document)
