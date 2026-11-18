@@ -60,15 +60,25 @@ COMMON_CSS = r"""
 .aithink svg{color:var(--ai1);animation:aipulse 1.4s ease-in-out infinite}
 @keyframes aipulse{0%,100%{transform:scale(.8) rotate(0);opacity:.55}50%{transform:scale(1.15) rotate(20deg);opacity:1}}
 @media (prefers-reduced-motion:reduce){.aithink svg{animation:none}}
-.iconbtn.ai.on{box-shadow:0 0 0 3px var(--ai-soft)}
 .aihd{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--ai-soft);font-size:13px;font-weight:600;color:var(--ink)}
 .aihd .ic,.aihd svg{color:var(--ai1)}
-.iconbtn.ai{position:relative;color:var(--ai1);border:1.5px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
-.hero .iconbtn.ai{color:#fff;background:rgba(255,255,255,.08);border-color:transparent}
-.hero .iconbtn.ai:hover{background:rgba(255,255,255,.18)}
-.hero .iconbtn.ai::before{content:"";position:absolute;inset:-1.5px;border-radius:inherit;padding:1.5px;background:linear-gradient(135deg,var(--ai1),var(--ai2));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);pointer-events:none}
-.iconbtn.ai .aitag{position:absolute;top:-7px;right:-9px;font-size:9px;padding:0 5px}
-.iconbtn.ai .aitag svg{display:none}
+.aistrip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 22px 0}
+.aistrip .grow{flex:1}
+.aibtn{padding:7px 13px;font-size:13px;gap:7px;border-radius:999px;border:1.5px solid transparent;color:var(--ink);background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
+.aibtn:hover,.aibtn.act{background:linear-gradient(var(--raise),var(--raise)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
+.aibtn svg{color:var(--ai1)}
+.aibtn.act{box-shadow:0 0 0 3px var(--ai-soft)}
+.sumwrap{padding:14px 22px 0}
+.aisum .aihd .btn{padding:5px 10px;font-size:12px}
+.aisum .aihd .btn.icon{padding:5px 8px}
+.aisum .chev svg{transition:transform var(--ease)}
+.aisum.collapsed .chev svg{transform:rotate(-90deg)}
+.aisum.collapsed>:not(.aihd){display:none}
+.aisum .aithink{flex-direction:row;padding:14px 18px;gap:10px}
+.aisum .aisumbody{padding:14px 18px 16px;font-size:14.5px;line-height:1.65}
+.aisum .aisumbody h1,.aisum .aisumbody h2,.aisum .aisumbody h3{margin:14px 0 4px;padding:0;border:0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.aisum .aisumbody>:first-child{margin-top:0}
+.aisum .aisumbody p,.aisum .aisumbody ul,.aisum .aisumbody ol{margin:0 0 4px}
 *{box-sizing:border-box}
 html{color-scheme:dark}
 html[data-theme=light]{color-scheme:light}
@@ -604,8 +614,9 @@ async function copyNote(note) {
 function notePanel(note, cb) {
   const root = h("div", {class: "panel"});
   let mode = "read", draft = null, msg = "";
-  let preview = null, job = 0, swapped = false;    // swapped: the user turned the direction around; the translation shown in place of the note: {state: "loading"|"done"|"error", text, msg}; job drops a late answer
-  const back = () => { job++; preview = null; mode = "read"; draft = null; msg = ""; draw(); };
+  let preview = null, sum = null, tjob = 0, sjob = 0, swapped = false;    // preview: the translation, shown in place of the note: {state: "loading"|"done"|"error", text, msg}; swapped: the user turned its direction around; sum: the summary, shown above the note: {state, text, msg, collapsed}; the counters drop a late answer
+  const dropAi = () => { tjob++; sjob++; preview = null; sum = null; swapped = false; };
+  const back = () => { dropAi(); mode = "read"; draft = null; msg = ""; draw(); };
   async function save() {
     const r = await api("/api/notes/" + note.id, json("PUT", draft));
     if (!r.ok) { msg = SAVE_ERROR; mode = "edit"; draw(); return; }
@@ -617,8 +628,9 @@ function notePanel(note, cb) {
     cb.onDeleted();       // a 404 means it is already gone, which is the state the user wanted
   }
   const target = () => ((noteLang(note.body) === "pl") !== swapped ? "en" : "pl");   // the language to translate into
+  // Translation: a preview in place of the note. Leaves the note untouched, saves nothing.
   async function translate() {
-    const mine = ++job, to = target();
+    const mine = ++tjob, to = target();
     preview = {state: "loading", minH: Math.max(160, (root.querySelector(".sheet") || {offsetHeight: 0}).offsetHeight - 50)}; draw();
     aiBusy(() => root.querySelector(".aipad"));
     let next;
@@ -630,18 +642,22 @@ function notePanel(note, cb) {
       if (e.message === "not authenticated") return;
       next = {state: "error", msg: tr("ai_err_failed")};
     }
-    if (mine !== job || !preview) return;
+    if (mine !== tjob || !preview) return;
     aiBusy(null);
     preview = {...next, minH: preview.minH}; draw();
   }
-  const closeTranslation = () => { job++; preview = null; swapped = false; draw(); };
+  const closeTranslation = () => { tjob++; preview = null; swapped = false; draw(); };
   const openTranslation = () => { swapped = false; translate(); };
   const swap = () => { swapped = !swapped; translate(); };
+  async function copyAiText(text) {
+    try { await navigator.clipboard.writeText(text); toast(tr("copied")); }
+    catch (e) { toast(tr("copy_failed")); }
+  }
   function translationBlock(tk) {
-    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, translateLabel(target())), aiTag(),
+    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, translateLabel(target())),
       preview.state === "loading" ? null : h("button", {type: "button", class: "btn icon", "aria-label": tr("translate_swap"), title: tr("translate_swap"), onclick: swap}, icon("swap", 16)),
       h("span", {class: "grow"}),
-      preview.state === "done" ? h("button", {type: "button", class: "btn", onclick: copyPreview}, icon("copy", 16), tr("copy_translation")) : null,
+      preview.state === "done" ? h("button", {type: "button", class: "btn", onclick: () => copyAiText(preview.text)}, icon("copy", 16), tr("copy_translation")) : null,
       preview.state === "error" ? h("button", {type: "button", class: "btn primary", onclick: translate}, tr("retry")) : null,
       h("button", {type: "button", class: "btn", onclick: closeTranslation}, tr("back")));
     const body = preview.state === "loading" ? h("div", {class: "aithink", role: "status"}, icon("spark", 30), h("span", {}, tr("translating")))
@@ -649,15 +665,50 @@ function notePanel(note, cb) {
       : h("div", {class: "aibody"}, readerBody({body: preview.text}, tk, preview.lang));   // the same layout as the note: contents, width, font
     return h("div", {class: "aiframe aipad", style: preview.state === "done" ? "" : "min-height:" + preview.minH + "px"}, head, body);   // loading and errors keep the height of the note, so the page does not jump
   }
-  async function copyPreview() {
-    try { await navigator.clipboard.writeText(preview.text); toast(tr("copied")); }
-    catch (e) { toast(tr("copy_failed")); }
+  // Summary: a block above the note (the note stays below it). Saves nothing.
+  async function summarize() {
+    const mine = ++sjob;
+    sum = {state: "loading", collapsed: false}; draw();
+    aiBusy(() => root.querySelector(".aisum"));
+    let next;
+    try {
+      const r = await api("/api/notes/" + note.id + "/summarize", {method: "POST"});
+      if (r.ok) next = {state: "done", text: (await r.json()).text};
+      else { const d = (await r.json().catch(() => ({}))).detail; next = {state: "error", msg: tr(SUMMARY_ERRORS[d && d.code] || "ai_err_failed_summary")}; }
+    } catch (e) {
+      if (e.message === "not authenticated") return;
+      next = {state: "error", msg: tr("ai_err_failed_summary")};
+    }
+    if (mine !== sjob || !sum) return;
+    aiBusy(null);
+    sum = {...next, collapsed: false}; draw();
+  }
+  const closeSummary = () => { sjob++; sum = null; draw(); };
+  function summaryBlock(tk) {
+    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, tr("summary_h")), h("span", {class: "grow"}),
+      sum.state === "done" ? h("button", {type: "button", class: "btn", "aria-label": tr("copy_summary"), title: tr("copy_summary"), onclick: () => copyAiText(sum.text)}, icon("copy", 14), tr("copy")) : null,
+      sum.state === "loading" ? null : h("button", {type: "button", class: "btn", onclick: summarize}, icon("swap", 14), tr(sum.state === "error" ? "retry" : "ai_refresh")),
+      sum.state === "done" ? h("button", {type: "button", class: "btn icon chev", "aria-label": tr(sum.collapsed ? "ai_expand" : "ai_collapse"), title: tr(sum.collapsed ? "ai_expand" : "ai_collapse"), "aria-expanded": sum.collapsed ? "false" : "true", onclick: () => { sum.collapsed = !sum.collapsed; draw(); }}, icon("chevron-down", 14)) : null,
+      h("button", {type: "button", class: "btn icon", "aria-label": tr("ai_close"), title: tr("ai_close"), onclick: closeSummary}, icon("x", 14)));
+    const body = sum.state === "loading" ? h("div", {class: "aithink", role: "status"}, icon("spark", 18), h("span", {}, tr("summarizing")))
+      : sum.state === "error" ? h("div", {class: "err aierr"}, sum.msg)
+      : h("article", {class: "md aisumbody"}, mdBlocksDom(mdParse(sum.text), {tk, heads: [], lang: noteLang(note.body)}));
+    return h("div", {class: "sumwrap"}, h("div", {class: "aiframe aisum" + (sum.collapsed ? " collapsed" : "")}, head, body));
+  }
+  // The AI actions live in one strip at the top of the sheet; its single AI tag marks everything below it (the blocks it opens carry the frame and the spark, not a second tag)
+  function aiStrip() {
+    if (!AI_READY) return null;
+    const act = (on, ic, label, title, onclick) => h("button", {type: "button", class: "btn aibtn" + (on ? " act" : ""), "aria-pressed": on ? "true" : "false", title: title + " (AI)", onclick}, icon(ic, 15), label);
+    return h("div", {class: "aistrip"},
+      act(!!sum, "align-left", tr("summarize_btn"), tr("summarize"), sum ? closeSummary : summarize),
+      act(!!preview, "languages", translateLabel(target()), translateLabel(target()), preview ? closeTranslation : openTranslation),
+      h("span", {class: "grow"}), aiTag());
   }
   function draw() {
     root.dataset.mode = mode;
     if (mode === "read") {
       const tk = tokens();
-      const edit = () => { exitReading(); job++; preview = null; draft = {title: note.title, body: note.body, tags: [...note.tags], category_id: note.category_id}; msg = ""; mode = "edit"; draw(); };
+      const edit = () => { exitReading(); dropAi(); draft = {title: note.title, body: note.body, tags: [...note.tags], category_id: note.category_id}; msg = ""; mode = "edit"; draw(); };
       const catBadge = h("span", {class: "badge cat"}, catName(note.category_id));
       root.replaceChildren(
         h("div", {class: "hero"},
@@ -670,12 +721,11 @@ function notePanel(note, cb) {
             h("div", {class: "tools"},
               h("button", {type: "button", class: "iconbtn readtoggle", "aria-label": tr("reading_mode"), "aria-pressed": "false", title: tr("reading_mode"), onclick: toggleReading}, icon("book", 17)),
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("copy"), title: tr("copy"), onclick: () => copyNote(note)}, icon("copy", 17)),
-              AI_READY ? h("button", {type: "button", class: "iconbtn ai" + (preview ? " on" : ""), "aria-pressed": preview ? "true" : "false", "aria-label": translateLabel(target()) + " (AI)", title: translateLabel(target()) + " (AI)", onclick: preview ? closeTranslation : openTranslation}, icon("languages", 17), aiTag()) : null,
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("edit"), title: tr("edit"), onclick: edit}, icon("pencil", 17)),
-              h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { job++; preview = null; msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
+              h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { dropAi(); msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
           h("h2", {}, hlNodes(note.title, tk)),
           h("div", {class: "chips"}, note.tags.map((t) => h("button", {type: "button", class: "chip" + (state.sel.has(t) ? " on" : ""), onclick: () => toggleTag(t)}, "#" + t)))),
-        h("div", {class: "sheet"}, preview ? translationBlock(tk) : readerBody(note, tk), h("div", {class: "err"}, msg)));
+        h("div", {class: "sheet"}, aiStrip(), preview ? translationBlock(tk) : [sum ? summaryBlock(tk) : null, readerBody(note, tk)], h("div", {class: "err"}, msg)));
       setTimeout(() => { watchToc(root); syncReadButton(); }, 0);   // after the panel is in the page
     } else if (mode === "del") {
       root.replaceChildren(h("h2", {}, note.title), h("div", {class: "confirm"}, h("span", {}, tr("confirm_delete")),

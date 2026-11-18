@@ -33,6 +33,7 @@ function h(tag, props, ...kids) {
 const SVGNS = "http://www.w3.org/2000/svg";
 const ICONS = {
   compass: [["circle", {cx: 12, cy: 12, r: 10}], ["polygon", {points: "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"}]],
+  "align-left": [["path", {d: "M21 6H3"}], ["path", {d: "M15 12H3"}], ["path", {d: "M17 18H3"}]],
   plus: [["path", {d: "M5 12h14"}], ["path", {d: "M12 5v14"}]],
   bold: [["path", {d: "M14 12a4 4 0 0 0 0-8H6v8"}], ["path", {d: "M15 20a4 4 0 0 0 0-8H6v8Z"}]],
   italic: [["line", {x1: 19, y1: 4, x2: 10, y2: 4}], ["line", {x1: 14, y1: 20, x2: 5, y2: 20}], ["line", {x1: 15, y1: 4, x2: 9, y2: 20}]],
@@ -154,6 +155,7 @@ function aiTick() {
   requestAnimationFrame(() => { if (aiGet) aiTick(); });   // follows the window while it grows, moves or scrolls
 }
 const aiTag = () => h("span", {class: "aitag"}, icon("spark", 10), "AI");
+const SUMMARY_ERRORS = {not_enabled: "ai_err_not_enabled", not_configured: "ai_err_not_configured", timeout: "ai_err_timeout", failed: "ai_err_failed_summary"};
 const AI_ERRORS = {not_enabled: "ai_err_not_enabled", not_configured: "ai_err_not_configured", timeout: "ai_err_timeout", failed: "ai_err_failed"};
 
 // --- placeholders: one shimmering block, used to build skeleton loading states

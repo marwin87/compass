@@ -132,6 +132,20 @@ def translate(
         ) from None
 
 
+@router.post("/{note_id}/summarize")
+def summarize(note_id: int) -> dict[str, str]:  # {"text": ...}
+    """A preview of a summary and the key points of the note; nothing is saved. A plain `def`: runs in the threadpool."""
+    note = notes.get_note(note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    try:
+        return {"text": ai.summarize(note.title, note.body, settings.current())}
+    except ai.AIError as problem:
+        raise HTTPException(
+            status_code=AI_STATUS[problem.code], detail={"code": problem.code}
+        ) from None
+
+
 @router.put("/{note_id}")
 def update(note_id: int, data: NoteIn) -> notes.Note:
     try:

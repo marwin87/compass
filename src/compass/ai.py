@@ -17,6 +17,17 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1"
 TIMEOUT = 60  # seconds; a slow model must not hang a request forever
 
 LANGUAGES = {"en": "English", "pl": "Polish"}
+SUMMARY_TIMEOUT = (
+    120  # a summary of a long note is a longer answer than a translation of a short one
+)
+SUMMARY = (
+    "Summarize the note you receive (Markdown, with its title first). Reply in Markdown, in the "
+    "language of the note, in exactly two parts, each under a level-2 heading named in that language "
+    "(for example 'Summary' and 'Key points'): first a short summary of 2 to 4 sentences, then a "
+    "bulleted list of 3 to 7 key points, each a complete short statement. Keep names, numbers, code "
+    "identifiers and links exactly as they are. Do not add anything that is not in the note and do not "
+    "wrap the answer in a code fence."
+)
 
 
 def translate_prompt(to: str) -> str:
@@ -184,6 +195,15 @@ def ask(
     """One model call for any feature. Raises AIError; makes no call when AI is off or unconfigured."""
     ready(s)
     return _chat(s, system, user, timeout)
+
+
+def summarize(title: str, body: str, s: dict[str, object]) -> str:
+    """A summary and the key points of a note. Raises AIError; makes no call when AI is off or
+    unconfigured, or when the note has no text."""
+    ready(s)
+    if not body.strip():
+        return ""
+    return _chat(s, SUMMARY, f"# {title}\n\n{body}", SUMMARY_TIMEOUT)
 
 
 def translate(text: str, s: dict[str, object], to: str) -> str:

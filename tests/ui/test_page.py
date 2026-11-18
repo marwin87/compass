@@ -239,3 +239,20 @@ def test_ai_components_show_only_when_ai_is_enabled_and_configured() -> None:
         assert 'class="aitag" data-ai hidden' in render(
             "en"
         )  # the logo badge starts hidden
+
+
+def test_the_note_panel_has_the_summarize_control_for_ai() -> None:
+    from compass.ui.page import render_index
+
+    page = render_index("en")
+    assert (
+        "/summarize" in page
+        and "function summarize(" in page
+        and "SUMMARY_ERRORS" in page
+    )
+    assert (
+        "aistrip" in page and "iconbtn ai" not in page
+    )  # the AI actions are a strip, not toolbar icons
+    assert (
+        page.count('"ai_err_failed_summary"') >= 1
+    )  # quoted: the usage guard looks for it
