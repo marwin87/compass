@@ -167,7 +167,7 @@ def test_run_streams_each_note_then_the_check(
     found = events(authed, WITH_HEADINGS)
     assert [e["type"] for e in found] == ["start", "note", "written", "check", "done"]
     assert found[0]["total"] == 1 and found[0]["labels"] == ["Docker"]
-    assert found[1]["note"] == {**NOTE, "category": None, "tags": []}
+    assert found[1]["note"] == {**NOTE, "category": None, "tags": [], "exists": False}
     assert found[2]["unmatched"] == ["8080"]  # the number is in the file, in no note
     assert found[3]["omitted"] == ["krok z rebase"] and found[3]["unchecked"] is False
     assert [c[0] for c in calls] == ["write", "check"] and "# Docker" in calls[0][2]
@@ -369,3 +369,21 @@ def test_bulk_save_creates_and_reuses_categories_by_name(authed: TestClient) -> 
     assert cats["Nowa"] == 2 and len(cats) == 2  # one new category besides the default
     too_long = authed.post("/api/notes/bulk", json={"notes": [note("E", "k" * 41)]})
     assert too_long.status_code == 422 and len(rows()) == 4
+
+
+def test_a_note_with_an_existing_title_is_flagged_in_the_stream(
+    authed: TestClient, fake: Fake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    setup_ai(authed, fake)
+    authed.post("/api/notes", json={"title": "  ZAŻÓŁĆ  ", "body": "", "tags": []})
+    reply = [
+        {"title": "zazolc", "body": "b"},  # same title: case, accents, spaces ignored
+        {"title": "Inny", "body": "b"},
+    ]
+    patch_model(monkeypatch, lambda s, u: json.dumps(reply))
+    flags = {
+        e["note"]["title"]: e["note"]["exists"]
+        for e in of(events(authed, WITH_HEADINGS), "note")
+    }
+    assert flags == {"zazolc": True, "Inny": False}
+    assert len(rows()) == 1  # still nothing saved by the import

@@ -96,8 +96,12 @@ a.btn{text-decoration:none}
 .wlist{list-style:none;margin:0;padding:8px 20px 4px;display:flex;flex-direction:column;gap:12px}
 .wnote{border:1px solid var(--line);border-radius:16px;background:var(--bg);overflow:hidden}
 .wnote.sel{border-color:var(--accent)}
+.wchip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--danger-soft);color:var(--danger);white-space:nowrap}
+.wdup{margin:0 0 8px;font-size:12px;color:var(--danger)}
 .wtools{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px 0}
 .wtools .wordhint{padding:0;margin:0}
+.wtools .btn{flex:none;white-space:nowrap}
+.whead .rowbtn,.whead input[type=checkbox]{flex:none}
 .whead{display:flex;align-items:center;gap:10px;padding:10px 12px}
 .whead input[type=text]{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:9px 12px;font:inherit;font-size:14px;font-weight:600;color:var(--ink)}
 .whead .rowbtn svg{transition:transform var(--ease)}.wnote.open .whead .rowbtn svg{transform:rotate(180deg)}
@@ -573,7 +577,9 @@ function renderReview(r) {
     h("button", {type: "button", class: "btn", title: tr("word_retry_title"), disabled: r.running, onclick: () => runWord(r, [i])}, tr("word_retry")))));
   r.rows.forEach((x) => x.li.classList.toggle("sel", x.on.checked));
   const n = r.rows.filter((x) => x.on.checked).length;
-  r.all.textContent = tr(r.rows.length && n === r.rows.length ? "word_unselect_all" : "word_select_all");
+  const free = r.rows.filter((x) => !x.dup);   // "select all" leaves the notes that already exist alone
+  r.all.textContent = tr(free.length && free.every((x) => x.on.checked) ? "word_unselect_all" : "word_select_all");
+  r.all.disabled = !free.length && !n;
   r.save.textContent = tr("word_save", {n});
   r.save.disabled = !n;
   r.tools.hidden = !r.rows.length;
@@ -581,8 +587,9 @@ function renderReview(r) {
 }
 // Nothing is selected for the user: every proposal has to be looked at and ticked. This is the shortcut for the rest.
 function toggleAll(r) {
-  const on = !(r.rows.length && r.rows.every((x) => x.on.checked));
-  r.rows.forEach((x) => { x.on.checked = on; });
+  const free = r.rows.filter((x) => !x.dup);
+  const on = !(free.length && free.every((x) => x.on.checked));
+  (on ? free : r.rows).forEach((x) => { x.on.checked = on; });   // unselecting clears everything, also a duplicate ticked by hand
   renderReview(r);
 }
 const splitTags = (text) => text.split(",").map((t) => t.trim()).filter(Boolean);
@@ -610,14 +617,14 @@ function addNote(r, part, n) {
   cat.addEventListener("input", sync); tags.addEventListener("input", sync); sync();
   const meta = h("div", {class: "wmeta"},
     h("label", {class: "wlabel"}, tr("label_category"), cat), h("label", {class: "wlabel"}, tr("label_tags"), tags));
-  const bodyBox = h("div", {class: "wbody"}, meta, hint, body);
+  const bodyBox = h("div", {class: "wbody"}, n.exists ? h("p", {class: "wdup"}, tr("word_exists_hint")) : null, meta, hint, body);
   const toggle = rowBtn("chevron-down", tr("word_toggle"), () => open(bodyBox.hidden));
-  const li = h("li", {class: "wnote"}, h("div", {class: "whead"}, on, title, toggle), bodyBox);
+  const li = h("li", {class: "wnote" + (n.exists ? " dup" : "")}, h("div", {class: "whead"}, on, title, n.exists ? h("span", {class: "wchip"}, tr("word_exists")) : null, toggle), bodyBox);
   const open = (yes) => { bodyBox.hidden = !yes; li.classList.toggle("open", yes); toggle.setAttribute("aria-expanded", yes ? "true" : "false"); };
   open(r.first);   // the first proposal is open so the user sees what one holds
   r.first = false;
   on.addEventListener("change", () => renderReview(r));
-  const row = {part, on, title, body, cat, tags, li};
+  const row = {part, on, title, body, cat, tags, li, dup: !!n.exists};
   const after = r.rows.find((x) => x.part > part);
   if (after) { r.list.insertBefore(li, after.li); r.rows.splice(r.rows.indexOf(after), 0, row); }
   else { r.list.append(li); r.rows.push(row); }

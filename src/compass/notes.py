@@ -322,6 +322,15 @@ def export_all() -> list[Note]:
     ]
 
 
+def titles() -> list[str]:
+    """The title of every note (an import uses them to warn about a note that already exists)."""
+    conn = connect()
+    try:
+        return [r[0] for r in conn.execute("SELECT title FROM notes")]
+    finally:
+        conn.close()
+
+
 def list_tags() -> list[TagCount]:
     conn = connect()
     try:

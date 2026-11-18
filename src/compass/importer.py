@@ -75,6 +75,7 @@ class Vocab:
 
     categories: dict[str, str]
     tags: dict[str, str]
+    titles: frozenset[str] = frozenset()  # folded titles of the notes that exist
 
     def prompt(self) -> str:
         def show(names: dict[str, str]) -> str:
@@ -95,7 +96,9 @@ def vocabulary() -> Vocab:
     cats = [c.name for c in categories.list_categories() if not c.default]
     tags = [t.name for t in notes.list_tags()]  # most used first
     return Vocab(
-        {fold(n): n for n in cats[:MAX_KNOWN]}, {fold(n): n for n in tags[:MAX_KNOWN]}
+        {fold(n): n for n in cats[:MAX_KNOWN]},
+        {fold(n): n for n in tags[:MAX_KNOWN]},
+        frozenset(fold(t.strip()) for t in notes.titles()),
     )
 
 
@@ -278,6 +281,8 @@ def _part_events(
                         "body": p.body,
                         "category": p.category,
                         "tags": list(p.tags),
+                        "exists": fold(p.title.strip())
+                        in known.titles,  # a note with this title is already saved
                     },
                 }
     except ai.AIError as problem:
