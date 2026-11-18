@@ -23,6 +23,9 @@ class Fake:
         self.reply: Any = "Hello world"
         self.status = 200
         self.delay = 0.0
+        self.sse: list[str] | None = (
+            None  # when set, answer as a stream of these pieces
+        )
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -36,6 +39,15 @@ class Fake:
                     }
                 )
                 time.sleep(fake.delay)
+                if fake.sse is not None and fake.status == 200:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.end_headers()
+                    for piece in fake.sse:
+                        event = {"choices": [{"delta": {"content": piece}}]}
+                        self.wfile.write(f"data: {json.dumps(event)}\n\n".encode())
+                    self.wfile.write(b"data: [DONE]\n\n")
+                    return
                 self.send_response(fake.status)
                 self.end_headers()
                 if isinstance(fake.reply, str):

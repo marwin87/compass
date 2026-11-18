@@ -2,6 +2,7 @@
 import io
 import json
 import zipfile
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
@@ -85,18 +86,30 @@ def test_a_long_note_is_cut_between_paragraphs() -> None:
     assert all(len(p.body) <= notes.MAX_BODY for p in found)
 
 
-def model(
-    monkeypatch: pytest.MonkeyPatch, written: object, missing: object
-) -> list[str]:
-    """Replace the model: the 'write notes' call gets `written`, the 'check' call gets `missing`."""
-    calls: list[str] = []
+def patch_model(
+    monkeypatch: pytest.MonkeyPatch,
+    write: Callable[[str, str], str],
+    check: Callable[[str], str] = lambda user: "[]",
+) -> list[tuple[str, str, str]]:
+    """Replace the model. `write(system, user)` is the JSON text the model streams as the notes (in small
+    pieces); `check(user)` the JSON list of what is missing. Either may raise AIError. Returns the calls."""
+    calls: list[tuple[str, str, str]] = []
+
+    def stream(
+        s: dict[str, object], system: str, user: str, timeout: int | None = None
+    ) -> Iterator[str]:
+        calls.append(("write", system, user))
+        text = write(system, user)
+        for i in range(0, len(text), 7):
+            yield text[i : i + 7]
 
     def ask(
         s: dict[str, object], system: str, user: str, timeout: int | None = None
     ) -> str:
-        calls.append(user)
-        return json.dumps(missing if system == importer.CHECK else written)
+        calls.append(("check", system, user))
+        return check(user)
 
+    monkeypatch.setattr(ai, "stream", stream)
     monkeypatch.setattr(ai, "ask", ask)
     return calls
 
@@ -105,6 +118,13 @@ def events(c: TestClient, raw: bytes, parts: str = "") -> list[dict[str, Any]]:
     r = c.post("/api/import/word", content=raw, params={"parts": parts})
     assert r.status_code == 200
     return [json.loads(line) for line in r.text.splitlines()]
+
+
+def of(found: list[dict[str, Any]], kind: str, index: int | None = None) -> list[Any]:
+    """The events of one type (and one part)."""
+    return [
+        e for e in found if e["type"] == kind and (index is None or e["index"] == index)
+    ]
 
 
 def two_parts() -> bytes:
@@ -117,26 +137,38 @@ def two_parts() -> bytes:
     )
 
 
-def test_run_streams_notes_and_reports_what_is_missing(
+NOTE = {"title": "Docker", "body": "## Obrazy\n\n- pull"}
+
+
+def test_objects_arrive_while_the_array_is_still_being_written() -> None:
+    sent: list[str] = []
+
+    def pieces() -> Iterator[str]:
+        for piece in ['Sure: [{"a": 1}, ', '{"b"', ": 2}", " ]"]:
+            sent.append(piece)
+            yield piece
+
+    got = importer._objects(pieces())
+    assert next(got) == {"a": 1} and len(sent) == 1  # before the rest was even written
+    assert next(got) == {"b": 2} and len(sent) == 3
+    assert next(got) is importer.END
+    assert list(importer._objects(iter(["no array here"]))) == []
+
+
+def test_run_streams_each_note_then_the_check(
     authed: TestClient, fake: Fake, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     setup_ai(authed, fake)
-    calls = model(
-        monkeypatch,
-        [{"title": "Docker", "body": "## Obrazy\n\n- pull"}],
-        ["krok z rebase"],
+    calls = patch_model(
+        monkeypatch, lambda s, u: json.dumps([NOTE]), lambda u: '["krok z rebase"]'
     )
-    start, part, done = events(authed, WITH_HEADINGS)
-    assert (
-        start["type"] == "start"
-        and start["total"] == 1
-        and start["labels"] == ["Docker"]
-    )
-    assert part["notes"] == [{"title": "Docker", "body": "## Obrazy\n\n- pull"}]
-    assert part["omitted"] == ["krok z rebase"] and part["unchecked"] is False
-    assert part["unmatched"] == ["8080"]  # the number is in the file, in no note
-    assert done == {"type": "done"}
-    assert len(calls) == 2 and "# Docker" in calls[0]  # write, then check
+    found = events(authed, WITH_HEADINGS)
+    assert [e["type"] for e in found] == ["start", "note", "written", "check", "done"]
+    assert found[0]["total"] == 1 and found[0]["labels"] == ["Docker"]
+    assert found[1]["note"] == {**NOTE, "category": None, "tags": []}
+    assert found[2]["unmatched"] == ["8080"]  # the number is in the file, in no note
+    assert found[3]["omitted"] == ["krok z rebase"] and found[3]["unchecked"] is False
+    assert [c[0] for c in calls] == ["write", "check"] and "# Docker" in calls[0][2]
     assert rows() == []  # nothing saved
 
 
@@ -144,9 +176,11 @@ def test_nothing_missing_gives_empty_reports(
     authed: TestClient, fake: Fake, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     setup_ai(authed, fake)
-    model(monkeypatch, [{"title": "T", "body": "Docker 8080 Git Rebase"}], [])
-    part = events(authed, WITH_HEADINGS)[1]
-    assert part["omitted"] == [] and part["unmatched"] == []
+    body = "Docker 8080 Git Rebase"
+    patch_model(monkeypatch, lambda s, u: json.dumps([{"title": "T", "body": body}]))
+    found = events(authed, WITH_HEADINGS)
+    assert of(found, "check")[0]["omitted"] == []
+    assert of(found, "written")[0]["unmatched"] == []
 
 
 def test_a_failed_part_does_not_stop_the_others_and_can_be_run_again(
@@ -155,29 +189,27 @@ def test_a_failed_part_does_not_stop_the_others_and_can_be_run_again(
     setup_ai(authed, fake)
     broken = {"on": True}
 
-    def ask(
-        s: dict[str, object], system: str, user: str, timeout: int | None = None
-    ) -> str:
-        if system == importer.CHECK:
-            return "[]"
+    def write(system: str, user: str) -> str:
         if "aaaa" in user and broken["on"]:
             raise ai.AIError("failed", "HTTP 429: rate limited")
-        return json.dumps([{"title": "N", "body": user[:20]}])
+        return json.dumps([{"title": "N", "body": "b"}])
 
-    monkeypatch.setattr(ai, "ask", ask)
-    start, first, second, done = events(authed, two_parts())
-    assert start["total"] == 2 and start["labels"] == ["Alfa", "Beta"]
-    assert first == {
-        "type": "error",
-        "index": 0,
-        "code": "failed",
-        "detail": "HTTP 429: rate limited",
-    }
-    assert second["type"] == "part" and second["index"] == 1 and done["type"] == "done"
+    patch_model(monkeypatch, write)
+    found = events(authed, two_parts())
+    assert found[0]["total"] == 2 and found[0]["labels"] == ["Alfa", "Beta"]
+    assert of(found, "error", 0) == [
+        {
+            "type": "error",
+            "index": 0,
+            "code": "failed",
+            "detail": "HTTP 429: rate limited",
+        }
+    ]
+    assert len(of(found, "note", 1)) == 1 and len(of(found, "check", 1)) == 1
+    assert found[-1] == {"type": "done"}
     broken["on"] = False
     again = events(authed, two_parts(), parts="0")  # only part 0 is run again
-    assert [e["type"] for e in again] == ["start", "part", "done"]
-    assert again[0]["parts"] == [0] and again[1]["index"] == 0
+    assert again[0]["parts"] == [0] and {e["index"] for e in of(again, "note")} == {0}
 
 
 def test_failed_check_keeps_the_notes_and_says_it_is_unchecked(
@@ -185,16 +217,32 @@ def test_failed_check_keeps_the_notes_and_says_it_is_unchecked(
 ) -> None:
     setup_ai(authed, fake)
 
-    def ask(
-        s: dict[str, object], system: str, user: str, timeout: int | None = None
-    ) -> str:
-        if system == importer.CHECK:
-            raise ai.AIError("timeout")
-        return json.dumps([{"title": "N", "body": "b"}])
+    def check(user: str) -> str:
+        raise ai.AIError("timeout")
 
-    monkeypatch.setattr(ai, "ask", ask)
-    part = events(authed, WITH_HEADINGS)[1]
-    assert part["type"] == "part" and part["unchecked"] is True and part["notes"]
+    patch_model(monkeypatch, lambda s, u: json.dumps([NOTE]), check)
+    found = events(authed, WITH_HEADINGS)
+    assert len(of(found, "note")) == 1 and of(found, "check")[0]["unchecked"] is True
+
+
+def test_a_real_stream_shows_notes_piece_by_piece(
+    authed: TestClient, fake: Fake
+) -> None:
+    setup_ai(authed, fake)
+    text = json.dumps([NOTE, {"title": "Git", "body": "Rebase"}])
+    fake.sse = [text[i : i + 5] for i in range(0, len(text), 5)]
+    found = events(authed, WITH_HEADINGS)
+    assert [n["note"]["title"] for n in of(found, "note")] == ["Docker", "Git"]
+    assert fake.requests[0]["body"]["stream"] is True
+
+
+def test_a_server_that_ignores_stream_still_works(
+    authed: TestClient, fake: Fake
+) -> None:
+    setup_ai(authed, fake)
+    fake.reply = json.dumps([NOTE])  # one plain JSON answer, no events
+    found = events(authed, WITH_HEADINGS)
+    assert len(of(found, "note")) == 1
 
 
 def test_unusable_model_reply_is_retried_once_and_explained(
@@ -202,9 +250,8 @@ def test_unusable_model_reply_is_retried_once_and_explained(
 ) -> None:
     setup_ai(authed, fake)
     fake.reply = "no json here"
-    error = events(authed, WITH_HEADINGS)[1]
-    assert error["type"] == "error" and error["code"] == "failed"
-    assert "usable list" in error["detail"]
+    error = of(events(authed, WITH_HEADINGS), "error")[0]
+    assert error["code"] == "failed" and "usable notes" in error["detail"]
     assert len(fake.requests) == 2 and rows() == []
 
 
@@ -213,17 +260,18 @@ def test_provider_status_is_reported_as_the_reason(
 ) -> None:
     setup_ai(authed, fake)
     fake.status = 401
-    error = events(authed, WITH_HEADINGS)[1]
+    error = of(events(authed, WITH_HEADINGS), "error")[0]
     assert error["code"] == "failed" and error["detail"] == "HTTP 401"
 
 
-def test_no_notes_from_the_model_is_an_empty_part(
+def test_an_empty_array_is_an_empty_part_not_an_error(
     authed: TestClient, fake: Fake, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     setup_ai(authed, fake)
-    model(monkeypatch, [], [])
-    part = events(authed, WITH_HEADINGS)[1]
-    assert part["type"] == "part" and part["notes"] == []
+    calls = patch_model(monkeypatch, lambda s, u: "[]")
+    found = events(authed, WITH_HEADINGS)
+    assert of(found, "note") == [] and of(found, "written")[0]["count"] == 0
+    assert of(found, "error") == [] and [c[0] for c in calls] == ["write"]  # no check
 
 
 def test_ai_off_or_unconfigured_makes_no_call(authed: TestClient, fake: Fake) -> None:
@@ -252,3 +300,70 @@ def test_bulk_save_is_all_or_none(authed: TestClient) -> None:
     bad = authed.post("/api/notes/bulk", json={"notes": [ok, {"title": ""}]})
     assert bad.status_code == 422 and len(rows()) == 2
     assert authed.post("/api/notes/bulk", json={"notes": []}).status_code == 422
+
+
+def test_suggestions_reuse_existing_categories_and_tags(
+    authed: TestClient, fake: Fake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    setup_ai(authed, fake)
+    cat = authed.post("/api/categories", json={"name": "DevOps"}).json()["id"]
+    authed.post(
+        "/api/notes",
+        json={"title": "x", "body": "", "tags": ["docker"], "category_id": cat},
+    )
+    reply = [
+        {
+            "title": "N",
+            "body": "b",
+            "category": " devops ",  # same category, other case and spacing
+            "tags": ["Docker", "nowy tag", "docker", "a,b", "x" * 31],
+        }
+    ]
+    calls = patch_model(monkeypatch, lambda s, u: json.dumps(reply))
+    note = of(events(authed, WITH_HEADINGS), "note")[0]["note"]
+    assert note["category"] == "DevOps"  # mapped onto the existing name
+    assert note["tags"] == ["docker", "nowy tag"]  # existing reused, bad ones dropped
+    assert (
+        '"DevOps"' in calls[0][1] and '"docker"' in calls[0][1]
+    )  # the model sees them
+
+
+def test_suggestion_limits_and_reserved_category(
+    authed: TestClient, fake: Fake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    setup_ai(authed, fake)
+    reply = [
+        {
+            "title": "N",
+            "body": "b",
+            "category": "Bez kategorii",
+            "tags": ["a", "b", "c", "d", "e", "f", "g"],
+        },
+        {"title": "M", "body": "b", "category": 5, "tags": "nope"},
+    ]
+    patch_model(monkeypatch, lambda s, u: json.dumps(reply))
+    first, second = (e["note"] for e in of(events(authed, WITH_HEADINGS), "note"))
+    assert first["category"] is None and first["tags"] == ["a", "b", "c", "d", "e"]
+    assert second["category"] is None and second["tags"] == []
+
+
+def test_bulk_save_creates_and_reuses_categories_by_name(authed: TestClient) -> None:
+    def note(title: str, category: str | None) -> dict[str, object]:
+        return {"title": title, "body": "x", "tags": ["t"], "category": category}
+
+    r = authed.post(
+        "/api/notes/bulk",
+        json={
+            "notes": [
+                note("A", "Nowa"),
+                note("B", "nowa"),  # same category, other case
+                note("C", "Bez kategorii"),  # the default
+                note("D", None),
+            ]
+        },
+    )
+    assert r.status_code == 201 and r.json() == {"created": 4}
+    cats = {c["name"]: c["count"] for c in authed.get("/api/categories").json()}
+    assert cats["Nowa"] == 2 and len(cats) == 2  # one new category besides the default
+    too_long = authed.post("/api/notes/bulk", json={"notes": [note("E", "k" * 41)]})
+    assert too_long.status_code == 422 and len(rows()) == 4

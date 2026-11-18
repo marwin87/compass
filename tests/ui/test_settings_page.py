@@ -12,6 +12,7 @@ SECTIONS = (
     "appearance",
     "categories",
     "tags",
+    "load",
     "shortcuts",
     "ai",
     "backup",
@@ -124,14 +125,14 @@ def test_the_danger_zone_is_always_right_above_about(
     authed.cookies.set("lang", lang)
     page = authed.get("/settings").text
     order = [
-        m.group(1) for m in re.finditer(r'<section class="ssec" id="(\w+)">', page)
+        m.group(1) for m in re.finditer(r'<section class="ssec" id="(\w+)"[^>]*>', page)
     ]
     assert order[-2:] == [
         "danger",
         "about",
     ], order  # the clear-all button never sits among the everyday settings
     assert order == list(SECTIONS)
-    nav = re.findall(r'<a href="#(\w+)" data-sec="\w+">', page)
+    nav = re.findall(r'<a href="#(\w+)" data-sec="\w+"[^>]*>', page)
     assert nav == order  # the navigation lists them in the same order
     section = page.split('id="danger"')[1].split('id="about"')[0]
     assert 'id="clearbtn"' in section and STRINGS[lang]["data_danger_h"] in section
@@ -247,3 +248,20 @@ def test_the_settings_page_has_a_logout_button(authed: TestClient, lang: str) ->
     authed.cookies.set("lang", lang)
     page = authed.get("/settings").text
     assert 'action="/logout"' in page and STRINGS[lang]["logout"] in page
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_block_page_setting_is_an_ai_row_in_appearance(
+    authed: TestClient, lang: str
+) -> None:
+    authed.cookies.set("lang", lang)
+    page = authed.get("/settings").text
+    appearance = page.split('id="appearance"')[1].split("</section>")[0]
+    row = appearance.split('id="ctl-ai-block"')[0].rsplit('<div class="srow"', 1)[1]
+    assert "data-ai hidden" in row and STRINGS[lang]["set_ai_block"] in row
+
+
+def test_the_shared_script_has_the_ai_blocking_rule(authed: TestClient) -> None:
+    for path in ("/", "/settings"):
+        page = authed.get(path).text
+        assert "function aiBusy(" in page and "aiveil" in page

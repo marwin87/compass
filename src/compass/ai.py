@@ -6,6 +6,8 @@ Neither the key nor note content is ever logged or returned.
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
+from contextlib import contextmanager
 from urllib.parse import urlparse
 
 from compass import config
@@ -81,27 +83,31 @@ def base_url(s: dict[str, object]) -> str:
     return address if "//" in address else f"http://{address}"
 
 
-def _chat(
-    s: dict[str, object], system: str, user: str, timeout: int | None = None
-) -> str:
-    payload = {
+def _request(
+    s: dict[str, object], system: str, user: str, stream: bool = False
+) -> urllib.request.Request:
+    payload: dict[str, object] = {
         "model": model(s),
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
     }
+    if stream:
+        payload["stream"] = True
     headers = {"Content-Type": "application/json"}
     if key := config.ai_key():
         headers["Authorization"] = f"Bearer {key}"
-    request = urllib.request.Request(
-        base_url(s) + "/chat/completions",
-        json.dumps(payload).encode(),
-        headers,
+    return urllib.request.Request(
+        base_url(s) + "/chat/completions", json.dumps(payload).encode(), headers
     )
+
+
+@contextmanager
+def _mapped() -> Iterator[None]:
+    """Turn what a provider call can raise into an AIError that says why."""
     try:
-        with urllib.request.urlopen(request, timeout=timeout or TIMEOUT) as response:
-            answer = json.load(response)["choices"][0]["message"]["content"]
+        yield
     except urllib.error.HTTPError as problem:  # before URLError, its parent
         raise AIError("failed", _http_detail(problem)) from None
     except TimeoutError:
@@ -112,9 +118,55 @@ def _chat(
         raise AIError("failed", str(problem.reason)[:200]) from None
     except (OSError, ValueError, LookupError, TypeError):
         raise AIError("failed", "unexpected reply from the provider") from None
+
+
+def _chat(
+    s: dict[str, object], system: str, user: str, timeout: int | None = None
+) -> str:
+    with (
+        _mapped(),
+        urllib.request.urlopen(
+            _request(s, system, user), timeout=timeout or TIMEOUT
+        ) as response,
+    ):
+        answer = json.load(response)["choices"][0]["message"]["content"]
     if not isinstance(answer, str):
         raise AIError("failed", "unexpected reply from the provider")
     return answer.strip()
+
+
+def stream(
+    s: dict[str, object], system: str, user: str, timeout: int | None = None
+) -> Iterator[str]:
+    """The answer in pieces, as the model writes it (server-sent events). `timeout` is the longest
+    silence, not the length of the whole answer. A server that ignores `stream` and sends one JSON
+    answer still works: it arrives as a single piece. Raises AIError; makes no call when AI is off or
+    unconfigured. Closing the generator closes the connection."""
+    ready(s)
+    other: list[str] = []  # lines that are not events: a plain (non-streamed) answer
+    got = False
+    with (
+        _mapped(),
+        urllib.request.urlopen(
+            _request(s, system, user, True), timeout=timeout or TIMEOUT
+        ) as response,
+    ):
+        for raw in response:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                other.append(line)  # also ": keep-alive" comments, harmless
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            piece = json.loads(data)["choices"][0]["delta"].get("content")
+            if isinstance(piece, str) and piece:
+                got = True
+                yield piece
+        if not got and other:
+            answer = json.loads("".join(other))["choices"][0]["message"]["content"]
+            if isinstance(answer, str) and answer:
+                yield answer
 
 
 def ready(s: dict[str, object]) -> None:

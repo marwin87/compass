@@ -134,6 +134,25 @@ const noteLang = (text) => {
 const translateLabel = (to) => tr(to === "en" ? "translate_pl_en" : "translate_en_pl");
 // AI components: every one carries `data-ai` and starts `hidden`; it shows only while AI is enabled AND configured (AI_READY).
 const setAiReady = (on) => document.querySelectorAll("[data-ai]").forEach((el) => { el.hidden = !on; });
+// The rule for every AI job: while it runs, with the setting `ai_block_page` on, the page is blurred and inactive
+// except the window where the AI works. Call aiBusy(() => thatElement) when the job starts and aiBusy(null) when it
+// ends (done, failed or cancelled). A veil with a hole cut out at the window does it, so it needs no z-index games.
+let aiGet = null, aiVeil = null;
+const aiBlocked = () => aiGet !== null;
+function aiBusy(get) {
+  aiGet = SETTINGS.ai_block_page ? get : null;
+  if (!aiGet) { if (aiVeil) aiVeil.hidden = true; return; }
+  if (!aiVeil) { aiVeil = h("div", {class: "aiveil", "aria-hidden": "true"}); document.body.append(aiVeil); }
+  aiTick();
+}
+function aiTick() {
+  const win = aiGet && aiGet();
+  if (!win || !win.isConnected || !win.getClientRects().length) { aiGet = null; aiVeil.hidden = true; return; }   // the window is gone: never leave the page locked
+  const r = win.getBoundingClientRect(), p = (v) => Math.round(v) + "px";
+  aiVeil.hidden = false;
+  aiVeil.style.clipPath = "polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, " + [[r.left, r.top], [r.left, r.bottom], [r.right, r.bottom], [r.right, r.top], [r.left, r.top]].map(([x, y]) => p(x) + " " + p(y)).join(", ") + ")";
+  requestAnimationFrame(() => { if (aiGet) aiTick(); });   // follows the window while it grows, moves or scrolls
+}
 const aiTag = () => h("span", {class: "aitag"}, icon("spark", 10), "AI");
 const AI_ERRORS = {not_enabled: "ai_err_not_enabled", not_configured: "ai_err_not_configured", timeout: "ai_err_timeout", failed: "ai_err_failed"};
 

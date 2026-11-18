@@ -2,21 +2,25 @@
 
 The model reads the file part by part, understands it and writes self-contained Markdown notes
 (one per topic). A second call per part then compares the source with those notes and lists what
-is missing; the code also lists numbers and links of the part that appear in no note.
+is missing; the code also lists numbers and links of the part that appear in no note. The model also
+suggests a category and tags for each note, from the existing ones first; the code maps what it
+returns onto the existing names (case and accents ignored) so near-duplicates do not pile up.
 
-`run` yields one event per part as soon as it is ready, so the user can review and save while the
-rest is still being written. A part that fails is reported with its reason and does not stop the
+`run` streams events while the model is still writing: every note is sent the moment the model has
+finished it, and parts run side by side, so the user can review and save while the rest is still coming. A part that fails is reported with its reason and does not stop the
 others; it can be run again alone (`only`).
 """
 
 import json
+import queue
 import re
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-from compass import ai, docx, notes
+from compass import ai, categories, docx, notes
+from compass.search import fold
 
 MAX_TEXT = (
     100_000  # characters of extracted text; the cost guard until a cost estimate exists
@@ -36,8 +40,18 @@ WRITE = (
     "tabular data, fenced code for code. Keep ALL facts, numbers, names, steps, code and links: improve "
     "structure and wording, but never drop a detail, invent anything or add commentary. Write in the "
     "language of the document. The text may begin or end in the middle of a topic; still write notes "
-    'for what is there. Reply with a JSON array only: [{"title": "...", "body": "..."}].'
+    'for what is there. Reply with a JSON array only: [{"title": "...", "body": "...", '
+    '"category": "..." or null, "tags": ["..."]}].'
 )
+SUGGEST = (
+    "Also give every note a category and tags. Existing categories: {categories}. Existing tags: "
+    "{tags}. Take the category from the existing ones when one fits (copy it exactly); only when none "
+    "fits give a short new name, or null. Give 2 to 5 short lowercase tags. Reuse an existing tag "
+    "whenever it fits; make a new tag only when none fits, and never a near-duplicate of an existing "
+    "one (another spelling, language, singular or plural)."
+)
+MAX_KNOWN = 150  # ponytail: the most used tags only; a long tail does not fit a prompt, a search of them could
+MAX_SUGGESTED_TAGS = 5
 CHECK = (
     "You receive a SOURCE text and the NOTES written from it. List the facts, steps, numbers, names, "
     "code or whole passages of the SOURCE that are missing from the NOTES or whose meaning was changed. "
@@ -50,6 +64,54 @@ CHECK = (
 class Proposal:
     title: str
     body: str
+    category: str | None = None  # an existing name, or a new one the model suggests
+    tags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class Vocab:
+    """What exists already, so suggestions can reuse it: folded name -> name."""
+
+    categories: dict[str, str]
+    tags: dict[str, str]
+
+    def prompt(self) -> str:
+        def show(names: dict[str, str]) -> str:
+            return (
+                json.dumps(list(names.values()), ensure_ascii=False)
+                if names
+                else "(none yet)"
+            )
+
+        return (
+            WRITE
+            + " "
+            + SUGGEST.format(categories=show(self.categories), tags=show(self.tags))
+        )
+
+
+def vocabulary() -> Vocab:
+    cats = [c.name for c in categories.list_categories() if not c.default]
+    tags = [t.name for t in notes.list_tags()]  # most used first
+    return Vocab(
+        {fold(n): n for n in cats[:MAX_KNOWN]}, {fold(n): n for n in tags[:MAX_KNOWN]}
+    )
+
+
+def _category(raw: object, known: Vocab) -> str | None:
+    clean = " ".join(raw.split()) if isinstance(raw, str) else ""
+    if not clean or fold(clean) in categories.RESERVED_KEYS:
+        return None
+    return known.categories.get(fold(clean)) or clean[: categories.MAX_NAME]
+
+
+def _tags(raw: object, known: Vocab) -> tuple[str, ...]:
+    found: dict[str, None] = {}
+    for item in raw if isinstance(raw, list) else []:
+        clean = " ".join(item.lower().split()) if isinstance(item, str) else ""
+        if clean and "," not in clean and len(clean) <= notes.MAX_TAG_LEN:
+            found[known.tags.get(fold(clean), clean)] = None
+    return tuple(found)[:MAX_SUGGESTED_TAGS]
 
 
 def _text(blocks: list[docx.Block]) -> str:
@@ -89,11 +151,13 @@ def _ask_json(s: dict[str, object], system: str, user: str) -> list[object]:
     raise ai.AIError("failed", "the model did not return a usable list")
 
 
-def _fit(title: str, body: str) -> list[Proposal]:
+def _fit(
+    title: str, body: str, category: str | None = None, tags: tuple[str, ...] = ()
+) -> list[Proposal]:
     """One proposal, or several when the text is longer than a note may be (cut between paragraphs)."""
     title = title[: notes.MAX_TITLE - 10]
     if len(body) <= notes.MAX_BODY:
-        return [Proposal(title, body)]
+        return [Proposal(title, body, category, tags)]
     paragraphs = [p for p in body.split("\n\n") if p.strip()]
     parts: list[str] = [""]
     for p in paragraphs:
@@ -103,12 +167,12 @@ def _fit(title: str, body: str) -> list[Proposal]:
                 parts.append("")
             parts[-1] += ("\n\n" if parts[-1] else "") + piece
     return [
-        Proposal(title if i == 0 else f"{title} ({i + 1})", part)
+        Proposal(title if i == 0 else f"{title} ({i + 1})", part, category, tags)
         for i, part in enumerate(parts)
     ]
 
 
-def _proposals(items: list[object]) -> list[Proposal]:
+def _proposals(items: list[object], known: Vocab) -> list[Proposal]:
     found: list[Proposal] = []
     for item in items:
         if not isinstance(item, dict):
@@ -120,7 +184,12 @@ def _proposals(items: list[object]) -> list[Proposal]:
             and title.strip()
             and body.strip()
         ):
-            found += _fit(title.strip(), body.strip())
+            found += _fit(
+                title.strip(),
+                body.strip(),
+                _category(item.get("category"), known),
+                _tags(item.get("tags"), known),
+            )
     return found
 
 
@@ -135,39 +204,108 @@ def _label(blocks: list[docx.Block]) -> str:
     return " ".join(blocks[0].text.split())[:60]
 
 
-def _event(
-    s: dict[str, object], index: int, blocks: list[docx.Block], stop: threading.Event
-) -> dict[str, object]:
-    """The result of one part: `part` (notes, what is missing) or `error` (code and reason)."""
-    if stop.is_set():  # the user left: do not pay for the rest
-        return {"type": "error", "index": index, "code": "failed", "detail": ""}
+END = (
+    object()
+)  # yielded by `_objects` when the array was closed: an empty array is an answer too
+
+
+def _objects(pieces: Iterable[str]) -> Iterator[object]:
+    """The complete items of a JSON array, each as soon as its last character has arrived, then END."""
+    decoder = json.JSONDecoder()
+    text, pos = "", -1
+    for piece in pieces:
+        text += piece
+        if pos < 0:
+            start = text.find("[")  # skips any words or a code fence before the array
+            if start < 0:
+                continue
+            pos = start + 1
+        while True:
+            while pos < len(text) and text[pos] in " \t\r\n,":
+                pos += 1
+            if pos < len(text) and text[pos] == "]":
+                yield END
+                return
+            if pos >= len(text):
+                break
+            try:
+                item, pos = decoder.raw_decode(text, pos)
+            except ValueError:  # the item is not finished yet
+                break
+            yield item
+
+
+def _items(
+    s: dict[str, object], system: str, source: str, stop: threading.Event
+) -> Iterator[object]:
+    """The notes the model writes for one part, one by one. Tries once more only when the first try
+    gave nothing (after a note was shown, starting over would show it twice)."""
+    for _ in range(2):
+        got = False
+        for item in _objects(ai.stream(s, system, source, CALL_TIMEOUT)):
+            got = True
+            if item is END:
+                return
+            yield item
+            if stop.is_set():
+                return
+        if got:
+            return
+    raise ai.AIError("failed", "the model did not return usable notes")
+
+
+def _part_events(
+    s: dict[str, object],
+    index: int,
+    blocks: list[docx.Block],
+    stop: threading.Event,
+    known: Vocab,
+) -> Iterator[dict[str, object]]:
+    """Events of one part: `note` for each note as it is written, then `written`, then `check`
+    (what the model found missing). `error` (code and reason) ends a part that failed."""
     source = _text(blocks)
+    found: list[Proposal] = []
     try:
-        found = _proposals(_ask_json(s, WRITE, source))
+        for item in _items(s, known.prompt(), source, stop):
+            for p in _proposals([item], known):
+                found.append(p)
+                yield {
+                    "type": "note",
+                    "index": index,
+                    "note": {
+                        "title": p.title,
+                        "body": p.body,
+                        "category": p.category,
+                        "tags": list(p.tags),
+                    },
+                }
     except ai.AIError as problem:
-        return {
+        yield {
             "type": "error",
             "index": index,
             "code": problem.code,
             "detail": problem.detail,
         }
+        return
+    if stop.is_set():  # the user left: do not pay for the check
+        return
+    yield {
+        "type": "written",
+        "index": index,
+        "count": len(found),
+        "unmatched": _unmatched(source, found) if found else [],
+    }
+    if not found:
+        return
+    written = "\n\n".join(f"## {p.title}\n\n{p.body}" for p in found)
     omitted: list[str] = []
     unchecked = False
-    if found:
-        written = "\n\n".join(f"## {p.title}\n\n{p.body}" for p in found)
-        try:
-            missing = _ask_json(s, CHECK, f"SOURCE:\n{source}\n\nNOTES:\n{written}")
-            omitted = [m.strip() for m in missing if isinstance(m, str) and m.strip()]
-        except ai.AIError:  # the notes are good; only the check did not work
-            unchecked = True
-    return {
-        "type": "part",
-        "index": index,
-        "notes": [{"title": p.title, "body": p.body} for p in found],
-        "omitted": omitted,
-        "unmatched": _unmatched(source, found) if found else [],
-        "unchecked": unchecked,
-    }
+    try:
+        missing = _ask_json(s, CHECK, f"SOURCE:\n{source}\n\nNOTES:\n{written}")
+        omitted = [m.strip() for m in missing if isinstance(m, str) and m.strip()]
+    except ai.AIError:  # the notes are good; only the check did not work
+        unchecked = True
+    yield {"type": "check", "index": index, "omitted": omitted, "unchecked": unchecked}
 
 
 def prepare(raw: bytes, s: dict[str, object]) -> list[list[docx.Block]]:
@@ -183,8 +321,10 @@ def prepare(raw: bytes, s: dict[str, object]) -> list[list[docx.Block]]:
 def run(
     s: dict[str, object], parts: list[list[docx.Block]], only: set[int] | None = None
 ) -> Iterator[dict[str, object]]:
-    """Events in file order: `start` (part count and labels), one `part` or `error` per part
-    (all parts, or only the indexes in `only`), then `done`. Nothing is saved."""
+    """Events as they happen: `start` (part count and labels), then for each part `note`s while the
+    model writes, `written`, `check` or `error` (see `_part_events`; events of different parts are
+    mixed, every one carries its part `index`), then `done`. `only` runs just those parts again.
+    Nothing is saved."""
     todo = [i for i in range(len(parts)) if only is None or i in only]
     yield {
         "type": "start",
@@ -193,9 +333,36 @@ def run(
         "parts": todo,
     }
     stop = threading.Event()
+    known = vocabulary()
+    events: queue.Queue[dict[str, object] | None] = queue.Queue()
+
+    def work(i: int) -> None:
+        try:
+            for event in _part_events(s, i, parts[i], stop, known):
+                events.put(event)
+        except Exception:  # noqa: BLE001  a bug in one part must not leave the stream waiting forever
+            events.put(
+                {
+                    "type": "error",
+                    "index": i,
+                    "code": "failed",
+                    "detail": "unexpected error",
+                }
+            )
+        finally:
+            events.put(None)  # this part is over
+
     with ThreadPoolExecutor(WORKERS) as pool:
         try:
-            yield from pool.map(lambda i: _event(s, i, parts[i], stop), todo)
+            for i in todo:
+                pool.submit(work, i)
+            running = len(todo)
+            while running:
+                event = events.get()
+                if event is None:
+                    running -= 1
+                else:
+                    yield event
         finally:
-            stop.set()  # the client went away: parts not started yet make no call
+            stop.set()  # the client went away: parts stop writing and make no further call
     yield {"type": "done"}

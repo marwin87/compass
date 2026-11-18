@@ -114,6 +114,7 @@ kbd{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;border:1p
 .form textarea{min-height:160px;resize:vertical;line-height:1.6}
 .err{color:var(--danger);font-size:13px;min-height:1em}
 .empty{color:var(--muted);text-align:center;padding:40px 14px}
+.aiveil{position:fixed;inset:0;z-index:50;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);background:color-mix(in srgb,var(--bg) 40%,transparent)}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(6px);background:var(--raise);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);padding:9px 18px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s ease-out,transform .2s ease-out;pointer-events:none;z-index:60}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .toast.ok{border-color:rgba(34,197,94,.45);color:var(--ok)}
@@ -619,6 +620,7 @@ function notePanel(note, cb) {
   async function translate() {
     const mine = ++job, to = target();
     preview = {state: "loading", minH: Math.max(160, (root.querySelector(".sheet") || {offsetHeight: 0}).offsetHeight - 50)}; draw();
+    aiBusy(() => root.querySelector(".aipad"));
     let next;
     try {
       const r = await api("/api/notes/" + note.id + "/translate?to=" + to, {method: "POST"});
@@ -629,6 +631,7 @@ function notePanel(note, cb) {
       next = {state: "error", msg: tr("ai_err_failed")};
     }
     if (mine !== job || !preview) return;
+    aiBusy(null);
     preview = {...next, minH: preview.minH}; draw();
   }
   const closeTranslation = () => { job++; preview = null; swapped = false; draw(); };
@@ -733,7 +736,7 @@ $("#menu").addEventListener("click", () => openMenu(true));
 $("#scrim").addEventListener("click", () => openMenu(false));
 $("#shortcut").textContent = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘ K" : "Ctrl K";
 document.addEventListener("keydown", (e) => {
-  if (document.querySelector("dialog[open]")) return;   // a dialog handles its own keys (Esc closes it natively)
+  if (document.querySelector("dialog[open]") || aiBlocked()) return;   // a dialog handles its own keys (Esc closes it natively); the page is blocked while AI works
   if (state.reading) { if (e.key === "Escape") { e.preventDefault(); exitReading(); } return; }   // reading mode: Esc leaves it, the rest scrolls
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName), q = $("#q");
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); q.focus(); q.select(); }

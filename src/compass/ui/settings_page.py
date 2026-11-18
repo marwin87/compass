@@ -95,14 +95,20 @@ a.btn{text-decoration:none}
 .wcheck .aistate{font-weight:600;margin-bottom:6px}
 .wlist{list-style:none;margin:0;padding:8px 20px 4px;display:flex;flex-direction:column;gap:12px}
 .wnote{border:1px solid var(--line);border-radius:16px;background:var(--bg);overflow:hidden}
-.wnote.open{border-color:var(--line-strong)}
+.wnote.sel{border-color:var(--accent)}
+.wtools{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px 0}
+.wtools .wordhint{padding:0;margin:0}
 .whead{display:flex;align-items:center;gap:10px;padding:10px 12px}
 .whead input[type=text]{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:9px 12px;font:inherit;font-size:14px;font-weight:600;color:var(--ink)}
 .whead .rowbtn svg{transition:transform var(--ease)}.wnote.open .whead .rowbtn svg{transform:rotate(180deg)}
 .wbody{padding:0 12px 12px}
+.wmeta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+@media (max-width:600px){.wmeta{grid-template-columns:1fr}}
+.wlabel{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.wmeta input{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:8px 10px;font:inherit;font-size:13px;color:var(--ink)}
+.wnew{font-size:12px;margin:0 0 8px}.wnew:empty{display:none}
 .wbody textarea{width:100%;min-height:260px;resize:vertical;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px;font:inherit;font-size:14px;line-height:1.6;color:var(--ink)}
 .wnote input:focus,.wnote textarea:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
-.wnote.off .whead input[type=text]{opacity:.45}
 .wbar{display:flex;gap:10px;justify-content:flex-end;padding:12px 20px 16px}
 .catpad{padding:14px 20px 16px}
 .catpad .qrow input{flex:1;min-width:160px}
@@ -153,6 +159,7 @@ _SECTIONS = (
     ("appearance", "settings_nav_appearance", "sun"),
     ("categories", "categories_h", "layers"),
     ("tags", "settings_nav_tags", "tag"),
+    ("load", "load_h", "upload"),
     ("shortcuts", "settings_nav_shortcuts", "zap"),
     ("ai", "ai_h", "spark"),
     ("backup", "data_backup_h", "database"),
@@ -184,7 +191,7 @@ SETTINGS_HTML = (
     <nav id="snav" aria-label="[[settings_title]]">
 """
     + "".join(
-        f'      <a href="#{sid}" data-sec="{sid}"><span class="ic" data-icon="{ic}" data-size="16"></span>[[{key}]]{AI_TAG if sid == "ai" else ""}</a>\n'
+        f'      <a href="#{sid}" data-sec="{sid}"{" data-ai hidden" if sid == "load" else ""}><span class="ic" data-icon="{ic}" data-size="16"></span>[[{key}]]{AI_TAG if sid in ("ai", "load") else ""}</a>\n'
         for sid, key, ic in _SECTIONS
     )
     + r"""    </nav>
@@ -199,6 +206,7 @@ SETTINGS_HTML = (
         <div class="srow"><div><div class="sname">[[set_reader_size]]</div><div class="sdesc">[[set_reader_size_desc]]</div></div><div class="sctl" id="ctl-size"></div></div>
         <div class="srow"><div><div class="sname">[[set_reader_width]]</div><div class="sdesc">[[set_reader_width_desc]]</div></div><div class="sctl" id="ctl-width"></div></div>
         <div class="srow"><div><div class="sname">[[set_sort]]</div><div class="sdesc">[[set_sort_desc]]</div></div><div class="sctl" id="ctl-sort"></div></div>
+        <div class="srow" data-ai hidden><div><div class="sname">[[set_ai_block]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></div><div class="sdesc">[[set_ai_block_desc]]</div></div><div class="sctl" id="ctl-ai-block"></div></div>
       </div>
     </section>
     <section class="ssec" id="categories">
@@ -231,6 +239,14 @@ SETTINGS_HTML = (
         </div>
       </div>
     </section>
+    <section class="ssec" id="load" data-ai hidden>
+      <h2>[[load_h]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></h2>
+      <div class="scard aiframe">
+        <div class="srow"><div><div class="sname">[[word_import]]</div><div class="sdesc">[[word_import_desc]]</div></div>
+          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></div></div>
+      </div>
+      <div class="scard aiframe" id="wordreview" hidden aria-live="polite"></div>
+    </section>
     <section class="ssec" id="shortcuts">
       <h2>[[settings_nav_shortcuts]]</h2>
       <div class="scard" id="shortcutlist"></div>
@@ -252,10 +268,7 @@ SETTINGS_HTML = (
           <div class="sctl"><a class="btn" id="exportlink" href="/api/export" download title="[[export_title]]"><span class="ic" data-icon="download" data-size="16"></span>[[export]]</a></div></div>
         <div class="srow"><div><div class="sname">[[import]]</div><div class="sdesc">[[data_import_desc]]</div></div>
           <div class="sctl"><button type="button" class="btn" id="import" title="[[import_title]]"><span class="ic" data-icon="upload" data-size="16"></span>[[import]]</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
-        <div class="srow" data-ai hidden><div><div class="sname">[[word_import]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></div><div class="sdesc">[[word_import_desc]]</div></div>
-          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></div></div>
       </div>
-      <div class="scard aiframe" id="wordreview" data-ai hidden aria-live="polite"></div>
     </section>
     <section class="ssec" id="danger">
       <h2>[[data_danger_h]]</h2>
@@ -335,6 +348,8 @@ const sortSel = h("select", {class: "sselect", "aria-label": tr("set_sort")}, Ob
 sortSel.value = SETTINGS.sort;
 sortSel.addEventListener("change", () => change("sort", sortSel.value, (x) => { sortSel.value = x; }));
 $("#ctl-sort").append(sortSel);
+const aiBlock = segmented([[true, tr("ai_on")], [false, tr("ai_off")]], SETTINGS.ai_block_page, (v) => change("ai_block_page", v, (x) => aiBlock.set(x)));
+$("#ctl-ai-block").append(aiBlock.el);
 
 // AI: the switch, the connection and where it points; the key itself lives in the server environment only
 const aiOn = segmented([[true, tr("ai_on")], [false, tr("ai_off")]], SETTINGS.ai_enabled, (v) => change("ai_enabled", v, (x) => aiOn.set(x)).then(loadAiStatus));
@@ -515,6 +530,7 @@ const wordError = (d) => tr(WORD_ERRORS[d && d.code] || "word_err_failed", {mb: 
 const partWhy = (e) => tr(PART_ERRORS[e.code] || "word_err_part") + (e.detail ? " (" + e.detail + ")" : "");
 let rv = null;   // the review that is open (one at a time)
 function closeReview() {
+  aiBusy(null);
   if (rv) rv.abort.abort();      // stops the stream; the server makes no further model calls
   rv = null;
   $("#wordreview").hidden = true;
@@ -522,24 +538,29 @@ function closeReview() {
 }
 function newReview(file) {
   const r = {file, abort: new AbortController(), rows: [], failed: new Map(), omitted: [], unmatched: new Set(), unchecked: [],
-    total: 0, todo: 0, done: 0, produced: 0, labels: [], running: false, first: true};
+    total: 0, todo: 0, done: 0, written: 0, produced: 0, labels: [], running: false, first: true};
   r.status = h("div", {class: "wstatus"});
   r.check = h("div", {class: "wcheck"});
   r.fail = h("div", {class: "wfail"});
-  r.hint = h("p", {class: "wordhint muted", hidden: true}, tr("word_review_hint"));
+  r.hint = h("p", {class: "wordhint muted"}, tr("word_review_hint"));
+  r.all = h("button", {type: "button", class: "btn", onclick: () => toggleAll(r)});
+  r.tools = h("div", {class: "wtools"}, r.hint, r.all);
   r.list = h("ul", {class: "wlist"});
   r.close = h("button", {type: "button", class: "btn", onclick: closeReview});
   r.save = h("button", {type: "button", class: "btn primary", onclick: () => saveSelected(r)});
   $("#wordreview").replaceChildren(
     h("div", {class: "aihd"}, icon("spark", 16), h("span", {class: "grow"}, tr("word_review_h")), aiTag()),
-    r.status, r.check, r.fail, r.hint, r.list, h("div", {class: "wbar"}, r.close, r.save));
+    r.status, r.check, r.fail, r.tools, r.list, h("div", {class: "wbar"}, r.close, r.save),
+    h("datalist", {id: "wordcats"}, categories.filter((c) => !c.default).map((c) => h("option", {value: c.name}))));
   $("#wordreview").hidden = false;
   return r;
 }
 function renderReview(r) {
   const summary = tr("word_summary", {n: r.produced});
   r.status.replaceChildren(r.running
-    ? h("span", {class: "aithink inline"}, icon("spark", 14), r.total ? tr("word_progress", {done: r.done, todo: r.todo}) + " " + summary : tr("word_thinking"))
+    ? h("span", {class: "aithink inline"}, icon("spark", 14),
+      !r.total || (!r.produced && r.written < r.todo) ? tr("word_thinking")
+        : tr("word_progress", {done: r.done, todo: r.todo}) + " " + summary + (r.written >= r.todo && r.done < r.todo ? " " + tr("word_checking") : ""))
     : h("span", {class: "aistate ok"}, summary));
   const check = [];
   if (r.omitted.length) check.push(h("div", {}, tr("word_check_missing")), h("ul", {}, r.omitted.map((m) => h("li", {}, m))));
@@ -549,46 +570,82 @@ function renderReview(r) {
   r.check.replaceChildren(...check);
   r.fail.replaceChildren(...[...r.failed].map(([i, e]) => h("div", {class: "wfailrow"},
     h("span", {class: "aistate bad"}, tr("word_part_failed", {n: i + 1, total: r.total, label: r.labels[i] || "", why: partWhy(e)})),
-    h("button", {type: "button", class: "btn", disabled: r.running, onclick: () => runWord(r, [i])}, tr("word_retry")))));
-  r.rows.forEach((x) => x.li.classList.toggle("off", !x.on.checked));
+    h("button", {type: "button", class: "btn", title: tr("word_retry_title"), disabled: r.running, onclick: () => runWord(r, [i])}, tr("word_retry")))));
+  r.rows.forEach((x) => x.li.classList.toggle("sel", x.on.checked));
   const n = r.rows.filter((x) => x.on.checked).length;
+  r.all.textContent = tr(r.rows.length && n === r.rows.length ? "word_unselect_all" : "word_select_all");
   r.save.textContent = tr("word_save", {n});
   r.save.disabled = !n;
-  r.hint.hidden = !r.rows.length;
+  r.tools.hidden = !r.rows.length;
   r.close.textContent = tr(r.running ? "cancel" : "word_close");
 }
-function addNotes(r, notes) {
-  for (const n of notes) {
-    const on = h("input", {type: "checkbox", checked: true, "aria-label": tr("word_field_include")});
-    const title = h("input", {type: "text", maxlength: "200", "aria-label": tr("word_field_title")});
-    const body = h("textarea", {"aria-label": tr("word_field_body"), maxlength: "20000"});
-    title.value = n.title; body.value = n.body;
-    const bodyBox = h("div", {class: "wbody"}, body);
-    const toggle = rowBtn("chevron-down", tr("word_toggle"), () => open(bodyBox.hidden));
-    const li = h("li", {class: "wnote"}, h("div", {class: "whead"}, on, title, toggle), bodyBox);
-    const open = (yes) => { bodyBox.hidden = !yes; li.classList.toggle("open", yes); toggle.setAttribute("aria-expanded", yes ? "true" : "false"); };
-    open(r.first);   // the first proposal is open so the user sees what one holds
-    r.first = false;
-    on.addEventListener("change", () => renderReview(r));
-    r.rows.push({on, title, body, li});
-    r.list.append(li);
-  }
-  r.produced += notes.length;
+// Nothing is selected for the user: every proposal has to be looked at and ticked. This is the shortcut for the rest.
+function toggleAll(r) {
+  const on = !(r.rows.length && r.rows.every((x) => x.on.checked));
+  r.rows.forEach((x) => { x.on.checked = on; });
+  renderReview(r);
+}
+const splitTags = (text) => text.split(",").map((t) => t.trim()).filter(Boolean);
+// Which of the suggested names do not exist yet (the user's guard against a pile of near-duplicates)
+function newNames(category, tagText) {
+  const known = (names, v) => names.some((x) => plainText(x) === plainText(v));
+  const c = category.trim();
+  const newCat = c && !known(categories.filter((x) => !x.default).map((x) => x.name), c) ? tr("word_new_category", {name: c}) : "";
+  const fresh = splitTags(tagText).filter((t) => !known(tagList.map((x) => x.name), t));
+  return [newCat, fresh.length ? tr("word_new_tags", {items: fresh.join(", ")}) : ""].filter(Boolean).join(" · ");
+}
+// A proposal joins the list the moment the model has written it, in the order of the file (parts arrive mixed)
+function addNote(r, part, n) {
+  const on = h("input", {type: "checkbox", "aria-label": tr("word_field_include")});
+  const title = h("input", {type: "text", maxlength: "200", "aria-label": tr("word_field_title")});
+  const body = h("textarea", {"aria-label": tr("word_field_body"), maxlength: "20000"});
+  title.value = n.title; body.value = n.body;
+  const cat = h("input", {type: "text", maxlength: "40", autocomplete: "off", placeholder: tr("category_default")});
+  cat.setAttribute("list", "wordcats");     // `list` is read-only as a property
+  cat.value = n.category || "";
+  const tags = h("input", {type: "text", autocomplete: "off"});
+  tags.value = n.tags.join(", ");
+  const hint = h("p", {class: "wnew muted"});
+  const sync = () => { hint.textContent = newNames(cat.value, tags.value); };
+  cat.addEventListener("input", sync); tags.addEventListener("input", sync); sync();
+  const meta = h("div", {class: "wmeta"},
+    h("label", {class: "wlabel"}, tr("label_category"), cat), h("label", {class: "wlabel"}, tr("label_tags"), tags));
+  const bodyBox = h("div", {class: "wbody"}, meta, hint, body);
+  const toggle = rowBtn("chevron-down", tr("word_toggle"), () => open(bodyBox.hidden));
+  const li = h("li", {class: "wnote"}, h("div", {class: "whead"}, on, title, toggle), bodyBox);
+  const open = (yes) => { bodyBox.hidden = !yes; li.classList.toggle("open", yes); toggle.setAttribute("aria-expanded", yes ? "true" : "false"); };
+  open(r.first);   // the first proposal is open so the user sees what one holds
+  r.first = false;
+  on.addEventListener("change", () => renderReview(r));
+  const row = {part, on, title, body, cat, tags, li};
+  const after = r.rows.find((x) => x.part > part);
+  if (after) { r.list.insertBefore(li, after.li); r.rows.splice(r.rows.indexOf(after), 0, row); }
+  else { r.list.append(li); r.rows.push(row); }
+  r.produced++;
+}
+// A part that is run again replaces its unsaved proposals
+function dropRows(r, part) {
+  const gone = r.rows.filter((x) => x.part === part);
+  gone.forEach((x) => x.li.remove());
+  r.rows = r.rows.filter((x) => x.part !== part);
+  r.produced -= gone.length;
+  r.unchecked = r.unchecked.filter((i) => i !== part);
 }
 // One event of the stream (see importer.run); true when it was the last one
 function wordEvent(r, e) {
   if (e.type === "start") { r.total = e.total; r.labels = e.labels; r.todo = e.parts.length; }
-  else if (e.type === "part") {
-    r.done++; addNotes(r, e.notes); r.omitted.push(...e.omitted); e.unmatched.forEach((t) => r.unmatched.add(t));
-    if (e.unchecked) r.unchecked.push(e.index);
-  } else if (e.type === "error") { r.done++; r.failed.set(e.index, e); }
+  else if (e.type === "note") addNote(r, e.index, e.note);
+  else if (e.type === "written") { r.written++; e.unmatched.forEach((t) => r.unmatched.add(t)); if (!e.count) r.done++; }
+  else if (e.type === "check") { r.done++; r.omitted.push(...e.omitted); if (e.unchecked) r.unchecked.push(e.index); }
+  else if (e.type === "error") { r.done++; r.written++; r.failed.set(e.index, e); }
   renderReview(r);
   return e.type === "done";
 }
 async function runWord(r, only) {
-  if (only) only.forEach((i) => { r.failed.delete(i); r.total = r.total || 1; });
-  r.running = true; r.done = 0; r.todo = only ? only.length : 0;
+  if (only) only.forEach((i) => { r.failed.delete(i); dropRows(r, i); });
+  r.running = true; r.done = 0; r.written = 0; r.todo = only ? only.length : 0;
   renderReview(r);
+  aiBusy(() => $("#wordreview"));
   let finished = false;
   try {
     const resp = await api("/api/import/word" + (only ? "?parts=" + only.join(",") : ""), {method: "POST", body: await r.file.arrayBuffer(), signal: r.abort.signal});
@@ -613,6 +670,8 @@ async function runWord(r, only) {
     }
   } catch (e) {
     if (e.name === "AbortError" || e.message === "not authenticated") return;
+  } finally {
+    aiBusy(null);     // the job is over, however it ended
   }
   if (rv !== r) return;
   r.running = false;
@@ -624,7 +683,7 @@ async function saveSelected(r) {
   const chosen = r.rows.filter((x) => x.on.checked);
   r.save.disabled = true;
   try {
-    const res = await api("/api/notes/bulk", json("POST", {notes: chosen.map((x) => ({title: x.title.value.trim(), body: x.body.value, tags: []}))}));
+    const res = await api("/api/notes/bulk", json("POST", {notes: chosen.map((x) => ({title: x.title.value.trim(), body: x.body.value, tags: splitTags(x.tags.value), category: x.cat.value.trim() || null}))}));
     if (!res.ok) { toast(tr("word_err_save"), "bad", 6000); renderReview(r); return; }
     toast(tr("word_saved", {n: (await res.json()).created}), "ok", 3500);
     chosen.forEach((x) => x.li.remove());      // saved ones leave the list; the rest keeps coming and stays editable
@@ -780,7 +839,7 @@ function updateNav() {
   navQueued = false;
   if (navLock !== null) return;
   let cur = 0;
-  SECS.forEach((s, i) => { if (s.getBoundingClientRect().top <= 140) cur = i; });
+  SECS.forEach((s, i) => { if (!s.hidden && s.getBoundingClientRect().top <= 140) cur = i; });   // a hidden section has no position
   if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) cur = SECS.length - 1;
   showNav(cur);
 }

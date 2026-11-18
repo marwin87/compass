@@ -50,6 +50,9 @@ SPEC: dict[str, Setting] = {
     ),  # the list order; "" = relevance / newest
     # AI (the key is never a setting: it lives in the OPENROUTER_API_KEY env var only)
     "ai_enabled": Setting(False, _bool),
+    "ai_block_page": Setting(
+        False, _bool
+    ),  # blur and block the page while an AI job runs (Appearance)
     "ai_connection": Setting("openrouter", _choice("openrouter", "local")),
     "ai_address": Setting("", _str(200)),  # used by the local connection only
     "ai_model_openrouter": Setting(

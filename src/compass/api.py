@@ -73,8 +73,13 @@ def create(data: NoteIn) -> notes.Note:
         raise _category_error(problem) from None
 
 
+class BulkNote(NoteIn):
+    # By name, not id: an import may suggest a category that does not exist yet (it is created).
+    category: str | None = Field(default=None, max_length=categories.MAX_NAME)
+
+
 class BulkIn(BaseModel):
-    notes: list[NoteIn] = Field(min_length=1, max_length=MAX_BULK)
+    notes: list[BulkNote] = Field(min_length=1, max_length=MAX_BULK)
 
 
 @router.post("/bulk", status_code=201)
@@ -83,7 +88,7 @@ def create_bulk(data: BulkIn) -> dict[str, int]:
     try:
         return {
             "created": notes.create_many(
-                [(n.title, n.body, n.tags, n.category_id) for n in data.notes]
+                [(n.title, n.body, n.tags, n.category) for n in data.notes]
             )
         }
     except categories.CategoryError as problem:

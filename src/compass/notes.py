@@ -121,12 +121,11 @@ def _insert(
     title: str,
     body: str,
     tags: Sequence[str],
-    category_id: int | None,
+    category: int,
 ) -> Note:
-    """Insert one note inside the caller's transaction."""
+    """Insert one note inside the caller's transaction (`category` is an existing category id)."""
     clean = normalize_tags(tags)
     created_at = datetime.now(UTC).isoformat(timespec="seconds")
-    category = categories.resolve(conn, category_id)
     cur = conn.execute(
         "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
         (title, body, created_at, category),
@@ -151,20 +150,24 @@ def create_note(
     conn = connect()
     try:
         with conn:
-            return _insert(conn, title, body, tags, category_id)
+            return _insert(
+                conn, title, body, tags, categories.resolve(conn, category_id)
+            )
     finally:
         conn.close()
 
 
 def create_many(
-    items: Sequence[tuple[str, str, Sequence[str], int | None]],
+    items: Sequence[tuple[str, str, Sequence[str], str | None]],
 ) -> int:
-    """Add several notes (title, body, tags, category_id) in one transaction: all or none."""
+    """Add several notes (title, body, tags, category name) in one transaction: all or none.
+    A category name that does not exist yet creates the category; None or a reserved name means the
+    default."""
     conn = connect()
     try:
         with conn:
-            for title, body, tags, category_id in items:
-                _insert(conn, title, body, tags, category_id)
+            for title, body, tags, category in items:
+                _insert(conn, title, body, tags, categories.ensure(conn, category))
     finally:
         conn.close()
     return len(items)

@@ -46,11 +46,14 @@ Compass finds notes in a fraction of a second, but without an LLM it is a plain 
 | ---- | ------------------ | ------------------------------------------------------------------------------------------------------ | ------------- | -------------------------------- | ------- |
 | F-01 | ai-foundation      | switch AI on in Settings, pick OpenRouter or a local model, and see whether it is configured and whether content leaves my machine | — | FR-010, FR-011                   | done    |
 | S-01 | translate-note     | translate a note PL<->EN, read the preview and copy it, with the note unchanged                        | F-01          | FR-012, FR-013, US-01            | done    |
-| S-02 | import-word-file   | import one MS Word file, see it split into proposed notes, review them and save the ones I confirm      | F-01          | FR-014, FR-018                   | pending |
-| S-03 | import-suggestions | see a suggested category and tags on every proposed note, taken from existing ones first               | S-02          | FR-015                           | pending |
+| S-02 | import-word-file   | import one MS Word file, see it split into proposed notes, review them and save the ones I confirm      | F-01          | FR-014, FR-018                   | done    |
+| S-03 | import-suggestions | see a suggested category and tags on every proposed note, taken from existing ones first               | S-02          | FR-015                           | done    |
 | S-04 | import-rich-text   | get imported text rewritten with headings, lists and tables so it reads better                          | S-02          | FR-016                           | pending |
 | S-05 | import-pdf-excel   | import PDF and Excel files through the same review flow                                                | S-02          | FR-014                           | pending |
 | S-06 | chat-with-notes    | ask questions of my notes and get answers that name the notes they come from                           | F-01          | FR-017                           | pending |
+| S-07 | import-image       | import notes from an image (photo, screenshot, scan) through the same review flow                      | S-02          | — (new, extend the PRD)          | pending |
+| S-08 | import-text-file   | import notes from a plain text file (.txt, .md) through the same review flow                           | S-02          | — (new, extend the PRD)          | pending |
+| S-09 | summarize-note     | get a summary and the key points of a note, read the preview and copy it, with the note unchanged      | F-01          | — (new, extend the PRD)          | pending |
 
 ## Baseline
 
@@ -106,11 +109,11 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** which format goes first (Word proposed: the simplest text to extract; the user decides); how a long file is cut into parts for the model; what happens to proposed notes if the call fails midway (Socrates: model work already paid for is lost).
 - **Risk:** the biggest new surface in the milestone: file parsing, a splitting rule the app owns, and a review screen. Keep the existing JSON import (FR-009) untouched and separate.
-- **Status:** pending
+- **Status:** done
 
 ### S-03: Suggest a category and tags for each proposed note
 
-- **Outcome:** user sees a suggested category and tags on every proposed note, taken from existing ones first and new only when none fits.
+- **Outcome:** user sees a suggested category and tags on every proposed note, taken from existing ones first and new only when none fits. (Note titles already come from S-02; only category and tags are left.)
 - **Change ID:** import-suggestions
 - **PRD refs:** FR-015
 - **Prerequisites:** S-02
@@ -118,11 +121,11 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** how to send hundreds of existing tags to the model (Socrates: the list may not fit); how to avoid near-duplicates such as db / bazy / database.
 - **Risk:** tag chaos in the database; the review screen is the guard, so the suggestions must be editable there.
-- **Status:** pending
+- **Status:** done
 
 ### S-04: Rewrite imported text with rich-text elements
 
-- **Outcome:** user gets imported text rewritten with headings, lists and tables so that it reads better in the reader.
+- **Outcome:** user gets imported text rewritten with headings, lists and tables so that it reads better in the reader. (**Largely done in S-02**: the model already writes notes as structured Markdown. Left: check on real files whether it is enough, then close or cut this slice.)
 - **Change ID:** import-rich-text
 - **PRD refs:** FR-016
 - **Prerequisites:** S-02
@@ -156,25 +159,64 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** the costliest item. It may need an index of its own next to the search index, and content of many notes goes to the provider on every question. The search index and its rebuild must stay untouched. Expect to split it into smaller slices when planning.
 - **Status:** pending
 
+### S-07: Import notes from an image
+
+- **Outcome:** user can import an image (photo of a page, screenshot, scan); the model reads the text on it and the notes go through the same split, review and save flow as a Word file; the image is not stored.
+- **Change ID:** import-image
+- **PRD refs:** — (new; add an FR to `prd-ai.md` before planning)
+- **Prerequisites:** S-02
+- **Parallel with:** S-08, S-09
+- **Blockers:** the chosen model must accept images (vision); a local model often does not.
+- **Unknowns:** how Settings tells the user whether the model can read images; accepted formats (PNG, JPG, WebP) and size limit; several images in one import; handwriting and poor photos (the check for what was missed cannot compare with a source text, so the user is the only check). The same question as scanned PDFs (PRD Open Question 4) and likely the same answer.
+- **Risk:** the image goes to the provider as it is (more data and more cost than text); no source text to check against. Keep the existing stream and review code (`importer.run`, the Settings review card), add only the way the text is read.
+- **Status:** pending
+
+### S-08: Import notes from a plain text file
+
+- **Outcome:** user can import a `.txt` or `.md` file through the same split, review and save flow as a Word file.
+- **Change ID:** import-text-file
+- **PRD refs:** — (new; add an FR to `prd-ai.md` before planning)
+- **Prerequisites:** S-02
+- **Parallel with:** S-07, S-09
+- **Blockers:** —
+- **Unknowns:** text encoding (UTF-8, Windows-1250); a Markdown file already has headings, so check that the model keeps them; whether the file input in Settings becomes one "import a file" control for every format.
+- **Risk:** small: no new parser beyond reading the text into blocks (`docx.Block`), so the rest of the flow is reused as is.
+- **Status:** pending
+
+### S-09: Summarize a note
+
+- **Outcome:** user can ask for a summary and the key points of a note, read a preview and copy it to the clipboard; nothing is saved and the stored note is unchanged.
+- **Change ID:** summarize-note
+- **PRD refs:** — (new; add an FR to `prd-ai.md` before planning)
+- **Prerequisites:** F-01
+- **Parallel with:** S-07, S-08
+- **Blockers:** —
+- **Unknowns:** the shape of the answer (a short paragraph plus a list of key points); the language of the summary (the note's own, or the interface language); whether a very long note is cut into parts first (reuse the windows of `importer.py`); where the control sits next to Translate (S-01).
+- **Risk:** small: the same path as S-01 (`POST /api/notes/{id}/translate`, preview in the reader layout, AI marker). Like translation, every open pays again because nothing is saved.
+- **Status:** pending
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID          | Suggested issue title                                   | Ready for `/10x-plan` | Notes                          |
 | ---------- | ------------------ | ------------------------------------------------------- | --------------------- | ------------------------------ |
 | F-01       | ai-foundation      | Add the AI switch, server-side key and provider client  | done                  | Decisions recorded in F-01     |
 | S-01       | translate-note     | Translate a note PL<->EN with a copyable preview        | done                  | North star                     |
-| S-02       | import-word-file   | Import a Word file as proposed notes with review        | after F-01            | Format order to confirm        |
-| S-03       | import-suggestions | Suggest category and tags for proposed notes            | after S-02            |                                |
+| S-02       | import-word-file   | Import a Word file as proposed notes with review        | done                  | Word first; the model writes the notes |
+| S-03       | import-suggestions | Suggest category and tags for proposed notes            | done                  | Built on S-02's flow           |
 | S-04       | import-rich-text   | Rewrite imported text with rich-text elements           | after S-02            |                                |
 | S-05       | import-pdf-excel   | Import PDF and Excel files through the same flow        | after S-02            | Open: scans, size limit        |
 | S-06       | chat-with-notes    | Ask questions of the notes with named sources           | after F-01            | May split; fit in budget open  |
+| S-07       | import-image       | Import notes from an image through the same flow        | after S-02            | Needs a vision model; add FR   |
+| S-08       | import-text-file   | Import notes from a .txt or .md file                    | after S-02            | Add FR to the PRD              |
+| S-09       | summarize-note     | Summarize a note (summary and key points) with a preview | after F-01           | Add FR to the PRD              |
 
 ## Open Roadmap Questions
 
 1. **Which model provider and model?** — Resolved 2026-11-18: OpenRouter or a local model through one common client; the model name is set in Settings.
-2. **Which file format is imported first?** — Owner: user. Block: S-02 (Word proposed).
+2. **Which file format is imported first?** — Resolved 2026-11-18: Word (S-02 done).
 3. **Are scanned PDFs in scope?** — Owner: user. Block: S-05.
 4. **Should import limit file size or show an estimated cost first?** — Owner: user. Block: S-05.
-5. **Does S-06 (conversation) fit in the 6-week budget with everything else?** — Owner: user. Block: roadmap-wide.
+5. **Does S-06 (conversation) fit in the 6-week budget with everything else?** — Owner: user. Block: roadmap-wide. S-07 to S-09 were added on 2026-11-18 after S-02; they add to the scope, so the 6 weeks need another look.
 6. **Expected query rate and data volume** — Owner: user. Block: roadmap-wide (does not gate any slice).
 
 ## Parked
@@ -192,5 +234,9 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 - **F-01: AI foundation** — Done 2026-11-18 → closed in the roadmap directly. Key is read from `OPENROUTER_API_KEY` (env only); status via `GET /api/ai/status`; no model client yet (`httpx` comes with S-01). Lesson: —.
 - **S-01: Translate a note PL<->EN and copy it** — Done 2026-11-18 → closed in the roadmap directly. `POST /api/notes/{id}/translate` (stdlib client, model reply starts with `[en]`/`[pl]`), preview in the reader layout, AI marker (frame, spark icon, tag), one model per connection. Lesson: the model must name its target language, otherwise UI labels (callouts) follow the interface language.
+
+- **S-02: Import one Word file as proposed notes** — Done 2026-11-18 → closed in the roadmap directly. `POST /api/import/word` streams one JSON line per part (`importer.run`); the model reads the file part by part and writes tidy Markdown notes (headings, lists, tables), a second call per part lists what is missing, and the code lists numbers and links found in no note. A failed part reports its reason (`AIError.detail`, e.g. `HTTP 429`) and can be run again alone (`?parts=`). Review in Settings → Backup: accordions, saving while later parts still arrive, `POST /api/notes/bulk` (all or none). Covers FR-014, FR-018, and already FR-016 (rich text, S-04) and note titles from FR-015 (S-03). Limits: 5 MB file, 100 000 characters of text. Lesson: splitting by headings in code gave poor, cut-up notes; the model has to read and write the notes itself, with a check for what it missed.
+
+- **S-03: Suggest a category and tags for each proposed note** — Done 2026-11-18 → closed in the roadmap directly. The model returns a category and 2 to 5 tags with every note; the prompt lists the existing categories and the 150 most used tags (existing first, new only when none fits). The code maps the answer onto existing names (case and accents ignored), drops bad tags and reserved category names. The review shows an editable category field (datalist of existing ones) and a tags field, and a line naming which names are new; `POST /api/notes/bulk` takes the category by name and creates it when missing (all or none). Also shipped around it: notes stream into the review one by one while the model writes (`ai.stream`), the section moved to Settings → Load Data, and the setting "block the page during AI work" (`aiBusy`, a rule for every AI job). Known limit: parts run in parallel, so a new tag or category proposed in one part is unknown to the others. Lesson: a code-side mapping onto existing names plus a visible "new" marker is a better guard against tag chaos than prompt wording alone.
 
 (Entries are added by hand when a slice is finished, format: `- **<ID>: <Outcome>** — Done <YYYY-MM-DD> → `context/changes/<change-id>/`. Lesson: —.`)
