@@ -295,3 +295,4 @@ def test_the_vision_model_is_in_the_ai_section_and_images_are_accepted(
     assert 'id="ctl-ai-vision"' in section and STRINGS[lang]["set_ai_vision"] in section
     load = page.split('id="load"')[1].split("</section>")[0]
     assert ".png,.jpg,.jpeg,.webp" in load and "image/webp" in load
+    assert ".pdf" in load and "application/pdf" in load

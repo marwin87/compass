@@ -37,7 +37,7 @@ Change flow (first slice): 1. the user opens a note in the reader; 2. chooses Tr
 - With AI enabled, the user translates a note PL<->EN and copies the preview, and the note in the database is unchanged.
 
 ### Secondary
-- Intelligent import works on one PDF, MS Word or Excel file (extracts text, suggests category and tags, rewrites the text with rich-text elements).
+- Intelligent import works on one PDF or MS Word file (and, added later, a text file or an image) (extracts text, suggests category and tags, rewrites the text with rich-text elements).
 
 ### Guardrails
 - Search speed is not slower than today; AI calls never block search or the notes list.
@@ -75,7 +75,7 @@ Change flow (first slice): 1. the user opens a note in the reader; 2. chooses Tr
   > Socrates: Counter-argument considered: "without saving, the user pastes it by hand as a new note." Resolution: kept as written; the concern is handled in design, not scope.
 
 ### Intelligent import
-- [new] FR-014: User can import a PDF, MS Word or Excel file; the file is split into topics and each topic becomes a proposed note (only the text is kept, the original file is not stored). Priority: must-have
+- [new] FR-014: User can import a PDF or MS Word file (Excel is out of scope, dropped 2026-11-18); a PDF page without text is read by the vision model like an image; the file is split into topics and each topic becomes a proposed note (only the text is kept, the original file is not stored). Priority: must-have
   > Socrates: No counter-argument; it stands as written.
 - [new] FR-015: For each proposed note the user sees a suggested category and tags, taken from existing ones first and new only when none fits. Priority: must-have
   > Socrates: Counter-argument considered: "with hundreds of tags the list does not fit in the model request." Resolution: kept as written; the concern is handled in design, not scope.
@@ -111,7 +111,7 @@ Change flow (first slice): 1. the user opens a note in the reader; 2. chooses Tr
 
 The application splits a file into topics and chooses a category and tags for each one on its own.
 
-Input: a PDF, MS Word or Excel file the user imports, plus the categories and tags that already exist in the app. Output: a list of proposed notes, one per topic, each with a suggested category and tags (existing ones first, new only when none fits) and its text rewritten with rich-text elements; nothing is saved until the user confirms. The user meets this rule at import time, when they see the proposed notes instead of one raw copy of the file.
+Input: a PDF or MS Word file the user imports, plus the categories and tags that already exist in the app. Output: a list of proposed notes, one per topic, each with a suggested category and tags (existing ones first, new only when none fits) and its text rewritten with rich-text elements; nothing is saved until the user confirms. The user meets this rule at import time, when they see the proposed notes instead of one raw copy of the file.
 
 The current search rule (match a query against notes and order the results) is unchanged.
 
@@ -130,6 +130,6 @@ No access control changes — current model preserved (single user, one password
 1. **What is the expected query rate (`target_scale.qps`)?** — Not captured during shaping. Owner: user. Block: no.
 2. **What is the expected data volume (`target_scale.data_volume`)?** — Not captured during shaping. Owner: user. Block: no.
 3. **Should import limit the file size or show an estimated cost before starting?** — Proposed during shaping and not accepted into the requirements; large files may be slow and costly. Owner: user. Block: no.
-4. **Are scanned PDFs (no extractable text) in scope?** — Not decided during shaping. Owner: user. Block: no.
+4. **Are scanned PDFs (no extractable text) in scope?** — Resolved 2026-11-18: yes, a page without text is read by the vision model (at most 10 such pictures per file).
 5. **Is FR-017 (conversation) deliverable inside the 6-week budget together with FR-010 to FR-016 and FR-018?** — Resolved 2026-11-18: delivered (slice S-06) as the last big slice before the budget was reviewed again for the remaining file formats.
 6. **Which model does conversation (FR-017) use for finding notes when the connection is a local model?** — Resolved 2026-11-18: each connection has its own embedding model, set in Settings next to the chat model. With none set, notes are found by keyword search only, and the chat still works.

@@ -88,7 +88,7 @@ def test_unsupported_and_unreadable_files_are_refused_before_any_call(
     authed: TestClient, fake: Fake
 ) -> None:
     setup_ai(authed, fake)
-    r = post(authed, b"x", name="scan.pdf")
+    r = post(authed, b"x", name="sheet.xlsx")
     assert r.status_code == 422 and r.json()["detail"] == {"code": "unsupported"}  # type: ignore[attr-defined]
     r = post(authed, b"x", name="")
     assert r.json()["detail"] == {"code": "unsupported"}  # type: ignore[attr-defined]

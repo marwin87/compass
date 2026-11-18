@@ -58,6 +58,7 @@ MAX_IMPORT_BYTES = (
     50 * 1024 * 1024
 )  # an export is a few MB; this only stops runaway uploads
 MAX_WORD_BYTES = 5 * 1024 * 1024
+MAX_PDF_BYTES = 20 * 1024 * 1024
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # a phone photo is a few MB; no resizing here
 MAX_BULK = 500  # notes per bulk save
 
@@ -309,13 +310,20 @@ def _lines(events: Iterator[dict[str, object]]) -> Iterator[str]:
 async def import_file(
     request: Request, name: str = "", parts: str = ""
 ) -> StreamingResponse:
-    """A file (the raw body; `name` is its file name, which tells the type: .docx, .txt, .md, or an image: .png, .jpg, .webp) turned into proposed notes, streamed as one JSON line per event
+    """A file (the raw body; `name` is its file name, which tells the type: .docx, .txt, .md, .pdf, or an image: .png, .jpg, .webp) turned into proposed notes, streamed as one JSON line per event
     (see `importer.run`): each part arrives as soon as the model has written it, with what the model
     found missing (`omitted`) and the numbers and links found in no note (`unmatched`). `parts` is a
     comma-separated list of part indexes to run again. Nothing is saved and the file is not kept; the
     user saves the confirmed proposals with `POST /api/notes/bulk`."""
-    image = PurePath(name).suffix.lower() in importer.IMAGE_TYPES
-    raw = await _upload(request, MAX_IMAGE_BYTES if image else MAX_WORD_BYTES)
+    kind = PurePath(name).suffix.lower()
+    limit = (
+        MAX_IMAGE_BYTES
+        if kind in importer.IMAGE_TYPES
+        else MAX_PDF_BYTES
+        if kind == ".pdf"
+        else MAX_WORD_BYTES
+    )
+    raw = await _upload(request, limit)
     current = settings.current()
     try:
         wanted = await run_in_threadpool(importer.prepare, raw, current, name)

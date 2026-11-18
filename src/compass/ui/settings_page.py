@@ -247,7 +247,7 @@ SETTINGS_HTML = (
       <h2>[[load_h]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></h2>
       <div class="scard aiframe">
         <div class="srow"><div><div class="sname">[[word_import]]</div><div class="sdesc">[[word_import_desc]]</div></div>
-          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,image/png,image/jpeg,image/webp" hidden></div></div>
+          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,.txt,.md,.markdown,.pdf,.png,.jpg,.jpeg,.webp,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/pdf,image/png,image/jpeg,image/webp" hidden></div></div>
       </div>
       <div class="scard aiframe" id="wordreview" hidden aria-live="polite"></div>
     </section>
@@ -590,7 +590,7 @@ async function importFile(file) {
 // Import from Word (AI): the model writes the notes part by part. Proposals appear as each part is ready,
 // so they can be reviewed and saved while the rest is still coming; a failed part says why and can be run again.
 const WORD_ERRORS = {
-  not_docx: "word_err_not_docx", not_text: "word_err_not_text", unsupported: "word_err_unsupported", not_image: "word_err_not_image", no_vision: "word_err_no_vision", empty: "word_err_empty", too_large: "word_err_too_large", file_too_large: "import_err_file_too_large",
+  not_docx: "word_err_not_docx", not_text: "word_err_not_text", unsupported: "word_err_unsupported", not_image: "word_err_not_image", not_pdf: "word_err_not_pdf", too_many_images: "word_err_too_many_images", encrypted: "word_err_encrypted", no_vision: "word_err_no_vision", empty: "word_err_empty", too_large: "word_err_too_large", file_too_large: "import_err_file_too_large",
   not_enabled: "ai_err_not_enabled", not_configured: "ai_err_not_configured", timeout: "ai_err_timeout",
 };
 const PART_ERRORS = {timeout: "ai_err_timeout"};

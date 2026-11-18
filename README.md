@@ -6,7 +6,7 @@
 **Compass is an AI-powered** personal knowledge base that keeps all your notes in one place. Find anything in seconds with just a few keystrokes, or ask AI questions and get answers grounded in your own notes, with clear references to the sources it used. Each Compass instance is dedicated to a single user.
 
 - **Chat with your notes:** ask in plain language; the answer is written only from your notes and marks each statement with a numbered citation like `[1]`; the numbers match the **Sources** list under the answer, and clicking one opens that note. This is retrieval-augmented generation (RAG), described in [How the AI works](#how-the-ai-works).
-- **AI that stays optional:** translate a note PL↔EN, summarize it, and turn a Word file, a text file or an image (photo, screenshot, scan) into notes with a suggested category and tags. All of it is off by default; with AI off the app looks and works exactly as without it.
+- **AI that stays optional:** translate a note PL↔EN, summarize it, and turn a Word file, a PDF, a text file or an image (photo, screenshot, scan) into notes with a suggested category and tags. All of it is off by default; with AI off the app looks and works exactly as without it.
 - **Your models, your choice:** OpenRouter or a local, OpenAI-compatible server (Ollama, LM Studio). With a local model your notes never leave the machine.
 - **Fast, forgiving search:** results ranked by relevance (exact tag, then title, then body); typos and missing Polish letters are forgiven (`zlozonosc` finds "złożoność").
 
@@ -44,7 +44,7 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
 
 <img src="docs/screenshots/settings.png" alt="Settings" width="860">
 
-**Settings:** theme, language, reading options, categories, tags, backup. Regenerate all screenshots with `uv run python scripts/screenshots.py` (demo data, temporary database, a stub instead of a real AI model).
+**Settings:** theme, language, reading options, categories, tags, backup.
 
 **Stack:** Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [uv](https://docs.astral.sh/uv/).
 
@@ -89,10 +89,12 @@ can be deleted).
   never changed) and marked as outdated once you edit the note.
 - **Translate PL↔EN:** the translate button in a note opens a preview (the note is never changed). The direction
   (`PL→EN` or `EN→PL`) is guessed from the note and a swap button reverses it. Code blocks, inline code and URLs are kept as they are.
-- **Import a file as notes:** Settings → Load Data takes a Word (`.docx`), `.txt` or `.md` file, or an **image** (`.png`, `.jpg`, `.webp`: a photo, screenshot or scan), splits it into
+- **Import a file as notes:** Settings → Load Data takes a Word (`.docx`), **PDF**, `.txt` or `.md` file, or an **image** (`.png`, `.jpg`, `.webp`: a photo, screenshot or scan), splits it into
   self-contained notes and suggests a category and tags from the existing ones; you review the proposals before anything is saved.
   An image is read by the **Vision model** you set in Settings → AI features (text, tables, and diagrams or flows with labels
-  written out as plain text; a picture without text is refused), and is never stored.
+  written out as plain text; a picture without text is refused), and is never stored. A **PDF** is read for its text directly (headers
+  and footers that repeat on every page are dropped); a page with no text (a scan) is read by the same Vision model, up to 10 such
+  pictures per file. Encrypted PDFs are refused.
 - **Where AI is marked:** everything AI carries the violet-pink frame and the `AI` tag, and an `AI` badge next to the Compass logo
   shows that AI is on and ready.
 
@@ -255,4 +257,5 @@ A failing test leaves a screenshot and a trace in `test-results/` (`uv run playw
 - `context/foundation/prd.md`: product requirements
 - `context/foundation/tech-stack.md`: stack rationale
 - `context/foundation/roadmap.md`: milestones and slices
+- `context/foundation/roadmap-ai.md`: milestones and slices for AI part
 - `AGENTS.md`: contributor and agent guidelines

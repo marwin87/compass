@@ -1,4 +1,4 @@
-"""Turn a Word, text or image file into proposed notes (nothing is saved here).
+"""Turn a Word, PDF, text or image file into proposed notes (nothing is saved here).
 
 An image is first read by the vision model into Markdown text (`ai.read_image`); from there it is a text
 file like any other. The image itself is never stored.
@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import PurePath
 
-from compass import ai, categories, docx, notes, textfile
+from compass import ai, categories, docx, notes, pdf, textfile
 from compass.search import fold
 
 MAX_TEXT = (
@@ -355,6 +355,14 @@ def _blocks(raw: bytes, name: str, s: dict[str, object]) -> list[docx.Block]:
         return textfile.extract(raw)
     if kind in IMAGE_TYPES:
         return _image_blocks(raw, s)
+    if kind == ".pdf":
+        return pdf.extract(
+            raw,
+            MAX_TEXT,
+            (lambda image, mime: ai.read_image(s, image, mime))
+            if ai.vision_model(s)
+            else None,
+        )
     raise docx.BadFile("unsupported")
 
 

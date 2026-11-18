@@ -16,7 +16,7 @@ HEADING = re.compile(r"^(?:Heading|Nag[łl]ówek)\s?(\d)$", re.IGNORECASE)
 
 
 class BadFile(Exception):
-    """code: not_docx | not_text | not_image | no_vision | empty | too_large | unsupported."""
+    """code: not_docx | not_text | not_pdf | encrypted | too_many_images | not_image | no_vision | empty | too_large | unsupported."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
