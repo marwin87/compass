@@ -96,8 +96,9 @@ def test_citations_are_renumbered_after_the_sources() -> None:
         ask.Excerpt(1, "A", "a2"),
     ]
     text, sources = chat.renumber("x [2] y [3][1] z [9] [0]", excerpts)
-    assert text == "x [1] y [2][2] z  "
+    assert text == "x [1] y [2] z  "  # [3][1] are both note A: one citation
     assert [s.id for s in sources] == [2, 1]  # in order of first mention, a note once
+    assert chat.renumber("[1][2][1][2] a [1][1]", excerpts)[0] == "[1][2] a [1]"
     assert chat.renumber("nothing cited", excerpts) == ("nothing cited", [])
 
 

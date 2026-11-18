@@ -7,11 +7,17 @@ an embedding model, or before the index is built, the keyword list alone is used
 index is never touched, and a question's text is never logged.
 """
 
+import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 
 from compass import ai, chunks, notes
 from compass.search import fold, words
+
+log = logging.getLogger(
+    "uvicorn.error"
+)  # timings only, never the question or note text
 
 CONTEXT_CHARS = 12_000  # all excerpts together
 MAX_NOTES = 8
@@ -49,9 +55,13 @@ def retrieve(
     found: dict[tuple[int, int], tuple[str, str]] = {}  # (note, chunk) -> (title, text)
     ranked: list[list[tuple[int, int]]] = []
 
+    t0 = time.perf_counter()
+    embed_ms = search_ms = 0.0
     if ai.embed_model(s) and query.strip():
         (vector,) = ai.embed(s, [query])
+        embed_ms = (time.perf_counter() - t0) * 1000
         hits = chunks.search(s, vector, VECTOR_HITS)
+        search_ms = (time.perf_counter() - t0) * 1000 - embed_ms
         titles: dict[int, str] = {}
         for note_id, idx, text, _score in hits:
             if note_id not in titles and (note := notes.get_note(note_id)):
@@ -59,6 +69,7 @@ def retrieve(
             found[(note_id, idx)] = (titles.get(note_id, ""), text)
         ranked.append([(n, i) for n, i, _t, _c in hits])
 
+    t1 = time.perf_counter()
     if tokens:
         keyword: list[tuple[int, int]] = []
         for note in notes.list_notes(" ".join(tokens))[:KEYWORD_NOTES]:
@@ -67,6 +78,12 @@ def retrieve(
             keyword.append((note.id, idx))
         ranked.append(keyword)
 
+    log.info(
+        "chat retrieve: embed %.0f ms, vector search %.0f ms, keyword %.0f ms",
+        embed_ms,
+        search_ms,
+        (time.perf_counter() - t1) * 1000,
+    )
     score: defaultdict[tuple[int, int], float] = defaultdict(float)
     for ranking in ranked:
         for rank, key in enumerate(ranking):
