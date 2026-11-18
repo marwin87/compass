@@ -1,7 +1,7 @@
 import json
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
@@ -23,6 +23,9 @@ class Fake:
         self.reply: Any = "Hello world"
         self.status = 200
         self.delay = 0.0
+        self.raw: Any = None  # when set, this JSON is the whole body (embeddings)
+        # when set, answers /embeddings: one vector per input text
+        self.embedder: Callable[[list[str]], list[list[float]]] | None = None
         self.sse: list[str] | None = (
             None  # when set, answer as a stream of these pieces
         )
@@ -39,6 +42,14 @@ class Fake:
                     }
                 )
                 time.sleep(fake.delay)
+                if fake.embedder is not None and self.path == "/embeddings":
+                    vectors = fake.embedder(body["input"])
+                    data = [{"index": i, "embedding": v} for i, v in enumerate(vectors)]
+                    self.send_response(fake.status)
+                    self.end_headers()
+                    if fake.status == 200:
+                        self.wfile.write(json.dumps({"data": data}).encode())
+                    return
                 if fake.sse is not None and fake.status == 200:
                     self.send_response(200)
                     self.send_header("Content-Type", "text/event-stream")
@@ -50,7 +61,9 @@ class Fake:
                     return
                 self.send_response(fake.status)
                 self.end_headers()
-                if isinstance(fake.reply, str):
+                if fake.raw is not None:
+                    self.wfile.write(json.dumps(fake.raw).encode())
+                elif isinstance(fake.reply, str):
                     out = {"choices": [{"message": {"content": fake.reply}}]}
                     self.wfile.write(json.dumps(out).encode())
                 else:

@@ -195,7 +195,7 @@ SETTINGS_HTML = (
     <nav id="snav" aria-label="[[settings_title]]">
 """
     + "".join(
-        f'      <a href="#{sid}" data-sec="{sid}"{" data-ai hidden" if sid == "load" else ""}><span class="ic" data-icon="{ic}" data-size="16"></span>[[{key}]]{AI_TAG if sid in ("ai", "load") else ""}</a>\n'
+        f'      <a href="#{sid}" data-sec="{sid}"{" data-ai hidden" if sid == "load" else ""}><span class="ic" data-icon="{ic}" data-size="16"></span>[[{key}]]{AI_TAG if sid == "load" else ""}</a>\n'
         for sid, key, ic in _SECTIONS
     )
     + r"""    </nav>
@@ -256,12 +256,14 @@ SETTINGS_HTML = (
       <div class="scard" id="shortcutlist"></div>
     </section>
     <section class="ssec" id="ai">
-      <h2>[[ai_h]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></h2>
+      <h2>[[ai_h]]</h2>
       <div class="scard aiframe">
         <div class="srow"><div><div class="sname">[[set_ai_enabled]]</div><div class="sdesc">[[set_ai_enabled_desc]]</div></div><div class="sctl" id="ctl-ai-on"></div></div>
         <div class="srow"><div><div class="sname">[[set_ai_connection]]</div><div class="sdesc">[[set_ai_connection_desc]]</div></div><div class="sctl" id="ctl-ai-conn"></div></div>
         <div class="srow" id="row-ai-addr"><div><div class="sname">[[set_ai_address]]</div><div class="sdesc">[[set_ai_address_desc]]</div></div><div class="sctl" id="ctl-ai-addr"></div></div>
         <div class="srow"><div><div class="sname">[[set_ai_model]]</div><div class="sdesc">[[set_ai_model_desc]]</div></div><div class="sctl" id="ctl-ai-model"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_embed]]</div><div class="sdesc">[[set_ai_embed_desc]]</div></div><div class="sctl" id="ctl-ai-embed"></div></div>
+        <div class="srow" id="row-ai-index" hidden><div><div class="sname">[[set_ai_index]]</div><div class="sdesc">[[set_ai_index_desc]]</div><div class="sdesc" id="ai-index-status" role="status"></div></div><div class="sctl" id="ctl-ai-index"></div></div>
         <div class="srow"><div><div class="sname">[[ai_status_h]]</div><div class="sdesc" id="ai-status" role="status"></div></div></div>
       </div>
     </section>
@@ -359,7 +361,8 @@ $("#ctl-ai-block").append(aiBlock.el);
 const aiOn = segmented([[true, tr("ai_on")], [false, tr("ai_off")]], SETTINGS.ai_enabled, (v) => change("ai_enabled", v, (x) => aiOn.set(x)).then(loadAiStatus));
 $("#ctl-ai-on").append(aiOn.el);
 // Each connection keeps its own model: the model field shows and saves the one of the chosen connection
-const modelKey = (conn) => "ai_model_" + conn;
+// One model per role (chat, embeddings; vision later = one more entry here, in SPEC and in the HTML row)
+const MODEL_ROLES = [["ai_model_", "#ctl-ai-model", "ai_model_ph"], ["ai_embed_model_", "#ctl-ai-embed", "ai_embed_ph"]];
 const aiText = (keyOf, ph) => {
   const input = h("input", {class: "sinput", maxlength: "200", autocomplete: "off", placeholder: ph, "aria-label": ph});
   input.value = SETTINGS[keyOf()];
@@ -367,13 +370,70 @@ const aiText = (keyOf, ph) => {
   return input;
 };
 const aiAddr = aiText(() => "ai_address", "localhost:11434/v1");
-const aiModel = aiText(() => modelKey(SETTINGS.ai_connection), tr("ai_model_ph"));
-const showAiConn = (conn) => { $("#row-ai-addr").hidden = conn !== "local"; aiModel.value = SETTINGS[modelKey(conn)]; };
+const modelInputs = MODEL_ROLES.map(([prefix, slot, ph]) => {
+  const input = aiText(() => prefix + SETTINGS.ai_connection, tr(ph));
+  $(slot).append(input);
+  return [prefix, input];
+});
+const showAiConn = (conn) => { $("#row-ai-addr").hidden = conn !== "local"; for (const [prefix, input] of modelInputs) input.value = SETTINGS[prefix + conn]; };
 const aiConn = segmented([["openrouter", "OpenRouter"], ["local", tr("ai_local")]], SETTINGS.ai_connection, (v) => change("ai_connection", v, (x) => { aiConn.set(x); showAiConn(x); }).then(loadAiStatus));
 $("#ctl-ai-conn").append(aiConn.el);
 $("#ctl-ai-addr").append(aiAddr);
-$("#ctl-ai-model").append(aiModel);
 showAiConn(SETTINGS.ai_connection);
+// The chat's index (embeddings): changed notes are added when a question is asked; this builds everything at once on request, because it costs model calls. Maintenance, not an AI job the user waits in front of: it does not block the page (no aiBusy)
+const indexBtn = h("button", {type: "button", class: "btn", onclick: () => buildIndex()}, tr("index_build"));
+const clearBtn = h("button", {type: "button", class: "btn", onclick: () => askClear(true)}, tr("index_clear"));
+const clearAsk = h("span", {hidden: true, style: "display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap"}, h("span", {class: "sdesc"}, tr("index_clear_ask")),
+  h("button", {type: "button", class: "btn danger", onclick: () => clearIndex()}, tr("yes_delete")), h("button", {type: "button", class: "btn", onclick: () => askClear(false)}, tr("back")));
+const askClear = (on) => { indexBtn.hidden = clearBtn.hidden = on; clearAsk.hidden = !on; };
+$("#ctl-ai-index").append(indexBtn, clearBtn, clearAsk);
+async function clearIndex() {
+  askClear(false);
+  try {
+    const r = await api("/api/ai/index", {method: "DELETE"});
+    if (r.status !== 204) throw new Error("clear");
+    toast(tr("index_cleared"), "ok");
+  } catch (e) {
+    if (e.message !== "not authenticated") toast(tr("index_clear_failed"), "bad", 5000);
+  }
+  loadIndexStatus();
+}
+async function loadIndexStatus() {
+  try {
+    const r = await api("/api/ai/index");
+    if (r.ok) $("#ai-index-status").textContent = tr("index_status", await r.json());
+  } catch (e) { /* only a hint */ }
+}
+async function buildIndex() {
+  indexBtn.disabled = clearBtn.disabled = true;
+  let finished = false;
+  try {
+    const resp = await api("/api/ai/index", {method: "POST"});
+    if (!resp.ok) { toast(tr("index_failed"), "bad", 5000); return; }
+    const reader = resp.body.getReader(), decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      let nl;
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, nl); buffer = buffer.slice(nl + 1);
+        if (!line) continue;
+        const e = JSON.parse(line);
+        if (e.type === "progress") indexBtn.textContent = tr("index_building", {done: e.done, total: e.total});
+        else if (e.type === "error") { toast(tr("index_failed"), "bad", 5000); return; }
+        else if (e.type === "done") finished = true;
+      }
+    }
+    if (finished) toast(tr("index_done"), "ok");
+    else toast(tr("index_failed"), "bad", 5000);
+  } catch (e) {
+    if (e.message !== "not authenticated") toast(tr("index_failed"), "bad", 5000);
+  } finally {
+    indexBtn.disabled = clearBtn.disabled = false; indexBtn.textContent = tr("index_build"); loadIndexStatus();
+  }
+}
 const MISSING_LABELS = {key: tr("ai_missing_key"), address: tr("ai_missing_address"), model: tr("ai_missing_model")};
 async function loadAiStatus() {
   let d;
@@ -386,6 +446,8 @@ async function loadAiStatus() {
     return;
   }
   setAiReady(d.enabled && d.configured);   // the logo badge follows the switch at once
+  $("#row-ai-index").hidden = !(d.enabled && d.configured && d.embeddings);
+  if (!$("#row-ai-index").hidden) loadIndexStatus();
   const where = tr(d.leaves_machine ? "ai_leaves" : "ai_stays");
   const state = d.configured ? tr(d.enabled ? "ai_ready" : "ai_idle") : tr("ai_missing", {items: d.missing.map((m) => MISSING_LABELS[m]).join(", ")});
   $("#ai-status").replaceChildren(h("span", {class: "aistate " + (d.configured ? "ok" : "bad")}, state), h("br"), where);
@@ -497,9 +559,10 @@ const IMPORT_ERRORS = {
   not_json: "import_err_not_json", not_an_export: "import_err_not_an_export",
   invalid_file: "import_err_invalid_file",
   count_mismatch: "import_err_count_mismatch", invalid_note: "import_err_invalid_note",
+  invalid_conversation: "import_err_invalid_conversation",
   file_too_large: "import_err_file_too_large",
 };
-const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", category: "field_category", note: "field_note", summary: "field_summary"};
+const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", category: "field_category", note: "field_note", summary: "field_summary", role: "field_role", text: "field_text", messages: "field_messages", sources: "field_sources", conversation: "field_conversation", message: "field_message"};
 function importError(detail) {
   const d = detail && typeof detail === "object" ? detail : {};
   const key = IMPORT_ERRORS[d.code];

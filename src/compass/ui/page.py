@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from urllib.parse import quote
 
 from compass.ui import core
+from compass.ui.chatpanel import CHAT_CSS, CHAT_JS
 from compass.ui.editor import EDITOR_CSS, EDITOR_PURE_JS, EDITOR_UI_JS
 from compass.ui.i18n import STRINGS
 from compass.ui.reader import READER_CSS, READER_PURE_JS, READER_UI_JS
@@ -173,6 +174,10 @@ main{display:flex;flex-direction:column;min-width:0;height:100vh;padding:18px 24
 .topbar{display:flex;gap:12px;align-items:center}
 .menubtn{display:none}
 .searchbar{flex:1;display:flex;align-items:center;gap:12px;height:50px;background:linear-gradient(180deg,var(--panel),var(--side));border:1px solid var(--line);border-radius:16px;padding:0 14px;color:var(--muted);transition:border-color var(--ease),box-shadow var(--ease)}
+.btn.aibtn.askbtn{position:relative;flex:none;border:1.5px solid transparent;border-radius:12px;padding:7px 14px;font-weight:600;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box;box-shadow:0 2px 12px rgba(168,85,247,.28)}
+.btn.aibtn.askbtn:hover{background:linear-gradient(var(--raise),var(--raise)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
+.askbtn .aitag{position:absolute;top:-9px;right:-7px;font-size:9px;padding:0 6px;gap:3px;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.askbtn[hidden]{display:none}
 .searchbar:focus-within{border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
 .searchbar input{flex:1;min-width:0;border:0;outline:0;background:none;font-size:15.5px}
 .searchbar input::placeholder{color:var(--faint)}
@@ -263,6 +268,7 @@ main{display:flex;flex-direction:column;min-width:0;height:100vh;padding:18px 24
   .scrim{position:fixed;inset:0;background:rgba(5,6,12,.55);z-index:30}
   .menubtn{display:inline-flex}
   #shortcut{display:none}
+  .askbtn{padding:7px 10px}.askbtn .asklbl{display:none}
   main{padding:14px 14px 0}
   .grid{grid-template-columns:1fr}
   .app[data-view=detail] .listcol,.app:not([data-view=detail]) .detailcol{display:none}
@@ -288,6 +294,7 @@ INDEX_HTML = (
     + APP_CSS
     + READER_CSS
     + EDITOR_CSS
+    + CHAT_CSS
     + r"""</style>
 </head>
 <body>"""
@@ -326,7 +333,7 @@ INDEX_HTML = (
     </div>
     <div class="topbar">
       <button type="button" class="btn icon menubtn" id="menu" aria-label="[[menu_open]]"><span class="ic" data-icon="menu"></span></button>
-      <div class="searchbar"><span class="ic" data-icon="search" data-size="20"></span><input id="q" placeholder="[[search_ph]]" autocomplete="off" autofocus><kbd id="shortcut">/</kbd></div>
+      <div class="searchbar"><span class="ic" data-icon="search" data-size="20"></span><input id="q" placeholder="[[search_ph]]" autocomplete="off" autofocus><kbd id="shortcut">/</kbd><button type="button" class="btn aibtn askbtn" id="chatbtn" data-ai hidden aria-label="[[chat_btn]]" title="[[chat_btn]]"><span class="ic" data-icon="chat-compass" data-size="18"></span><span class="asklbl">[[chat_btn]]</span><span class="aitag"><span class="ic" data-icon="spark" data-size="9"></span>AI</span></button></div>
     </div>
     <div class="filters">
       <button type="button" class="pill" id="f-all"><span class="ic" data-icon="layers" data-size="14"></span>[[category_all]]</button>
@@ -400,6 +407,7 @@ const longDate = (iso) => new Date(iso).toLocaleDateString(LANG, {day: "numeric"
 
 /*READER_UI*/
 /*EDITOR_UI*/
+/*CHAT_UI*/
 // --- state and server calls
 const state = {q: "", sel: new Set(), category: null, cur: null, mode: "view", list: [], tags: [], categories: [], total: 0, reading: false, sort: ""};
 let seq = 0, timer;
@@ -543,8 +551,20 @@ function renderList() {
       h("div", {class: "meta"}, categoryBadge(note.category_id), note.tags.map((t) => h("span", {class: "chip mini" + (state.sel.has(t) ? " on" : ""), onclick: (e) => { e.stopPropagation(); toggleTag(t); }}, "#" + t)))),
     h("span", {class: "chev"}, icon("chevron-right", 16)))) : [h("div", {class: "empty"}, tr(none ? "empty_none" : "no_results"))]));
 }
+let chat = null;      // the chat panel, made on first use and kept: opening a source note must not lose the conversation
+function openChat() {
+  if (!AI_READY) return;
+  chat = chat || makeChat({openNote: openSource, close: closeChat});
+  exitReading(); state.mode = "chat"; setView("detail"); renderList(); renderDetail(); chat.show();
+}
+function closeChat() { state.mode = "view"; setView("list"); renderList(); renderDetail(); }   // the panel is kept: "Ask" brings the conversation back
+async function openSource(id, title) {       // a note named in an answer: found through its title, so it is in the (limited) list
+  state.q = title; $("#q").value = title; state.sel.clear(); state.category = null; state.mode = "view"; state.cur = id;
+  setView("detail"); renderTagbar(); renderCategories(); await load();
+}
 function renderDetail() {
   const d = $("#detail");
+  if (state.mode === "chat") { d.replaceChildren(h("div", {class: "card chatcard"}, chat.el)); return; }
   if (state.mode === "new") {
     exitReading();
     d.replaceChildren(h("div", {class: "card"}, newPanel({
@@ -792,6 +812,7 @@ function newPanel(cb) {
 // --- wiring
 $("#q").addEventListener("input", () => { state.q = $("#q").value; clearTimeout(timer); timer = setTimeout(() => { state.mode = "view"; load(); }, 100); });
 $("#new").addEventListener("click", openNew);
+$("#chatbtn").addEventListener("click", () => { openMenu(false); openChat(); });
 $("#f-all").addEventListener("click", () => { state.sel.clear(); state.category = null; state.mode = "view"; renderTagbar(); renderCategories(); load(); });
 $("#f-clear").addEventListener("click", () => resetFilters(true));
 // Sorting: "" is the default (newest first, or by relevance while searching); a chosen order always wins
@@ -850,6 +871,7 @@ INDEX_HTML = (
     .replace("/*READER_UI*/", READER_UI_JS)
     .replace("/*EDITOR_PURE*/", EDITOR_PURE_JS)
     .replace("/*EDITOR_UI*/", EDITOR_UI_JS)
+    .replace("/*CHAT_UI*/", CHAT_JS)
 )
 
 LANG_SWITCH_JS = (

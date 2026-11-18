@@ -12,7 +12,10 @@ from compass import categories
 from compass.notes import (
     MAX_BODY,
     MAX_TITLE,
+    ParsedConversation,
+    ParsedMessage,
     ParsedNote,
+    ParsedSource,
     ParsedSummary,
     normalize_tags,
 )
@@ -98,13 +101,93 @@ def _parse_note(index: int, raw: object) -> ParsedNote:
         when,
         category,
         _parse_summary(index, raw.get("summary")),
+        raw["id"] if _is_int(raw.get("id")) else None,
     )
+
+
+MAX_CONVERSATIONS = 1000
+MAX_MESSAGES = 1000
+MAX_TEXT = 100_000  # one question or answer
+
+
+def _bad_chat(index: int, field: str) -> BadExport:
+    return BadExport("invalid_conversation", index=index, field=field)
+
+
+def _iso(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _parse_message(index: int, raw: object) -> ParsedMessage:
+    if not isinstance(raw, dict):
+        raise _bad_chat(index, "message")
+    role, text, created_at = raw.get("role"), raw.get("text"), raw.get("created_at")
+    if role not in ("user", "assistant"):
+        raise _bad_chat(index, "role")
+    if not isinstance(text, str) or not 1 <= len(text.strip()) <= MAX_TEXT:
+        raise _bad_chat(index, "text")
+    if not _iso(created_at):
+        raise _bad_chat(index, "created_at")
+    cited = raw.get("sources", [])
+    if not isinstance(cited, list) or (role == "user" and cited):
+        raise _bad_chat(index, "sources")
+    sources = []
+    for s in cited:
+        if not isinstance(s, dict):
+            raise _bad_chat(index, "sources")
+        note, title = s.get("note"), s.get("title")
+        if (note is not None and not _is_int(note)) or not isinstance(title, str):
+            raise _bad_chat(index, "sources")
+        if len(title) > MAX_TITLE:
+            raise _bad_chat(index, "sources")
+        sources.append(ParsedSource(note, title))
+    assert isinstance(created_at, str)
+    return ParsedMessage(role, text, created_at, tuple(sources))
+
+
+def _parse_conversations(raw: object) -> list[ParsedConversation]:
+    """The optional `conversations` of an export: saved chats with the notes their answers cite."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or len(raw) > MAX_CONVERSATIONS:
+        raise BadExport("invalid_file")
+    out = []
+    for index, item in enumerate(raw, 1):
+        if not isinstance(item, dict):
+            raise _bad_chat(index, "conversation")
+        title, created_at, messages = (
+            item.get("title"),
+            item.get("created_at"),
+            item.get("messages"),
+        )
+        if not isinstance(title, str) or len(title) > MAX_TITLE:
+            raise _bad_chat(index, "title")
+        if not _iso(created_at):
+            raise _bad_chat(index, "created_at")
+        if not isinstance(messages, list) or len(messages) > MAX_MESSAGES:
+            raise _bad_chat(index, "messages")
+        assert isinstance(created_at, str)
+        out.append(
+            ParsedConversation(
+                title,
+                created_at,
+                tuple(_parse_message(index, m) for m in messages),
+            )
+        )
+    return out
 
 
 @dataclass(frozen=True)
 class ParsedExport:
     notes: list[ParsedNote]  # file order (newest first)
     categories: list[str]  # every category the file lists, with or without notes
+    conversations: list[ParsedConversation]
 
 
 def parse_export(document: object) -> ParsedExport:
@@ -130,4 +213,8 @@ def parse_export(document: object) -> ParsedExport:
         except categories.CategoryError as problem:
             if problem.code != "name_reserved":
                 raise BadExport("invalid_file") from None
-    return ParsedExport([_parse_note(i, raw) for i, raw in enumerate(items, 1)], names)
+    return ParsedExport(
+        [_parse_note(i, raw) for i, raw in enumerate(items, 1)],
+        names,
+        _parse_conversations(document.get("conversations")),
+    )

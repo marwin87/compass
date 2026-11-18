@@ -33,6 +33,29 @@ CREATE TABLE IF NOT EXISTS note_summaries(
     created_at TEXT NOT NULL,
     source_hash TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS note_chunks(
+    note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    idx INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    vec BLOB NOT NULL,
+    model TEXT NOT NULL,
+    source_hash TEXT NOT NULL,
+    PRIMARY KEY (note_id, idx)
+);
+CREATE TABLE IF NOT EXISTS conversations(
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_messages(
+    id INTEGER PRIMARY KEY,
+    conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    text TEXT NOT NULL,
+    sources TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS chat_messages_conversation ON chat_messages(conversation_id);
 CREATE TABLE IF NOT EXISTS categories(
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,

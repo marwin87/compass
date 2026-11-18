@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -39,6 +40,29 @@ class ParsedSummary:
 
 
 @dataclass(frozen=True)
+class ParsedSource:
+    """A note an answer cites. `note` is the id the note had in the file (None: it was deleted)."""
+
+    note: int | None
+    title: str
+
+
+@dataclass(frozen=True)
+class ParsedMessage:
+    role: str  # "user" or "assistant"
+    text: str
+    created_at: str
+    sources: tuple[ParsedSource, ...] = ()
+
+
+@dataclass(frozen=True)
+class ParsedConversation:
+    title: str
+    created_at: str
+    messages: tuple[ParsedMessage, ...]
+
+
+@dataclass(frozen=True)
 class ParsedNote:
     """A note read from an export file, already validated (see `transfer.parse_export`)."""
 
@@ -49,6 +73,9 @@ class ParsedNote:
     when: datetime  # the same moment, timezone-aware, used only for ordering
     category: str | None = None  # a name; None means the default category
     summary: ParsedSummary | None = None
+    file_id: int | None = (
+        None  # the id the note had in the file: conversations point at it
+    )
 
 
 class TagCount(BaseModel):
@@ -410,19 +437,29 @@ def delete_note(note_id: int) -> bool:
     return True
 
 
-def replace_all(items: Sequence[ParsedNote], category_names: Sequence[str]) -> int:
+def replace_all(
+    items: Sequence[ParsedNote],
+    category_names: Sequence[str],
+    conversations: Sequence[ParsedConversation] = (),
+) -> int:
     """Make the database exactly what an export file says (all or nothing); returns the note count.
 
     Every existing note, tag and category is removed first, then the file's categories and notes
     are written, oldest first (an export is newest first) so the new ids follow creation order.
+    Saved conversations are replaced too; their sources are pointed at the notes' new ids (a source
+    whose note is not in the file keeps its title and shows as deleted).
     """
     # The file is newest first, so among equal times the later file position is the older note.
     ordered = [p for _, p in sorted(enumerate(items), key=lambda e: (e[1].when, -e[0]))]
+    new_ids: dict[int, int] = {}  # id in the file -> id in the database
     conn = connect()
     try:
         with conn:
             conn.execute("BEGIN IMMEDIATE")
             conn.execute("DELETE FROM notes_fts")
+            conn.execute(
+                "DELETE FROM conversations"
+            )  # their sources would point at nothing
             conn.execute("DELETE FROM note_tags")
             conn.execute("DELETE FROM notes")
             conn.execute("DELETE FROM tags")
@@ -441,6 +478,8 @@ def replace_all(items: Sequence[ParsedNote], category_names: Sequence[str]) -> i
                 )
                 note_id = cur.lastrowid
                 assert note_id is not None
+                if p.file_id is not None:
+                    new_ids[p.file_id] = note_id
                 _save_tags(conn, note_id, p.tags)
                 index_note(conn, note_id, p.title, p.body, p.tags)
                 if (
@@ -449,6 +488,24 @@ def replace_all(items: Sequence[ParsedNote], category_names: Sequence[str]) -> i
                     fresh = "" if p.summary.stale else summaries.digest(p.title, p.body)
                     summaries.insert(
                         conn, note_id, p.summary.text, p.summary.created_at, fresh
+                    )
+            for c in conversations:
+                cid = conn.execute(
+                    "INSERT INTO conversations(title, created_at) VALUES (?, ?)",
+                    (c.title, c.created_at),
+                ).lastrowid
+                for m in c.messages:
+                    cited = [
+                        {
+                            "id": new_ids.get(s.note, 0) if s.note is not None else 0,
+                            "title": s.title,
+                        }
+                        for s in m.sources
+                    ]  # 0 is never a note id: the source shows as deleted
+                    conn.execute(
+                        "INSERT INTO chat_messages(conversation_id, role, text, sources, created_at) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (cid, m.role, m.text, json.dumps(cited), m.created_at),
                     )
     finally:
         conn.close()

@@ -123,12 +123,27 @@ def test_every_import_error_code_has_a_message_in_both_languages() -> None:
         "invalid_file",
         "count_mismatch",
         "invalid_note",
+        "invalid_conversation",
         "file_too_large",
     }
     for lang in LANGS:
         for code in codes:
             assert STRINGS[lang][f"import_err_{code}"], (lang, code)
-        for field in ("title", "body", "tags", "created_at", "category", "note"):
+        for field in (
+            "title",
+            "body",
+            "tags",
+            "created_at",
+            "category",
+            "note",
+            "summary",
+            "role",
+            "text",
+            "messages",
+            "sources",
+            "conversation",
+            "message",
+        ):
             assert STRINGS[lang][f"field_{field}"], (lang, field)
     source = Path(transfer.__file__).read_text(encoding="utf-8")
     raised = set(_re.findall(r'BadExport\(\s*"(\w+)"', source))

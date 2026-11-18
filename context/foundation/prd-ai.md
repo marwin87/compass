@@ -85,8 +85,9 @@ Change flow (first slice): 1. the user opens a note in the reader; 2. chooses Tr
   > Socrates: Counter-argument considered: "if something fails midway, the model work already paid for is lost." Resolution: kept as written; the concern is handled in design, not scope.
 
 ### Conversation
-- [new] FR-017: User can hold a conversation with the notes and get answers. Priority: must-have
-  > Socrates: Counter-argument considered: "an answer without a source is not trustworthy." Resolution: kept as written; the concern is handled in design, not scope.
+- [new] FR-017: User can hold a conversation with the notes: ask questions in natural language, follow up on earlier answers, and get answers written only from the notes, each naming the notes it comes from (a source can be opened); when the notes do not contain the answer, the answer says so. Conversations are saved and can be reopened or deleted. Priority: must-have
+  > Socrates: Counter-argument considered: "an answer without a source is not trustworthy." Resolution: sources are part of the requirement (revised 2026-11-18); an answer cites the notes it used.
+  > Revised 2026-11-18: sources, follow-up questions, "not in the notes" and saved conversations written into the requirement; delivered as slice S-06. Notes are found by meaning (embeddings) and by keywords together; with no embedding model set, by keywords alone.
 
 ### Preserved
 - [preserved] FR-007: User can search notes by keywords, at the speed of today. Priority: must-have
@@ -98,9 +99,9 @@ Change flow (first slice): 1. the user opens a note in the reader; 2. chooses Tr
 
 ## Constraints & Compatibility
 
-- The export file format `compass-export` and the notes interface keep working unchanged; any new field is optional; old export files still import.
+- The export file format `compass-export` and the notes interface keep working unchanged; any new field is optional (a note's `summary`, the file's `conversations`); old export files still import.
 - Search, including the way its index is built and rebuilt, is not changed by AI.
-- No change to how data is stored: translation saves nothing, and import creates ordinary notes.
+- Notes are stored as before: translation saves nothing, and import creates ordinary notes. AI adds data next to them, never inside them: kept summaries, saved conversations, and a derived vector index of the notes (rebuilt from the notes, not exported).
 - Preserved behavior: everything in the current app, and the speed of search.
 
 ## Business Logic Changes
@@ -127,5 +128,5 @@ No access control changes — current model preserved (single user, one password
 2. **What is the expected data volume (`target_scale.data_volume`)?** — Not captured during shaping. Owner: user. Block: no.
 3. **Should import limit the file size or show an estimated cost before starting?** — Proposed during shaping and not accepted into the requirements; large files may be slow and costly. Owner: user. Block: no.
 4. **Are scanned PDFs (no extractable text) in scope?** — Not decided during shaping. Owner: user. Block: no.
-5. **Is FR-017 (conversation) deliverable inside the 6-week budget together with FR-010 to FR-016 and FR-018?** — It is the costliest item (needs retrieval over all notes and cited sources). Owner: user. By: when the roadmap for this scope is written.
-6. **Which model does conversation (FR-017) use for finding notes when the connection is a local model?** — A local model may lack what retrieval needs. Owner: user. Block: no; decide when FR-017 is planned.
+5. **Is FR-017 (conversation) deliverable inside the 6-week budget together with FR-010 to FR-016 and FR-018?** — Resolved 2026-11-18: delivered (slice S-06) as the last big slice before the budget was reviewed again for the remaining file formats.
+6. **Which model does conversation (FR-017) use for finding notes when the connection is a local model?** — Resolved 2026-11-18: each connection has its own embedding model, set in Settings next to the chat model. With none set, notes are found by keyword search only, and the chat still works.

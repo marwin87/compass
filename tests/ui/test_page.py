@@ -256,3 +256,28 @@ def test_the_note_panel_has_the_summarize_control_for_ai() -> None:
     assert (
         page.count('"ai_err_failed_summary"') >= 1
     )  # quoted: the usage guard looks for it
+
+
+def test_the_chat_is_an_ai_component_with_its_own_panel_and_errors() -> None:
+    page = render_index("en")
+    # the sidebar button exists only for AI: `data-ai hidden` until AI_READY
+    assert re.search(r'id="chatbtn" data-ai hidden', page)
+    assert "function makeChat(" in page and "/ask" in page and "/api/chats" in page
+    assert "openChat()" in page and "if (!AI_READY) return;" in page
+    assert "CHAT_ERRORS" in page and '"ai_err_failed_chat"' in page
+    # the panel is kept alive, so a source note can be opened and the conversation is not lost
+    assert "chat = chat || makeChat(" in page
+    assert (
+        "close: closeChat" in page and "function closeChat(" in page
+    )  # the X, as on the summary
+    # DOM calls only: the chat builds answers with the reader's parser, never with innerHTML
+    assert "innerHTML" not in page
+    assert STRINGS["en"]["chat_btn"] in page and STRINGS["pl"][
+        "chat_btn"
+    ] in render_index("pl")
+
+
+def test_the_chat_texts_exist_in_both_languages() -> None:
+    chat_keys = [k for k in STRINGS["en"] if k.startswith(("chat_", "index_"))]
+    assert len(chat_keys) >= 10
+    assert all(k in STRINGS["pl"] for k in chat_keys)

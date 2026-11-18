@@ -265,3 +265,21 @@ def test_the_shared_script_has_the_ai_blocking_rule(authed: TestClient) -> None:
     for path in ("/", "/settings"):
         page = authed.get(path).text
         assert "function aiBusy(" in page and "aiveil" in page
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_embedding_model_and_the_chat_index_are_in_the_ai_section(
+    authed: TestClient, lang: str
+) -> None:
+    authed.cookies.set("lang", lang)
+    page = authed.get("/settings").text
+    section = page.split('id="ai"')[1].split("</section>")[0]
+    assert 'id="ctl-ai-embed"' in section and STRINGS[lang]["set_ai_embed"] in section
+    # the index row starts hidden: it shows only when AI is on and an embedding model is set
+    assert re.search(r'id="row-ai-index" hidden', section)
+    assert "/api/ai/index" in page and "function buildIndex(" in page
+    assert (
+        "function clearIndex(" in page
+        and 'method: "DELETE"' in page
+        and STRINGS[lang]["index_clear"] in page
+    )

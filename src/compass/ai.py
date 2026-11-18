@@ -66,6 +66,11 @@ def model(s: dict[str, object]) -> str:
     return str(s[f"ai_model_{s['ai_connection']}"]).strip()
 
 
+def embed_model(s: dict[str, object]) -> str:
+    """The embedding model of the chosen connection; empty = no embeddings (chat falls back to keyword search)."""
+    return str(s[f"ai_embed_model_{s['ai_connection']}"]).strip()
+
+
 def status(s: dict[str, object]) -> dict[str, object]:
     """Whether the chosen connection is configured, what is missing, and whether notes leave the machine."""
     local = s["ai_connection"] == "local"
@@ -84,6 +89,7 @@ def status(s: dict[str, object]) -> dict[str, object]:
         "configured": not missing,
         "missing": missing,
         "leaves_machine": not local or host not in LOOPBACK,
+        "embeddings": bool(embed_model(s)),
     }
 
 
@@ -94,24 +100,33 @@ def base_url(s: dict[str, object]) -> str:
     return address if "//" in address else f"http://{address}"
 
 
-def _request(
-    s: dict[str, object], system: str, user: str, stream: bool = False
+Messages = list[
+    dict[str, str]
+]  # [{"role": "system" | "user" | "assistant", "content": ...}]
+
+
+def _post(
+    s: dict[str, object], path: str, payload: dict[str, object]
 ) -> urllib.request.Request:
-    payload: dict[str, object] = {
-        "model": model(s),
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-    }
-    if stream:
-        payload["stream"] = True
     headers = {"Content-Type": "application/json"}
     if key := config.ai_key():
         headers["Authorization"] = f"Bearer {key}"
     return urllib.request.Request(
-        base_url(s) + "/chat/completions", json.dumps(payload).encode(), headers
+        base_url(s) + path, json.dumps(payload).encode(), headers
     )
+
+
+def _request(
+    s: dict[str, object], messages: Messages, stream: bool = False
+) -> urllib.request.Request:
+    payload: dict[str, object] = {"model": model(s), "messages": messages}
+    if stream:
+        payload["stream"] = True
+    return _post(s, "/chat/completions", payload)
+
+
+def _one(system: str, user: str) -> Messages:
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
 @contextmanager
@@ -137,7 +152,7 @@ def _chat(
     with (
         _mapped(),
         urllib.request.urlopen(
-            _request(s, system, user), timeout=timeout or TIMEOUT
+            _request(s, _one(system, user)), timeout=timeout or TIMEOUT
         ) as response,
     ):
         answer = json.load(response)["choices"][0]["message"]["content"]
@@ -149,6 +164,13 @@ def _chat(
 def stream(
     s: dict[str, object], system: str, user: str, timeout: int | None = None
 ) -> Iterator[str]:
+    """`stream_messages` for one system and one user message."""
+    return stream_messages(s, _one(system, user), timeout)
+
+
+def stream_messages(
+    s: dict[str, object], messages: Messages, timeout: int | None = None
+) -> Iterator[str]:
     """The answer in pieces, as the model writes it (server-sent events). `timeout` is the longest
     silence, not the length of the whole answer. A server that ignores `stream` and sends one JSON
     answer still works: it arrives as a single piece. Raises AIError; makes no call when AI is off or
@@ -159,7 +181,7 @@ def stream(
     with (
         _mapped(),
         urllib.request.urlopen(
-            _request(s, system, user, True), timeout=timeout or TIMEOUT
+            _request(s, messages, True), timeout=timeout or TIMEOUT
         ) as response,
     ):
         for raw in response:
@@ -178,6 +200,28 @@ def stream(
             answer = json.loads("".join(other))["choices"][0]["message"]["content"]
             if isinstance(answer, str) and answer:
                 yield answer
+
+
+def embed(s: dict[str, object], texts: list[str]) -> list[list[float]]:
+    """One vector per text, in order, from the embedding model of the chosen connection (OpenAI-compatible
+    `/embeddings`). Raises AIError; makes no call when AI is off, unconfigured, or no embedding model is set."""
+    ready(s)
+    name = embed_model(s)
+    if not name:
+        raise AIError("not_configured", "embedding model")
+    if not texts:
+        return []
+    with (
+        _mapped(),
+        urllib.request.urlopen(
+            _post(s, "/embeddings", {"model": name, "input": texts}), timeout=TIMEOUT
+        ) as response,
+    ):
+        rows = sorted(json.load(response)["data"], key=lambda r: r["index"])
+        vectors = [[float(x) for x in r["embedding"]] for r in rows]
+    if len(vectors) != len(texts) or not all(vectors):
+        raise AIError("failed", "unexpected reply from the provider")
+    return vectors
 
 
 def ready(s: dict[str, object]) -> None:

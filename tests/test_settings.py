@@ -19,6 +19,8 @@ DEFAULTS = {
     "ai_address": "",
     "ai_model_openrouter": "",
     "ai_model_local": "",
+    "ai_embed_model_openrouter": "",
+    "ai_embed_model_local": "",
 }
 
 
@@ -61,6 +63,8 @@ def test_partial_update_changes_only_the_given_keys_and_persists(
         ("ai_address", ["", "http://localhost:11434/v1"]),
         ("ai_model_openrouter", ["", "openai/gpt-4o-mini"]),
         ("ai_model_local", ["", "llama3"]),
+        ("ai_embed_model_openrouter", ["", "openai/text-embedding-3-small"]),
+        ("ai_embed_model_local", ["", "nomic-embed-text"]),
     ],
 )
 def test_every_valid_value_is_accepted(
@@ -89,6 +93,8 @@ def test_every_valid_value_is_accepted(
         ("ai_address", "x" * 201),
         ("ai_model_openrouter", 5),
         ("ai_model_local", 5),
+        ("ai_embed_model_openrouter", 5),
+        ("ai_embed_model_local", 5),
         ("reader_width", 3),
         ("reader_width", -1),
         ("reader_width", False),

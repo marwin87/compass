@@ -34,6 +34,7 @@ const SVGNS = "http://www.w3.org/2000/svg";
 const ICONS = {
   compass: [["circle", {cx: 12, cy: 12, r: 10}], ["polygon", {points: "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"}]],
   "align-left": [["path", {d: "M21 6H3"}], ["path", {d: "M15 12H3"}], ["path", {d: "M17 18H3"}]],
+  "chat-compass": [["path", {d: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z"}], ["polygon", {points: "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76", transform: "translate(12 11.2) scale(.62) translate(-12 -12)"}]],
   plus: [["path", {d: "M5 12h14"}], ["path", {d: "M12 5v14"}]],
   bold: [["path", {d: "M14 12a4 4 0 0 0 0-8H6v8"}], ["path", {d: "M15 20a4 4 0 0 0 0-8H6v8Z"}]],
   italic: [["line", {x1: 19, y1: 4, x2: 10, y2: 4}], ["line", {x1: 14, y1: 20, x2: 5, y2: 20}], ["line", {x1: 15, y1: 4, x2: 9, y2: 20}]],
@@ -65,6 +66,7 @@ const ICONS = {
   menu: [["path", {d: "M4 6h16"}], ["path", {d: "M4 12h16"}], ["path", {d: "M4 18h16"}]],
   sort: [["path", {d: "m21 16-4 4-4-4"}], ["path", {d: "M17 20V4"}], ["path", {d: "m3 8 4-4 4 4"}], ["path", {d: "M7 4v16"}]],
   x: [["path", {d: "M18 6 6 18"}], ["path", {d: "m6 6 12 12"}]],
+  plus: [["path", {d: "M5 12h14"}], ["path", {d: "M12 5v14"}]],
   "chevron-right": [["path", {d: "m9 18 6-6-6-6"}]],
   "chevron-left": [["path", {d: "m15 18-6-6 6-6"}]],
   "chevron-down": [["path", {d: "m6 9 6 6 6-6"}]],

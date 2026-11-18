@@ -59,6 +59,9 @@ SPEC: dict[str, Setting] = {
         "", _str(200)
     ),  # each connection keeps its own model
     "ai_model_local": Setting("", _str(200)),
+    # the embedding model of each connection (chat retrieval); empty = keyword search only
+    "ai_embed_model_openrouter": Setting("", _str(200)),
+    "ai_embed_model_local": Setting("", _str(200)),
 }
 
 

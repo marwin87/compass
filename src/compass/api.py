@@ -1,3 +1,4 @@
+import itertools
 import json
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -12,6 +13,8 @@ from compass import about as about_info
 from compass import (
     ai,
     categories,
+    chat,
+    chunks,
     docx,
     importer,
     notes,
@@ -28,6 +31,7 @@ import_router = APIRouter(prefix="/api/import")
 categories_router = APIRouter(prefix="/api/categories")
 settings_router = APIRouter(prefix="/api/settings")
 ai_router = APIRouter(prefix="/api/ai")
+chat_router = APIRouter(prefix="/api/chats")
 about_router = APIRouter(prefix="/api/about")
 data_router = APIRouter(prefix="/api/data")
 
@@ -265,6 +269,10 @@ def export_notes() -> Response:
         "categories": [c.name for c in all_categories if not c.default],
         "notes": [_export_note(n, names, kept) for n in items],
     }
+    if (
+        saved := chat.export_all()
+    ):  # only when there are some, so older files stay as they were
+        document["conversations"] = saved
     return Response(
         content=json.dumps(document, ensure_ascii=False, indent=2),
         media_type="application/json",
@@ -339,7 +347,7 @@ async def import_notes(request: Request) -> dict[str, int]:
             status_code=422, detail={"code": problem.code, **problem.info}
         ) from None
     imported = await run_in_threadpool(
-        notes.replace_all, parsed.notes, parsed.categories
+        notes.replace_all, parsed.notes, parsed.categories, parsed.conversations
     )
     return {"imported": imported}
 
@@ -396,6 +404,108 @@ def write_settings(patch: dict[str, object]) -> dict[str, object]:
 @ai_router.get("/status")
 def ai_status() -> dict[str, object]:
     return ai.status(settings.current())
+
+
+@ai_router.get("/index")
+def index_status() -> dict[str, int]:
+    """How many notes the chat's vector index covers (`indexed` of `total`)."""
+    return chunks.status(settings.current())
+
+
+@ai_router.post("/index")
+def index_notes() -> StreamingResponse:
+    """Embed the notes that are new or changed since the last run, streamed as one JSON line per event
+    (`start`, `progress`, `done`, or `error`). Costs model calls, so it only runs when asked."""
+    events = chunks.sync(settings.current())
+    try:
+        first = next(
+            events
+        )  # AI off / not configured / no embedding model: a plain error
+    except ai.AIError as problem:
+        raise HTTPException(
+            status_code=AI_STATUS[problem.code], detail={"code": problem.code}
+        ) from None
+    return StreamingResponse(
+        _lines(itertools.chain([first], events)),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+class Question(BaseModel):
+    question: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True, min_length=1, max_length=chat.MAX_QUESTION
+        ),
+    ]
+
+
+@chat_router.get("")
+def list_chats() -> list[chat.Conversation]:
+    return chat.list_all()
+
+
+@chat_router.post("", status_code=201)
+def create_chat() -> chat.Conversation:
+    return chat.create()
+
+
+@chat_router.get("/{chat_id}")
+def read_chat(chat_id: int) -> chat.Thread:
+    thread = chat.get(chat_id)
+    if thread is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return thread
+
+
+class ChatTitle(BaseModel):
+    title: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+    ]
+
+
+@chat_router.patch("/{chat_id}")
+def rename_chat(chat_id: int, data: ChatTitle) -> chat.Conversation:
+    """Rename a conversation (the first question names it until then)."""
+    renamed = chat.rename(chat_id, data.title)
+    if renamed is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return renamed
+
+
+@chat_router.delete("/{chat_id}", status_code=204)
+def delete_chat(chat_id: int) -> None:
+    if not chat.delete(chat_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+
+@chat_router.post("/{chat_id}/ask")
+def ask_chat(chat_id: int, data: Question) -> StreamingResponse:
+    """One question of the conversation, answered from the notes and streamed as one JSON line per
+    event (see `chat.answer`): `indexing`, `excerpts`, `delta`, then `done` with the cited notes, or
+    `error`. Sends changed notes to the embedding model and excerpts of up to 8 notes to the chat model.
+    A plain `def`: the first events (retrieval) run in the threadpool before the response starts."""
+    current = settings.current()
+    if chat.get(chat_id) is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    try:
+        ai.ready(current)
+    except ai.AIError as problem:
+        raise HTTPException(
+            status_code=AI_STATUS[problem.code], detail={"code": problem.code}
+        ) from None
+    return StreamingResponse(
+        _lines(chat.answer(current, chat_id, data.question)),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@ai_router.delete("/index", status_code=204)
+def clear_index() -> None:
+    """Empty the chat's vector index (notes, search and conversations are untouched)."""
+    chunks.clear()
 
 
 @about_router.get("")
