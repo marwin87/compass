@@ -9,7 +9,17 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import StreamingResponse
 
 from compass import about as about_info
-from compass import ai, categories, docx, importer, notes, settings, tags, transfer
+from compass import (
+    ai,
+    categories,
+    docx,
+    importer,
+    notes,
+    settings,
+    summaries,
+    tags,
+    transfer,
+)
 
 router = APIRouter(prefix="/api/notes")
 tags_router = APIRouter(prefix="/api/tags")
@@ -133,17 +143,37 @@ def translate(
 
 
 @router.post("/{note_id}/summarize")
-def summarize(note_id: int) -> dict[str, str]:  # {"text": ...}
-    """A preview of a summary and the key points of the note; nothing is saved. A plain `def`: runs in the threadpool."""
+def summarize(note_id: int) -> summaries.Summary:
+    """Write the summary and key points of the note and keep it (it replaces an earlier one); the note
+    itself is not changed. A note with no text gets no model call and no summary (`text` is empty).
+    A plain `def`: runs in the threadpool."""
     note = notes.get_note(note_id)
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
     try:
-        return {"text": ai.summarize(note.title, note.body, settings.current())}
+        text = ai.summarize(note.title, note.body, settings.current())
     except ai.AIError as problem:
         raise HTTPException(
             status_code=AI_STATUS[problem.code], detail={"code": problem.code}
         ) from None
+    if not text:
+        return summaries.Summary(text="", created_at=summaries.now(), stale=False)
+    # The digest is of the note as it was sent: an edit made while the model worked makes this stale.
+    saved = summaries.save(note.id, text, summaries.digest(note.title, note.body))
+    if saved is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return saved
+
+
+@router.get("/{note_id}/summary")
+def read_summary(note_id: int) -> summaries.Summary | None:
+    """The kept summary of a note, or null (with `stale` set when the note changed after it)."""
+    return summaries.get(note_id)
+
+
+@router.delete("/{note_id}/summary", status_code=204)
+def delete_summary(note_id: int) -> None:
+    summaries.delete(note_id)
 
 
 @router.put("/{note_id}")
@@ -202,11 +232,30 @@ def delete_tag(name: str) -> dict[str, object]:
         raise _tag_error(problem) from None
 
 
+def _export_note(
+    n: notes.Note, names: dict[int, str | None], kept: dict[int, summaries.Summary]
+) -> dict[str, object]:
+    item: dict[str, object] = {
+        "id": n.id,
+        "title": n.title,
+        "body": n.body,
+        "tags": n.tags,
+        "category": names.get(n.category_id),
+        "created_at": n.created_at,
+    }
+    if (
+        n.id in kept
+    ):  # only notes that have one, so a file without summaries is as it always was
+        item["summary"] = kept[n.id].model_dump()
+    return item
+
+
 @export_router.get("")
 def export_notes() -> Response:
     """All notes as one downloadable JSON file; search and tag filters do not apply."""
     now = datetime.now(UTC)
     items = notes.export_all()
+    kept = summaries.all_by_note()
     all_categories = categories.list_categories()
     names = {c.id: (None if c.default else c.name) for c in all_categories}
     document = {
@@ -214,17 +263,7 @@ def export_notes() -> Response:
         "exported_at": now.isoformat(timespec="seconds"),
         "count": len(items),
         "categories": [c.name for c in all_categories if not c.default],
-        "notes": [
-            {
-                "id": n.id,
-                "title": n.title,
-                "body": n.body,
-                "tags": n.tags,
-                "category": names.get(n.category_id),
-                "created_at": n.created_at,
-            }
-            for n in items
-        ],
+        "notes": [_export_note(n, names, kept) for n in items],
     }
     return Response(
         content=json.dumps(document, ensure_ascii=False, indent=2),

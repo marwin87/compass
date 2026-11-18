@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from compass import categories
+from compass import categories, summaries
 from compass.db import connect, index_note, unindex_note
 from compass.search import fold, fuzzy_terms, rank_key, words
 
@@ -30,6 +30,15 @@ class Note(BaseModel):
 
 
 @dataclass(frozen=True)
+class ParsedSummary:
+    """The AI summary of a note as an export file carries it."""
+
+    text: str
+    created_at: str
+    stale: bool  # it was already out of date when the file was made
+
+
+@dataclass(frozen=True)
 class ParsedNote:
     """A note read from an export file, already validated (see `transfer.parse_export`)."""
 
@@ -39,6 +48,7 @@ class ParsedNote:
     created_at: str  # kept exactly as written in the file
     when: datetime  # the same moment, timezone-aware, used only for ordering
     category: str | None = None  # a name; None means the default category
+    summary: ParsedSummary | None = None
 
 
 class TagCount(BaseModel):
@@ -433,6 +443,13 @@ def replace_all(items: Sequence[ParsedNote], category_names: Sequence[str]) -> i
                 assert note_id is not None
                 _save_tags(conn, note_id, p.tags)
                 index_note(conn, note_id, p.title, p.body, p.tags)
+                if (
+                    p.summary
+                ):  # a stale one gets a digest nothing matches, so it stays stale
+                    fresh = "" if p.summary.stale else summaries.digest(p.title, p.body)
+                    summaries.insert(
+                        conn, note_id, p.summary.text, p.summary.created_at, fresh
+                    )
     finally:
         conn.close()
     return len(ordered)

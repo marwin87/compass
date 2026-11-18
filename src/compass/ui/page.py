@@ -69,8 +69,11 @@ COMMON_CSS = r"""
 .aibtn svg{color:var(--ai1)}
 .aibtn.act{box-shadow:0 0 0 3px var(--ai-soft)}
 .sumwrap{padding:14px 22px 0}
+.aisum .aihd{flex-wrap:wrap;row-gap:8px}
+.aihd>svg{flex:none}
 .aisum .aihd .btn{padding:5px 10px;font-size:12px}
 .aisum .aihd .btn.icon{padding:5px 8px}
+.aisum .stale{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--danger-soft);color:var(--danger);white-space:nowrap}
 .aisum .chev svg{transition:transform var(--ease)}
 .aisum.collapsed .chev svg{transform:rotate(-90deg)}
 .aisum.collapsed>:not(.aihd){display:none}
@@ -616,7 +619,7 @@ function notePanel(note, cb) {
   let mode = "read", draft = null, msg = "";
   let preview = null, sum = null, tjob = 0, sjob = 0, swapped = false;    // preview: the translation, shown in place of the note: {state: "loading"|"done"|"error", text, msg}; swapped: the user turned its direction around; sum: the summary, shown above the note: {state, text, msg, collapsed}; the counters drop a late answer
   const dropAi = () => { tjob++; sjob++; preview = null; sum = null; swapped = false; };
-  const back = () => { dropAi(); mode = "read"; draft = null; msg = ""; draw(); };
+  const back = () => { dropAi(); mode = "read"; draft = null; msg = ""; draw(); loadSummary(); };   // the kept summary comes back (stale if the note changed)
   async function save() {
     const r = await api("/api/notes/" + note.id, json("PUT", draft));
     if (!r.ok) { msg = SAVE_ERROR; mode = "edit"; draw(); return; }
@@ -673,7 +676,10 @@ function notePanel(note, cb) {
     let next;
     try {
       const r = await api("/api/notes/" + note.id + "/summarize", {method: "POST"});
-      if (r.ok) next = {state: "done", text: (await r.json()).text};
+      if (r.ok) {
+        const d = await r.json();
+        next = d.text ? {state: "done", text: d.text, created_at: d.created_at, stale: false} : {state: "error", msg: tr("summary_empty")};
+      }
       else { const d = (await r.json().catch(() => ({}))).detail; next = {state: "error", msg: tr(SUMMARY_ERRORS[d && d.code] || "ai_err_failed_summary")}; }
     } catch (e) {
       if (e.message === "not authenticated") return;
@@ -683,13 +689,37 @@ function notePanel(note, cb) {
     aiBusy(null);
     sum = {...next, collapsed: false}; draw();
   }
-  const closeSummary = () => { sjob++; sum = null; draw(); };
+  // The summary is kept on the server (one per note): it is there when the note is opened again, and goes stale when the note is edited.
+  async function loadSummary() {
+    if (!AI_READY) return;
+    const mine = sjob;
+    try {
+      const r = await api("/api/notes/" + note.id + "/summary");
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d && mine === sjob && !sum && mode === "read") { sum = {state: "done", text: d.text, created_at: d.created_at, stale: d.stale, collapsed: false}; draw(); }   // open by default
+    } catch (e) { /* a convenience: without it the note simply shows no summary */ }
+  }
+  const toggleSummary = () => { sum.collapsed = !sum.collapsed; draw(); };
+  async function removeSummary() {      // the close button deletes a kept summary (collapsing is the chevron); an unsaved one is just dropped
+    const kept = !!sum && sum.state === "done";
+    sjob++; sum = null; draw();
+    if (!kept) return;
+    try {
+      const r = await api("/api/notes/" + note.id + "/summary", {method: "DELETE"});
+      if (r.status !== 204) throw new Error("delete");
+    } catch (e) {
+      if (e.message !== "not authenticated") toast(tr("summary_delete_failed"), "bad", 4000);
+    }
+  }
   function summaryBlock(tk) {
-    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, tr("summary_h")), h("span", {class: "grow"}),
+    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {title: sum.created_at ? tr("summary_from", {date: longDate(sum.created_at)}) : ""}, tr("summary_h")),
+      sum.stale ? h("span", {class: "stale", title: tr("summary_stale_hint")}, tr("summary_stale")) : null,
+      h("span", {class: "grow"}),
       sum.state === "done" ? h("button", {type: "button", class: "btn", "aria-label": tr("copy_summary"), title: tr("copy_summary"), onclick: () => copyAiText(sum.text)}, icon("copy", 14), tr("copy")) : null,
       sum.state === "loading" ? null : h("button", {type: "button", class: "btn", onclick: summarize}, icon("swap", 14), tr(sum.state === "error" ? "retry" : "ai_refresh")),
-      sum.state === "done" ? h("button", {type: "button", class: "btn icon chev", "aria-label": tr(sum.collapsed ? "ai_expand" : "ai_collapse"), title: tr(sum.collapsed ? "ai_expand" : "ai_collapse"), "aria-expanded": sum.collapsed ? "false" : "true", onclick: () => { sum.collapsed = !sum.collapsed; draw(); }}, icon("chevron-down", 14)) : null,
-      h("button", {type: "button", class: "btn icon", "aria-label": tr("ai_close"), title: tr("ai_close"), onclick: closeSummary}, icon("x", 14)));
+      sum.state === "done" ? h("button", {type: "button", class: "btn icon chev", "aria-label": tr(sum.collapsed ? "ai_expand" : "ai_collapse"), title: tr(sum.collapsed ? "ai_expand" : "ai_collapse"), "aria-expanded": sum.collapsed ? "false" : "true", onclick: toggleSummary}, icon("chevron-down", 14)) : null,
+      h("button", {type: "button", class: "btn icon", "aria-label": tr(sum.state === "done" ? "summary_delete" : "ai_close"), title: tr(sum.state === "done" ? "summary_delete" : "ai_close"), onclick: removeSummary}, icon("x", 14)));
     const body = sum.state === "loading" ? h("div", {class: "aithink", role: "status"}, icon("spark", 18), h("span", {}, tr("summarizing")))
       : sum.state === "error" ? h("div", {class: "err aierr"}, sum.msg)
       : h("article", {class: "md aisumbody"}, mdBlocksDom(mdParse(sum.text), {tk, heads: [], lang: noteLang(note.body)}));
@@ -700,7 +730,7 @@ function notePanel(note, cb) {
     if (!AI_READY) return null;
     const act = (on, ic, label, title, onclick) => h("button", {type: "button", class: "btn aibtn" + (on ? " act" : ""), "aria-pressed": on ? "true" : "false", title: title + " (AI)", onclick}, icon(ic, 15), label);
     return h("div", {class: "aistrip"},
-      act(!!sum, "align-left", tr("summarize_btn"), tr("summarize"), sum ? closeSummary : summarize),
+      act(!!sum && !sum.collapsed, "align-left", tr("summarize_btn"), tr("summarize"), sum ? (sum.state === "done" ? toggleSummary : removeSummary) : summarize),
       act(!!preview, "languages", translateLabel(target()), translateLabel(target()), preview ? closeTranslation : openTranslation),
       h("span", {class: "grow"}), aiTag());
   }
@@ -725,7 +755,7 @@ function notePanel(note, cb) {
               h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { dropAi(); msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
           h("h2", {}, hlNodes(note.title, tk)),
           h("div", {class: "chips"}, note.tags.map((t) => h("button", {type: "button", class: "chip" + (state.sel.has(t) ? " on" : ""), onclick: () => toggleTag(t)}, "#" + t)))),
-        h("div", {class: "sheet"}, aiStrip(), preview ? translationBlock(tk) : [sum ? summaryBlock(tk) : null, readerBody(note, tk)], h("div", {class: "err"}, msg)));
+        h("div", {class: "sheet"}, aiStrip(), preview ? translationBlock(tk) : [sum && AI_READY ? summaryBlock(tk) : null, readerBody(note, tk)], h("div", {class: "err"}, msg)));
       setTimeout(() => { watchToc(root); syncReadButton(); }, 0);   // after the panel is in the page
     } else if (mode === "del") {
       root.replaceChildren(h("h2", {}, note.title), h("div", {class: "confirm"}, h("span", {}, tr("confirm_delete")),
@@ -742,6 +772,7 @@ function notePanel(note, cb) {
     }
   }
   draw();
+  loadSummary();      // a kept summary is shown at once
   return root;
 }
 function newPanel(cb) {

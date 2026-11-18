@@ -53,7 +53,7 @@ Compass finds notes in a fraction of a second, but without an LLM it is a plain 
 | S-06 | chat-with-notes    | ask questions of my notes and get answers that name the notes they come from                           | F-01          | FR-017                           | pending |
 | S-07 | import-image       | import notes from an image (photo, screenshot, scan) through the same review flow                      | S-02          | — (new, extend the PRD)          | pending |
 | S-08 | import-text-file   | import notes from a plain text file (.txt, .md) through the same review flow                           | S-02          | — (new, extend the PRD)          | done    |
-| S-09 | summarize-note     | get a summary and the key points of a note, read the preview and copy it, with the note unchanged      | F-01          | — (new, extend the PRD)          | pending |
+| S-09 | summarize-note     | get a summary and the key points of a note, kept with the note, shown above it and included in the backup | F-01       | — (new, extend the PRD)          | done    |
 
 ## Baseline
 
@@ -185,7 +185,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ### S-09: Summarize a note
 
-- **Outcome:** user can ask for a summary and the key points of a note, read a preview and copy it to the clipboard; nothing is saved and the stored note is unchanged.
+- **Outcome:** user can ask for a summary and the key points of a note; the summary is written above the note in an AI block, kept with the note (shown again whenever it is opened, marked outdated after an edit) and carried by export and import; the note text itself is never changed.
 - **Change ID:** summarize-note
 - **PRD refs:** — (new; add an FR to `prd-ai.md` before planning)
 - **Prerequisites:** F-01
@@ -193,7 +193,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** the shape of the answer (a short paragraph plus a list of key points); the language of the summary (the note's own, or the interface language); whether a very long note is cut into parts first (reuse the windows of `importer.py`); where the control sits next to Translate (S-01).
 - **Risk:** small: the same path as S-01 (`POST /api/notes/{id}/translate`, preview in the reader layout, AI marker). Like translation, every open pays again because nothing is saved.
-- **Status:** pending
+- **Status:** done
 
 ## Backlog Handoff
 
@@ -208,7 +208,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-06       | chat-with-notes    | Ask questions of the notes with named sources           | after F-01            | May split; fit in budget open  |
 | S-07       | import-image       | Import notes from an image through the same flow        | after S-02            | Needs a vision model; add FR   |
 | S-08       | import-text-file   | Import notes from a .txt or .md file                    | done                  | FR still to add to the PRD     |
-| S-09       | summarize-note     | Summarize a note (summary and key points) with a preview | after F-01           | Add FR to the PRD              |
+| S-09       | summarize-note     | Summarize a note (summary and key points), kept with the note | done            | FR still to add to the PRD     |
 
 ## Open Roadmap Questions
 
@@ -242,5 +242,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **S-04: Rewrite imported text with rich-text elements** — Done 2026-11-18 → closed in the roadmap directly. Delivered inside S-02: the model writes every note as tidy Markdown (headings, lists, tables, fenced code) and keeps all facts. The open question (structure changed, not meaning) is covered by the check step (what the model found missing, plus numbers and links found in no note) and by the user reviewing every note before saving. Known limit: the check is done by the same model that wrote the notes, and there is no original to compare against. Lesson: a quality requirement like this was cheaper to meet inside the main flow than as a separate pass.
 
 - **S-08: Import notes from a plain text file** — Done 2026-11-18 → closed in the roadmap directly. `.txt`, `.md` and `.markdown` go through the same flow as Word. `src/compass/textfile.py` reads blocks (blank-line paragraphs, `#` headings, a fenced code block kept whole); the endpoint became generic, `POST /api/import/file?name=…`, and `importer._blocks` picks the parser by extension (an unknown one is `unsupported`, no model call), so the next format is one parser and one line. Encodings: UTF-8 (BOM or not), then Windows-1250; text is normalised to NFC (macOS can write accented letters decomposed, which would split a tag in two); CR, LF and CRLF line endings all work. `BadDocx` became `BadFile`. Known limits: `.rtf` (TextEdit's default) is not supported, and very old MacRoman files are read as Windows-1250 without an error. Lesson: files from macOS differ from Windows ones in more than the picker (decomposed Unicode, CR line endings); test with real files from the user's own system.
+
+- **S-09: Summarize a note** — Done 2026-11-18 → closed in the roadmap directly. `POST /api/notes/{id}/summarize` writes a short summary and 3 to 7 key points in the language of the note and **keeps** it (table `note_summaries`, one per note, `src/compass/summaries.py`; not searched, deleted with the note); `GET` and `DELETE /api/notes/{id}/summary` read and remove it. It remembers a digest of the title and text it came from, so after an edit it shows as outdated (still readable, Refresh writes a new one), also when the edit happened while the model was working. Export and import carry it as an optional `summary` field of the note (a file without summaries is unchanged, a malformed one is refused). UI: the note panel got an AI strip (Summarize, Translate; one AI tag, on the right) instead of toolbar icons; the summary opens above the note in an AI block, open by default, with Copy, Refresh, collapse and a close button that deletes it; translation is unchanged (replaces the note, not kept). Rule added for every AI job: the "block the page during AI work" setting (`aiBusy`). Known limits: one call per note (20 000 characters at most, no splitting); the answer is not streamed. Lesson: where a result has lasting value (a summary) keep it from the start, where it is a one-off preview (a translation) do not; and a layout study (`docs/prototypes/ai-note-actions.html`) before moving buttons settled the placement in one round.
 
 (Entries are added by hand when a slice is finished, format: `- **<ID>: <Outcome>** — Done <YYYY-MM-DD> → `context/changes/<change-id>/`. Lesson: —.`)

@@ -499,7 +499,7 @@ const IMPORT_ERRORS = {
   count_mismatch: "import_err_count_mismatch", invalid_note: "import_err_invalid_note",
   file_too_large: "import_err_file_too_large",
 };
-const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", category: "field_category", note: "field_note"};
+const FIELD_NAMES = {title: "field_title", body: "field_body", tags: "field_tags", created_at: "field_created_at", category: "field_category", note: "field_note", summary: "field_summary"};
 function importError(detail) {
   const d = detail && typeof detail === "object" ? detail : {};
   const key = IMPORT_ERRORS[d.code];

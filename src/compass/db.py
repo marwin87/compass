@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS settings(
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS note_summaries(
+    note_id INTEGER PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    source_hash TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS categories(
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,

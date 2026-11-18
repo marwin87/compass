@@ -18,8 +18,9 @@ def test_summarizes_and_changes_nothing(authed: TestClient, fake: Fake) -> None:
     nid = add(authed, "Docker runs containers.\n\n- images\n- volumes")
     before = rows()
     r = authed.post(f"/api/notes/{nid}/summarize")
-    assert r.status_code == 200 and r.json() == {"text": fake.reply}
-    assert rows() == before  # the note is untouched
+    assert r.status_code == 200 and r.json()["text"] == fake.reply
+    assert r.json()["stale"] is False and r.json()["created_at"]
+    assert rows() == before  # the note itself is untouched
     (req,) = fake.requests
     assert req["path"] == "/chat/completions"
     system, user = (m["content"] for m in req["body"]["messages"])
@@ -48,7 +49,8 @@ def test_a_missing_note_is_a_404_and_an_empty_note_makes_no_call(
     assert authed.post("/api/notes/999/summarize").status_code == 404
     nid = add(authed, "   ")
     r = authed.post(f"/api/notes/{nid}/summarize")
-    assert r.status_code == 200 and r.json() == {"text": ""}
+    assert r.status_code == 200 and r.json()["text"] == ""
+    assert authed.get(f"/api/notes/{nid}/summary").json() is None  # nothing was kept
     assert fake.requests == []
 
 

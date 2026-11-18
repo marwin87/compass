@@ -9,7 +9,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from compass import categories
-from compass.notes import MAX_BODY, MAX_TITLE, ParsedNote, normalize_tags
+from compass.notes import (
+    MAX_BODY,
+    MAX_TITLE,
+    ParsedNote,
+    ParsedSummary,
+    normalize_tags,
+)
+from compass.summaries import MAX_SUMMARY
 
 EXPORT_FORMAT = "compass-export"
 
@@ -27,6 +34,24 @@ def _is_int(value: object) -> bool:
 
 def _bad(index: int, field: str) -> BadExport:
     return BadExport("invalid_note", index=index, field=field)
+
+
+def _parse_summary(index: int, raw: object) -> ParsedSummary | None:
+    """The optional `summary` of a note: {text, created_at, stale}."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise _bad(index, "summary")
+    text, created_at, stale = raw.get("text"), raw.get("created_at"), raw.get("stale")
+    if not isinstance(text, str) or not 1 <= len(text.strip()) <= MAX_SUMMARY:
+        raise _bad(index, "summary")
+    if not isinstance(created_at, str) or not isinstance(stale, bool):
+        raise _bad(index, "summary")
+    try:
+        datetime.fromisoformat(created_at)
+    except ValueError:
+        raise _bad(index, "summary") from None
+    return ParsedSummary(text, created_at, stale)
 
 
 def _parse_note(index: int, raw: object) -> ParsedNote:
@@ -66,7 +91,13 @@ def _parse_note(index: int, raw: object) -> ParsedNote:
             if problem.code != "name_reserved":  # the default's own labels are fine
                 raise _bad(index, "category") from None
     return ParsedNote(
-        title.strip(), body, tuple(clean_tags), created_at, when, category
+        title.strip(),
+        body,
+        tuple(clean_tags),
+        created_at,
+        when,
+        category,
+        _parse_summary(index, raw.get("summary")),
     )
 
 

@@ -77,6 +77,10 @@ Notes are listed newest first, tags alphabetically, in UTF-8. `category` is the 
 "Uncategorized". The format has no version number. The file holds all your notes in plain
 text, so keep it as safe as the database.
 
+A note that has an AI summary (see below) carries it as one more field,
+`"summary": {"text": "…", "created_at": "…", "stale": false}`; `stale` is `true` when the note was edited after the
+summary was written. Notes without a summary have no such field, so a file without any is exactly as before.
+
 ## Import
 
 The **Import** button (Settings → Backup) restores a file made by the Export button. It is a one-to-one restore, not a
@@ -90,7 +94,9 @@ after you confirm. Nothing is skipped and importing the same file twice gives th
   rejects the entire file and the current data stays as it was;
 - categories come from the file's `categories` list (including empty ones) and from each note's
   `category`; older exports without them import into "Uncategorized";
-- creation dates are kept, ids are new, and notes are added oldest first so the list looks the same.
+- creation dates are kept, ids are new, and notes are added oldest first so the list looks the same;
+- a note's `summary` (optional) is restored with it, still marked outdated if it was; a malformed summary rejects the
+  whole file like any other invalid field.
 
 ## Demo data
 
