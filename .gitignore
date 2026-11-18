@@ -35,3 +35,6 @@ htmlcov/
 
 /.claude/
 /docs/prototypes/
+
+# Playwright output (traces and screenshots of failed e2e tests)
+test-results/

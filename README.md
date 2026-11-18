@@ -100,6 +100,20 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy src tests
 ```
 
+### End-to-end tests (local only)
+
+Browser tests of the main flows live in `tests/e2e/` (Playwright for Python). They are **not** part of a plain
+`pytest` run and **not** run in CI. They start the app on a free port with a temporary database.
+
+```bash
+uv run playwright install chromium        # once (about 150 MB)
+uv run pytest -m e2e                      # headless
+uv run pytest -m e2e --headed --slowmo 300   # watch the browser
+uv run pytest -m e2e tests/e2e/test_login.py # one module
+```
+
+A failing test leaves a screenshot and a trace in `test-results/` (`uv run playwright show-trace <trace.zip>`).
+
 ## Project docs
 
 - `context/foundation/prd.md`: product requirements

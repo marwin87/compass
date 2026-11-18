@@ -251,3 +251,23 @@ Also run `uv run ruff format . && uv run ruff check . && uv run mypy src tests &
   (`max-height`) so a long list never makes the page long, and rows that need room (rename field, confirmation,
   the fixed default category) get the `wide` class and span both columns. At most 300 rows are drawn; the hint
   line (`list_capped`) says so and the search narrows the rest. Do not add a "show more" button to these lists.
+
+## 12. End-to-end tests (`tests/e2e/`, local only)
+
+- **Run:** `uv run pytest -m e2e` (`--headed --slowmo 300` to watch). The `e2e` marker is added to everything under
+  `tests/e2e/` and the default `addopts` deselect it, so a plain `pytest` and CI never need a browser.
+- **Server and state:** the `server` fixture runs `uvicorn` on a free port with a temporary database and an explicit
+  test password; the autouse `clean` fixture empties the data (`DELETE /api/data`) and restores the default settings
+  before every test; every test gets a fresh browser context (own cookies). Use the `app` fixture for a logged-in
+  page, `page` for an anonymous one, `api` for preparing or checking data over HTTP.
+- **Rules (from `CLAUDE.md`):** locate by role, label, placeholder or text (`get_by_role`, `get_by_label`,
+  `get_by_placeholder`, `get_by_text`); `get_by_test_id` only when those are ambiguous; never `wait_for_timeout`
+  (use web-first `expect(...)` and `wait_for_url`/`wait_for`); each test is independent, builds its own data with
+  `unique(...)` titles and does not rely on another test.
+- **Texts come from the app:** `tests/e2e/pages.py` exposes `T = STRINGS["pl"]` (the browser runs with the Polish
+  locale), so a renamed string breaks the test at its source instead of silently. Put repeated steps in `pages.py`;
+  keep assertions in the tests.
+- **Browser context:** reduced motion (no transitions to wait for), a 1280x800 viewport, clipboard permissions.
+  Mobile tests build their own context with a phone viewport.
+- **Failures** leave a screenshot and a trace in `test-results/` (git-ignored).
+- **Not here:** pixel comparison, other browsers, a CI job.

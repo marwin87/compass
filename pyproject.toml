@@ -15,11 +15,17 @@ dev = [
     "mypy>=2.4.1",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
+    "pytest-playwright>=0.10.0",
     "ruff>=0.17.5",
 ]
 
 [tool.mypy]
 strict = true
+
+[tool.pytest.ini_options]
+# Browser tests (tests/e2e) are opt-in: `uv run pytest -m e2e`. A plain run, and CI, never need a browser.
+markers = ["e2e: browser tests of the main flows, run locally with -m e2e"]
+addopts = "-m 'not e2e' --tracing=retain-on-failure --screenshot=only-on-failure"
 
 [tool.coverage.run]
 source = ["compass"]

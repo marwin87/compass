@@ -23,6 +23,8 @@ See `@context/foundation/prd.md` for domain rules and `@context/foundation/tech-
 
 API docs: `http://localhost:8011/docs`.
 
+Browser (e2e) tests are opt-in and local only: `uv run pytest -m e2e` (first `uv run playwright install chromium`); a plain `uv run pytest` and CI skip them. Rules for writing them: `docs/STYLE_GUIDE.md` section 12.
+
 ## Coding Style & Conventions
 
 ## Pre-commit Hooks

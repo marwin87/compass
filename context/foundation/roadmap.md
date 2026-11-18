@@ -3,7 +3,7 @@ project: Compass
 version: 1
 status: draft
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 prd_version: 1
 main_goal: quality
 top_blocker: decisions
@@ -29,6 +29,7 @@ milestone_status: open
 - **Scope anchors:** FR-009 (export and import of data, the PRD's only requirement not covered by M-01); PRD Success Criteria §Secondary (import and export); PRD Success Criteria §Guardrails (no data loss: a restart or failure does not delete notes).
   - MS-01: Every note belongs to a category, and the user can quickly filter the notes by category (added to M-02 by the user, 2026-11-17).
   - MS-02: A Settings page where configuration lives (appearance, data, shortcuts, about) and where server-side configuration such as API or LLM can be added later (added to M-02 by the user, 2026-11-17).
+  - MS-03: Automated end-to-end browser tests of the main flows, run locally with one command (added to M-02 by the user, 2026-11-18).
 
 ## Vision recap
 
@@ -48,6 +49,7 @@ Knowledge on any topic is scattered across notes, bookmarks, and memory, and fin
 | S-02  | import-notes | load notes from an exported file back into Compass without losing title, body, tags or dates | S-01   | FR-009, Success Criteria §Secondary, §Guardrails      | done |
 | S-03  | note-categories | put every note in a category and quickly filter my notes by category | — | MS-01 | done |
 | S-04  | settings-page | open a Settings page to change my preferences, manage my data and see information about the app | — | MS-02 | done |
+| S-05  | e2e-tests | run the main flows of the app in a real browser with one local command | — | MS-03 | done |
 
 ## Baseline
 
@@ -115,6 +117,18 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 - **Risk:** Moving shared frontend helpers and the category/import flows touches code every screen depends on, so behaviour must stay identical; the settings store is the foundation later API and LLM configuration will build on.
 - **Status:** done
 
+### S-05: Run the main flows in a real browser with one command
+
+- **Outcome:** the maintainer can run `uv run pytest -m e2e` and have the ten main flows (login, create and search, edit and delete, Markdown editor, reading mode, filters and sorting, settings, data tools, tag and category management, mobile layout) driven through a real browser against a temporary instance, locally and not in CI.
+- **Change ID:** e2e-tests
+- **PRD refs:** MS-03
+- **Prerequisites:** —
+- **Parallel with:** —
+- **Blockers:** —
+- **Unknowns:** — (resolved: Playwright for Python through pytest-playwright, Chromium only, local only with no CI job, the default `pytest` run skips them through an `e2e` marker, data reset through `DELETE /api/data` and `PUT /api/settings`)
+- **Risk:** Flaky tests; the suite is not guarded by CI so it can rot, which is why it stays one documented command away and every phase runs the new module three times.
+- **Status:** done
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID    | Suggested issue title                          | Ready for `/10x-plan` | Notes                         |
@@ -123,6 +137,7 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 | S-02       | import-notes | Load notes from an exported file               | done                  | Done                          |
 | S-03       | note-categories | Put every note in a category and filter by it | done                  | Done                          |
 | S-04       | settings-page | Add a Settings page with a server-side settings store | done                  | Done                          |
+| S-05       | e2e-tests | Add local end-to-end browser tests of the main flows | done | Done |
 
 ## Open Roadmap Questions
 
@@ -161,3 +176,8 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 - **(outside the roadmap) Note reader: Markdown and reading mode** — Done 2026-11-17. Not a roadmap item. Notes stay plain text in the database (no migration; import, export and search unchanged) and are displayed through a safe Markdown renderer (`src/compass/ui/reader.py`: H1-H6, lists, nested lists, quotes, links, tables, callouts NOTE/INFO/TIP/WARNING/IMPORTANT/SUCCESS, code blocks with a built-in highlighter, language label and Copy, automatic contents for 3+ sections); old notes read as before (line breaks kept, raw HTML shown as text, only safe links). Reading mode hides the chrome, centres the text, has font size and width controls kept in `localStorage`, and Esc leaves it. No reading progress, word count or reading time by decision. The demo file gained five Markdown notes. Lesson: —.
 - **(outside the roadmap) Sorting the note list** — Done 2026-11-17. Not a roadmap item. `GET /api/notes?sort=title_asc|title_desc|date_asc|date_desc` (applied before the 50-result cut; titles ignore case and accents; dates compared as real moments) and a sort control above the list ("Trafność / najnowsze" keeps relevance while searching); the choice is remembered. Lesson: —.
 - **S-04: Open a Settings page for preferences, data and about** — Done 2026-11-17 (closed in the roadmap directly, not archived) → `context/changes/settings-page/`. A separate `/settings` page with Appearance (theme, language, reading text size and width, default list order), Data (manage categories, export, import with a confirmation popup, clear all data with a popup), Keyboard shortcuts and About (version, counts, database size and path). Preferences are stored on the server (`settings` table, `GET`/`PUT /api/settings` with a registry of validated keys) and embedded in the page, so the theme no longer flashes; the language stays a cookie. Shared frontend helpers moved to `ui/core.py`; the sidebar gets a Settings button and loses EN/PL, the theme switch, import, export and the category manager (language and theme are changed only in Settings). `DELETE /api/data` and `GET /api/about` added. New settings (API, LLM) are added through the registry. Lesson: —.
+- **(outside the roadmap) Markdown editor** — Done 2026-11-18. Not a roadmap item. The note forms got a Write/Preview tab pair and a toolbar (bold, italic, strike, H2/H3, lists, quote, inline and fenced code, link, table, callout menu with six kinds) built from DOM calls (`src/compass/ui/editor.py`, pure `ed*` functions tested in Node); `Ctrl/Cmd+B` and `+I`; undo keeps working; the preview uses the same renderer as the reader. Notes stay plain text in the database. Lesson: —.
+- **(outside the roadmap) Tag management** — Done 2026-11-18. Not a roadmap item. A Tags section in Settings: search, sort (count or name), rename (the name is cleaned like on save), merging into an existing tag after a question that shows both counts, delete with a question (the notes stay); `PUT`/`DELETE /api/tags/{name}` re-index the touched notes in one transaction. Lesson: —.
+- **(outside the roadmap) Settings refinements** — Done 2026-11-18. Not a roadmap item. Sections reordered (the Danger zone is always second to last), categories and tags shown as compact two-column scrolling lists with search, the sidebar links "Zarządzaj" open the matching Settings section, the navigation highlight no longer jumps near the end of the page. Lesson: —.
+- **(outside the roadmap) Repository and CI housekeeping** — Done 2026-11-18. Not a roadmap item. `src/compass/` split into the backend and `src/compass/ui/` (pages, shared script, reader, editor, translations); tests laid out the same way (`tests/ui/`); docs moved to `docs/`; Dependabot removed (no automatic pull requests); CI jobs renamed and split (`lint` with ruff and mypy, `test` with coverage gate 80%, `docker` build and container smoke test with restart persistence). Lesson: —.
+- **S-05: Run the main flows in a real browser with one command** — Done 2026-11-18 (closed in the roadmap directly, not archived) → `context/changes/e2e-tests/`. `uv run pytest -m e2e` starts the app on a free port with a temporary database and drives 88 Playwright (Python, Chromium) tests through ten flows: login and access, create and search, edit and delete, the Markdown editor, reading mode, filters and sorting, settings persistence, export/import/clear, tag and category management, and the 390 px phone layout. Data is reset per test through `DELETE /api/data` and `PUT /api/settings`; failures leave a screenshot and a trace in `test-results/`. Local only: a plain `pytest` and CI skip them through the `e2e` marker. Three full runs in a row passed. Lesson: —.
