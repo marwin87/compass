@@ -37,6 +37,7 @@ import sys
 import tempfile
 import threading
 import time
+import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -91,17 +92,64 @@ TRANSLATION = (
 )
 
 
+CHAT_QUESTION = "Dlaczego funkcja w WHERE wyłącza indeks?"
+CHAT_ANSWER = (
+    "Funkcja na kolumnie w `WHERE` wyłącza zwykły indeks, więc baza czyta całą tabelę zamiast iść po "
+    "drzewie{b}. Zostaw kolumnę „gołą” albo załóż indeks na samym wyrażeniu{i}."
+)
+
+
+def embedding(text: str) -> list[float]:
+    """A stand-in for an embedding model: words hashed into 128 buckets (same words, close vectors)."""
+    vector = [0.0] * 128
+    for word in re.findall(r"\w+", text.lower()):
+        if len(word) >= 3:
+            vector[zlib.crc32(word.encode()) % 128] += 1.0
+    return vector
+
+
 class FakeModel(BaseHTTPRequestHandler):
+    def _send(self, body: bytes, kind: str = "application/json") -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", kind)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self) -> None:
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        system = payload["messages"][0]["content"]
+        if self.path.endswith("/embeddings"):
+            rows = [
+                {"index": i, "embedding": embedding(text)}
+                for i, text in enumerate(payload["input"])
+            ]
+            return self._send(json.dumps({"data": rows}).encode())
+        messages = payload["messages"]
+        system = messages[0]["content"]
+        if system.startswith(
+            "You answer questions"
+        ):  # the chat: cite the excerpts it was given
+            prompt = messages[-1]["content"]
+            numbers = {  # note title -> number of its excerpt
+                m[2]: m[1]
+                for m in re.finditer(r"^\[(\d+)\] (.+)$", prompt, re.MULTILINE)
+            }
+            cite = lambda title: f" [{numbers[title]}]" if title in numbers else ""
+            answer = CHAT_ANSWER.format(
+                b=cite("B-drzewo od środka (długa notatka)"),
+                i=cite("Indeks w bazie danych"),
+            )
+            events = [
+                {"choices": [{"delta": {"content": word + " "}}]}
+                for word in answer.split()
+            ]
+            body = (
+                "".join(f"data: {json.dumps(e)}\n\n" for e in events)
+                + "data: [DONE]\n\n"
+            )
+            return self._send(body.encode(), "text/event-stream")
         text = SUMMARY if system.startswith("Summarize") else TRANSLATION
-        data = json.dumps({"choices": [{"message": {"content": text}}]}).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        self._send(json.dumps({"choices": [{"message": {"content": text}}]}).encode())
 
     def log_message(self, *args: object) -> None:
         pass
@@ -123,8 +171,13 @@ def seed(url: str, stub_port: int) -> None:
         "ai_connection": "local",
         "ai_address": f"127.0.0.1:{stub_port}",
         "ai_model_local": "llama3.1",
+        "ai_embed_model_local": "nomic-embed-text",
     }
     assert api.put("/api/settings", json=settings).status_code == 200
+    with api.stream(
+        "POST", "/api/ai/index"
+    ) as r:  # build the chat index now, not at the first question
+        assert r.status_code == 200 and '"error"' not in "".join(r.iter_lines())
 
 
 # ===== C. steps (edit): the screenshots ====================================================================
@@ -153,6 +206,13 @@ def steps(page: Page, url: str) -> None:
     detail.get_by_role("button", name="Translate PL→EN").click()
     expect(detail.get_by_role("heading", name="Week 1–2")).to_be_visible()
     shot(page, "ai-translate")
+
+    # chat with the notes: a question, a streamed answer with sources
+    page.get_by_role("button", name="Ask", exact=True).click()
+    page.get_by_placeholder("Ask a question about your notes…").fill(CHAT_QUESTION)
+    page.get_by_role("button", name="Send").click()
+    expect(detail.get_by_text("Sources", exact=True)).to_be_visible()
+    shot(page, "ai-chat")
 
     # list with the side panel, then typo-tolerant search
     open_note(page, "Cheatsheet: Git i Docker")
