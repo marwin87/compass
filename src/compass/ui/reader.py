@@ -283,7 +283,7 @@ function mdBlocksDom(blocks, ctx) {
     if (b.t === "quote") return h("blockquote", {}, mdBlocksDom(b.c, ctx));
     if (b.t === "callout") {
       const [label, ic] = CALLOUTS[b.kind];
-      return h("div", {class: "callout " + b.kind, role: "note"}, h("div", {class: "calltitle"}, icon(ic, 16), h("span", {}, tr(label))), h("div", {class: "callbody"}, mdBlocksDom(b.c, ctx)));
+      return h("div", {class: "callout " + b.kind, role: "note"}, h("div", {class: "calltitle"}, icon(ic, 16), h("span", {}, ctx.lang && I18N.callouts[ctx.lang] ? I18N.callouts[ctx.lang][label] : tr(label))), h("div", {class: "callbody"}, mdBlocksDom(b.c, ctx)));
     }
     if (b.t === "ul" || b.t === "ol") {
       const list = h(b.t, b.t === "ol" && b.start !== 1 ? {start: b.start} : {});
@@ -330,8 +330,8 @@ function watchToc(root) {                         // highlight the section being
   tocWatch = () => scroller.removeEventListener("scroll", onScroll);
   update();
 }
-function readerBody(note, tk) {                   // the rendered note: optional contents + the article
-  const ctx = {tk, heads: []};
+function readerBody(note, tk, lang) {             // the rendered note: optional contents + the article; lang names callouts in a translation
+  const ctx = {tk, heads: [], lang};
   const article = h("article", {class: "md"}, mdBlocksDom(mdParse(note.body), ctx));
   const tocHeads = ctx.heads.filter((x) => x.level === 2 || x.level === 3);
   const wrap = h("div", {class: "mdwrap"});

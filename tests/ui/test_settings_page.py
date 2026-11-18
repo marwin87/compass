@@ -240,3 +240,10 @@ def test_language_and_theme_are_changed_only_in_settings(anon: TestClient) -> No
     )  # no duplicates in the sidebar
     assert 'href="/settings"' in notes
     assert "ctl-lang" in settings and "ctl-theme" in settings
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_the_settings_page_has_a_logout_button(authed: TestClient, lang: str) -> None:
+    authed.cookies.set("lang", lang)
+    page = authed.get("/settings").text
+    assert 'action="/logout"' in page and STRINGS[lang]["logout"] in page

@@ -16,7 +16,8 @@ DEFAULTS = {
     "ai_enabled": False,
     "ai_connection": "openrouter",
     "ai_address": "",
-    "ai_model": "",
+    "ai_model_openrouter": "",
+    "ai_model_local": "",
 }
 
 
@@ -56,7 +57,8 @@ def test_partial_update_changes_only_the_given_keys_and_persists(
         ("ai_enabled", [True, False]),
         ("ai_connection", ["openrouter", "local"]),
         ("ai_address", ["", "http://localhost:11434/v1"]),
-        ("ai_model", ["", "openai/gpt-4o-mini"]),
+        ("ai_model_openrouter", ["", "openai/gpt-4o-mini"]),
+        ("ai_model_local", ["", "llama3"]),
     ],
 )
 def test_every_valid_value_is_accepted(
@@ -82,7 +84,8 @@ def test_every_valid_value_is_accepted(
         ("ai_enabled", 1),
         ("ai_connection", "cloud"),
         ("ai_address", "x" * 201),
-        ("ai_model", 5),
+        ("ai_model_openrouter", 5),
+        ("ai_model_local", 5),
         ("reader_width", 3),
         ("reader_width", -1),
         ("reader_width", False),

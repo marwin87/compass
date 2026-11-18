@@ -23,6 +23,7 @@ body{background:radial-gradient(1000px 500px at 80% -10%,rgba(82,117,255,.11),tr
 .sback:hover{color:var(--ink);background:rgba(255,255,255,.04)}
 .snav h1{font-size:22px;margin:12px 4px 14px;letter-spacing:-.01em}
 .snav nav{display:grid;gap:2px}
+.slogout{margin-top:auto}
 .snav nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;color:var(--muted);text-decoration:none;border:1px solid transparent;transition:background var(--ease),color var(--ease)}
 .snav nav a:hover{background:rgba(255,255,255,.04);color:var(--ink)}
 .snav nav a.on{background:var(--accent-soft);color:var(--ink);border-color:rgba(99,125,255,.35);font-weight:600}
@@ -113,7 +114,9 @@ a.btn{text-decoration:none}
   .slogo .logo{font-size:17px}
   .slogo .dot{width:32px;height:32px;border-radius:10px}
   .snav h1{display:none}
-  .snav nav{display:flex;gap:6px;overflow-x:auto;width:100%;scrollbar-width:none}
+  .slogout{margin:0 0 0 auto}
+  .slogout .btn{width:auto}
+  .snav nav{order:1;display:flex;gap:6px;overflow-x:auto;width:100%;scrollbar-width:none}
   .snav nav a{flex:none;padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-size:13px}
   .scontent{padding:20px 14px 60px}
   .srow{flex-direction:column;align-items:flex-start;gap:12px}
@@ -123,13 +126,15 @@ a.btn{text-decoration:none}
 }
 """
 
+AI_TAG = ' <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span>'
+
 _SECTIONS = (
     ("appearance", "settings_nav_appearance", "sun"),
     ("categories", "categories_h", "layers"),
     ("tags", "settings_nav_tags", "tag"),
     ("backup", "data_backup_h", "database"),
     ("shortcuts", "settings_nav_shortcuts", "zap"),
-    ("ai", "ai_h", "bulb"),
+    ("ai", "ai_h", "spark"),
     ("danger", "data_danger_h", "alert"),
     ("about", "settings_nav_about", "info"),
 )
@@ -158,10 +163,11 @@ SETTINGS_HTML = (
     <nav id="snav" aria-label="[[settings_title]]">
 """
     + "".join(
-        f'      <a href="#{sid}" data-sec="{sid}"><span class="ic" data-icon="{ic}" data-size="16"></span>[[{key}]]</a>\n'
+        f'      <a href="#{sid}" data-sec="{sid}"><span class="ic" data-icon="{ic}" data-size="16"></span>[[{key}]]{AI_TAG if sid == "ai" else ""}</a>\n'
         for sid, key, ic in _SECTIONS
     )
     + r"""    </nav>
+    <form class="slogout" method="post" action="/logout"><button class="btn wide sidebtn"><span class="ic" data-icon="logout"></span>[[logout]]</button></form>
   </aside>
   <main class="scontent">
     <section class="ssec" id="appearance">
@@ -218,8 +224,8 @@ SETTINGS_HTML = (
       <div class="scard" id="shortcutlist"></div>
     </section>
     <section class="ssec" id="ai">
-      <h2>[[ai_h]]</h2>
-      <div class="scard">
+      <h2>[[ai_h]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></h2>
+      <div class="scard aiframe">
         <div class="srow"><div><div class="sname">[[set_ai_enabled]]</div><div class="sdesc">[[set_ai_enabled_desc]]</div></div><div class="sctl" id="ctl-ai-on"></div></div>
         <div class="srow"><div><div class="sname">[[set_ai_connection]]</div><div class="sdesc">[[set_ai_connection_desc]]</div></div><div class="sctl" id="ctl-ai-conn"></div></div>
         <div class="srow" id="row-ai-addr"><div><div class="sname">[[set_ai_address]]</div><div class="sdesc">[[set_ai_address_desc]]</div></div><div class="sctl" id="ctl-ai-addr"></div></div>
@@ -309,18 +315,22 @@ $("#ctl-sort").append(sortSel);
 // AI: the switch, the connection and where it points; the key itself lives in the server environment only
 const aiOn = segmented([[true, tr("ai_on")], [false, tr("ai_off")]], SETTINGS.ai_enabled, (v) => change("ai_enabled", v, (x) => aiOn.set(x)).then(loadAiStatus));
 $("#ctl-ai-on").append(aiOn.el);
-const aiConn = segmented([["openrouter", "OpenRouter"], ["local", tr("ai_local")]], SETTINGS.ai_connection, (v) => change("ai_connection", v, (x) => { aiConn.set(x); showAiRows(); }).then(loadAiStatus));
-$("#ctl-ai-conn").append(aiConn.el);
-const aiText = (key, ph) => {
+// Each connection keeps its own model: the model field shows and saves the one of the chosen connection
+const modelKey = (conn) => "ai_model_" + conn;
+const aiText = (keyOf, ph) => {
   const input = h("input", {class: "sinput", maxlength: "200", autocomplete: "off", placeholder: ph, "aria-label": ph});
-  input.value = SETTINGS[key];
-  input.addEventListener("change", () => change(key, input.value.trim(), (x) => { input.value = x; }).then(loadAiStatus));
+  input.value = SETTINGS[keyOf()];
+  input.addEventListener("change", () => { const key = keyOf(); change(key, input.value.trim(), (x) => { if (keyOf() === key) input.value = x; }).then(loadAiStatus); });
   return input;
 };
-$("#ctl-ai-addr").append(aiText("ai_address", "localhost:11434/v1"));
-$("#ctl-ai-model").append(aiText("ai_model", tr("ai_model_ph")));
-const showAiRows = () => { $("#row-ai-addr").hidden = SETTINGS.ai_connection !== "local"; };
-showAiRows();
+const aiAddr = aiText(() => "ai_address", "localhost:11434/v1");
+const aiModel = aiText(() => modelKey(SETTINGS.ai_connection), tr("ai_model_ph"));
+const showAiConn = (conn) => { $("#row-ai-addr").hidden = conn !== "local"; aiModel.value = SETTINGS[modelKey(conn)]; };
+const aiConn = segmented([["openrouter", "OpenRouter"], ["local", tr("ai_local")]], SETTINGS.ai_connection, (v) => change("ai_connection", v, (x) => { aiConn.set(x); showAiConn(x); }).then(loadAiStatus));
+$("#ctl-ai-conn").append(aiConn.el);
+$("#ctl-ai-addr").append(aiAddr);
+$("#ctl-ai-model").append(aiModel);
+showAiConn(SETTINGS.ai_connection);
 const MISSING_LABELS = {key: tr("ai_missing_key"), address: tr("ai_missing_address"), model: tr("ai_missing_model")};
 async function loadAiStatus() {
   let d;

@@ -52,7 +52,10 @@ SPEC: dict[str, Setting] = {
     "ai_enabled": Setting(False, _bool),
     "ai_connection": Setting("openrouter", _choice("openrouter", "local")),
     "ai_address": Setting("", _str(200)),  # used by the local connection only
-    "ai_model": Setting("", _str(200)),
+    "ai_model_openrouter": Setting(
+        "", _str(200)
+    ),  # each connection keeps its own model
+    "ai_model_local": Setting("", _str(200)),
 }
 
 

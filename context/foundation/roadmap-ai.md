@@ -44,7 +44,7 @@ Compass finds notes in a fraction of a second, but without an LLM it is a plain 
 
 | ID   | Change ID          | Outcome (user can …)                                                                                   | Prerequisites | PRD refs                         | Status  |
 | ---- | ------------------ | ------------------------------------------------------------------------------------------------------ | ------------- | -------------------------------- | ------- |
-| F-01 | ai-foundation      | switch AI on in Settings, pick OpenRouter or a local model, and see whether it is configured and whether content leaves my machine | — | FR-010, FR-011                   | pending |
+| F-01 | ai-foundation      | switch AI on in Settings, pick OpenRouter or a local model, and see whether it is configured and whether content leaves my machine | — | FR-010, FR-011                   | done    |
 | S-01 | translate-note     | translate a note PL<->EN, read the preview and copy it, with the note unchanged                        | F-01          | FR-012, FR-013, US-01            | pending |
 | S-02 | import-word-file   | import one MS Word file, see it split into proposed notes, review them and save the ones I confirm      | F-01          | FR-014, FR-018                   | pending |
 | S-03 | import-suggestions | see a suggested category and tags on every proposed note, taken from existing ones first               | S-02          | FR-015                           | pending |
@@ -80,7 +80,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - "Configured" is a static check of the required values (OpenRouter: key and model; Local: address and model). No test call, so it costs nothing; an unreachable local server shows up as a clear error on first use.
   - When the chosen connection is not configured, AI stays off and Settings lists what is missing; the app behaves exactly as today.
 - **Risk:** every AI call shares this layer: a clear message on failure or timeout, no blocking of search or the notes list, and no key or note content in logs or in the export file. The on/off state and the connection settings must not leak into the export file. If it is sloppy, all later slices inherit it. Later: conversation (S-06) also needs a model for finding notes, which a local model may not offer (PRD Open Question 6).
-- **Status:** pending
+- **Status:** done
 
 ## Slices
 
@@ -160,7 +160,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 | Roadmap ID | Change ID          | Suggested issue title                                   | Ready for `/10x-plan` | Notes                          |
 | ---------- | ------------------ | ------------------------------------------------------- | --------------------- | ------------------------------ |
-| F-01       | ai-foundation      | Add the AI switch, server-side key and provider client  | yes                   | Decisions recorded in F-01     |
+| F-01       | ai-foundation      | Add the AI switch, server-side key and provider client  | done                  | Decisions recorded in F-01     |
 | S-01       | translate-note     | Translate a note PL<->EN with a copyable preview        | after F-01            | North star                     |
 | S-02       | import-word-file   | Import a Word file as proposed notes with review        | after F-01            | Format order to confirm        |
 | S-03       | import-suggestions | Suggest category and tags for proposed notes            | after S-02            |                                |
@@ -190,4 +190,6 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ## Done
 
-(Empty. Entries are added by hand when a slice is finished, format: `- **<ID>: <Outcome>** — Done <YYYY-MM-DD> → `context/changes/<change-id>/`. Lesson: —.`)
+- **F-01: AI foundation** — Done 2026-11-18 → closed in the roadmap directly. Key is read from `OPENROUTER_API_KEY` (env only); status via `GET /api/ai/status`; no model client yet (`httpx` comes with S-01). Lesson: —.
+
+(Entries are added by hand when a slice is finished, format: `- **<ID>: <Outcome>** — Done <YYYY-MM-DD> → `context/changes/<change-id>/`. Lesson: —.`)

@@ -11,7 +11,8 @@ def s(**kw: object) -> dict[str, object]:
         "ai_enabled": True,
         "ai_connection": "openrouter",
         "ai_address": "",
-        "ai_model": "m",
+        "ai_model_openrouter": "m",
+        "ai_model_local": "m",
     }
     return {**base, **kw}
 
@@ -20,11 +21,11 @@ def s(**kw: object) -> dict[str, object]:
     ("settings", "key", "missing"),
     [
         (s(), "", ["key"]),
-        (s(ai_model=""), "", ["key", "model"]),
+        (s(ai_model_openrouter=""), "", ["key", "model"]),
         (s(), KEY, []),
         (s(ai_connection="local"), "", ["address"]),
         (
-            s(ai_connection="local", ai_address="http://x/v1", ai_model=""),
+            s(ai_connection="local", ai_address="http://x/v1", ai_model_local=""),
             "",
             ["model"],
         ),
@@ -65,7 +66,7 @@ def test_endpoint_needs_login_and_never_returns_the_key(
 
     monkeypatch.setenv("OPENROUTER_API_KEY", KEY)
     assert TestClient(app).get("/api/ai/status").status_code == 401
-    authed.put("/api/settings", json={"ai_model": "m", "ai_enabled": True})
+    authed.put("/api/settings", json={"ai_model_openrouter": "m", "ai_enabled": True})
     r = authed.get("/api/ai/status")
     assert r.status_code == 200 and r.json()["configured"] is True
     assert KEY not in r.text and KEY not in authed.get("/api/settings").text
@@ -81,9 +82,17 @@ def test_export_has_no_ai_settings(
         json={
             "ai_enabled": True,
             "ai_address": "http://secret-host/v1",
-            "ai_model": "secret-model",
+            "ai_model_openrouter": "secret-model",
         },
     )
     text = authed.get("/api/export").text
     assert "secret-host" not in text and "secret-model" not in text and KEY not in text
     assert "ai_" not in text
+
+
+def test_each_connection_has_its_own_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", KEY)
+    both = s(ai_model_openrouter="", ai_model_local="llama3", ai_address="x")
+    assert ai.status(both)["missing"] == ["model"]  # OpenRouter has no model yet
+    assert ai.status({**both, "ai_connection": "local"})["missing"] == []
+    assert ai.model({**both, "ai_connection": "local"}) == "llama3"

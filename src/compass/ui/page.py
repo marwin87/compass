@@ -40,6 +40,7 @@ COMMON_CSS = r"""
   --ink:#f5f5fa; --muted:#a3a5b5; --faint:#777b90; --mark:rgba(121,92,255,.38); --ok:#22c55e; --danger:#f87171; --danger-soft:rgba(248,113,113,.12);
   --grad:linear-gradient(135deg,#477bff,#765bff); --r:14px; --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.35);
   --sk-a:#222538; --sk-b:#30354d;
+  --ai1:#a855f7; --ai2:#ec4899; --ai-soft:rgba(168,85,247,.14);
   --glow:0 0 0 1px rgba(99,125,255,.55),0 8px 30px rgba(82,117,255,.22); --ease:.18s ease-out;
 }
 :root[data-theme=light]{
@@ -48,6 +49,22 @@ COMMON_CSS = r"""
   --sk-a:#e8eaf4; --sk-b:#f6f7fc; --mark:rgba(255,214,10,.45); --ok:#15803d; --danger:#dc2626; --danger-soft:rgba(220,38,38,.08);
   --shadow:0 1px 2px rgba(20,24,50,.05),0 12px 32px rgba(20,24,50,.08); --glow:0 0 0 1px rgba(82,117,255,.5),0 8px 26px rgba(82,117,255,.16);
 }
+.aiframe,.scard.aiframe{border-radius:16px;border:1.5px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
+.aitag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;line-height:1.5;padding:1px 8px;border-radius:999px;color:#fff;background:linear-gradient(135deg,var(--ai1),var(--ai2));vertical-align:middle}
+.aitag .ic,.aitag svg{color:#fff!important}
+.aipad{margin:16px 14px 20px;overflow:hidden}
+.aipad .aihd{flex-wrap:wrap}.aihd .grow{flex:1}
+.aibody{padding:0}.aipad .aierr{padding:16px 18px;font-size:14px}
+.aithink{display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px 18px;color:var(--muted);font-size:14px}
+.aithink svg{color:var(--ai1);animation:aipulse 1.4s ease-in-out infinite}
+@keyframes aipulse{0%,100%{transform:scale(.8) rotate(0);opacity:.55}50%{transform:scale(1.15) rotate(20deg);opacity:1}}
+@media (prefers-reduced-motion:reduce){.aithink svg{animation:none}}
+.iconbtn.ai.on{box-shadow:0 0 0 3px var(--ai-soft)}
+.aihd{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--ai-soft);font-size:13px;font-weight:600;color:var(--ink)}
+.aihd .ic,.aihd svg{color:var(--ai1)}
+.iconbtn.ai,.hero .iconbtn.ai{position:relative;color:var(--ai1);border:1.5px solid transparent;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(135deg,var(--ai1),var(--ai2)) border-box}
+.iconbtn.ai .aitag{position:absolute;top:-7px;right:-9px;font-size:9px;padding:0 5px}
+.iconbtn.ai .aitag svg{display:none}
 *{box-sizing:border-box}
 html{color-scheme:dark}
 html[data-theme=light]{color-scheme:light}
@@ -108,6 +125,7 @@ kbd{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;border:1p
 .sk.pill{border-radius:999px}
 @keyframes shimmer{from{background-position:120% 0}to{background-position:-120% 0}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+.sidebtn{margin-top:4px;justify-content:center;background:rgba(255,255,255,.03);padding:10px 12px;border-radius:12px}
 """
 
 APP_CSS = r"""
@@ -127,11 +145,9 @@ aside>*{flex:none}
 aside>.spacer{flex:1 0 12px}
 .sep{border-top:1px solid var(--line);margin:20px 0 0}
 .sep+h4{margin-top:18px}
-.sidebtn{margin-top:4px}
 .row{display:flex;gap:8px;align-items:center}
 .row form{margin:0}
 a.btn{text-decoration:none}
-.sidebtn{justify-content:center;background:rgba(255,255,255,.03);padding:10px 12px;border-radius:12px}
 .msg{font-size:12px;min-height:1em;margin-top:2px}
 .msg.ok{color:var(--ok)}
 .msg.bad{color:var(--danger)}
@@ -577,7 +593,8 @@ async function copyNote(note) {
 function notePanel(note, cb) {
   const root = h("div", {class: "panel"});
   let mode = "read", draft = null, msg = "";
-  const back = () => { mode = "read"; draft = null; msg = ""; draw(); };
+  let preview = null, job = 0;    // the translation shown in place of the note: {state: "loading"|"done"|"error", text, msg}; job drops a late answer
+  const back = () => { job++; preview = null; mode = "read"; draft = null; msg = ""; draw(); };
   async function save() {
     const r = await api("/api/notes/" + note.id, json("PUT", draft));
     if (!r.ok) { msg = SAVE_ERROR; mode = "edit"; draw(); return; }
@@ -588,11 +605,41 @@ function notePanel(note, cb) {
     if (r.status !== 204 && r.status !== 404) { msg = tr("delete_failed"); mode = "read"; draw(); return; }
     cb.onDeleted();       // a 404 means it is already gone, which is the state the user wanted
   }
+  async function translate() {
+    const mine = ++job;
+    preview = {state: "loading", minH: Math.max(160, (root.querySelector(".sheet") || {offsetHeight: 0}).offsetHeight - 50)}; draw();
+    let next;
+    try {
+      const r = await api("/api/notes/" + note.id + "/translate", {method: "POST"});
+      if (r.ok) { const d = await r.json(); next = {state: "done", text: d.text, lang: d.lang}; }
+      else { const d = (await r.json().catch(() => ({}))).detail; next = {state: "error", msg: tr(AI_ERRORS[d && d.code] || "ai_err_failed")}; }
+    } catch (e) {
+      if (e.message === "not authenticated") return;
+      next = {state: "error", msg: tr("ai_err_failed")};
+    }
+    if (mine !== job || !preview) return;
+    preview = {...next, minH: preview.minH}; draw();
+  }
+  const closeTranslation = () => { job++; preview = null; draw(); };
+  function translationBlock(tk) {
+    const head = h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, tr("translate")), aiTag(), h("span", {class: "grow"}),
+      preview.state === "done" ? h("button", {type: "button", class: "btn", onclick: copyPreview}, icon("copy", 16), tr("copy_translation")) : null,
+      preview.state === "error" ? h("button", {type: "button", class: "btn primary", onclick: translate}, tr("retry")) : null,
+      h("button", {type: "button", class: "btn", onclick: closeTranslation}, tr("back")));
+    const body = preview.state === "loading" ? h("div", {class: "aithink", role: "status"}, icon("spark", 30), h("span", {}, tr("translating")))
+      : preview.state === "error" ? h("div", {class: "err aierr"}, preview.msg)
+      : h("div", {class: "aibody"}, readerBody({body: preview.text}, tk, preview.lang));   // the same layout as the note: contents, width, font
+    return h("div", {class: "aiframe aipad", style: preview.state === "done" ? "" : "min-height:" + preview.minH + "px"}, head, body);   // loading and errors keep the height of the note, so the page does not jump
+  }
+  async function copyPreview() {
+    try { await navigator.clipboard.writeText(preview.text); toast(tr("copied")); }
+    catch (e) { toast(tr("copy_failed")); }
+  }
   function draw() {
     root.dataset.mode = mode;
     if (mode === "read") {
       const tk = tokens();
-      const edit = () => { exitReading(); draft = {title: note.title, body: note.body, tags: [...note.tags], category_id: note.category_id}; msg = ""; mode = "edit"; draw(); };
+      const edit = () => { exitReading(); job++; preview = null; draft = {title: note.title, body: note.body, tags: [...note.tags], category_id: note.category_id}; msg = ""; mode = "edit"; draw(); };
       const catBadge = h("span", {class: "badge cat"}, catName(note.category_id));
       root.replaceChildren(
         h("div", {class: "hero"},
@@ -605,11 +652,12 @@ function notePanel(note, cb) {
             h("div", {class: "tools"},
               h("button", {type: "button", class: "iconbtn readtoggle", "aria-label": tr("reading_mode"), "aria-pressed": "false", title: tr("reading_mode"), onclick: toggleReading}, icon("book", 17)),
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("copy"), title: tr("copy"), onclick: () => copyNote(note)}, icon("copy", 17)),
+              SETTINGS.ai_enabled ? h("button", {type: "button", class: "iconbtn ai" + (preview ? " on" : ""), "aria-pressed": preview ? "true" : "false", "aria-label": tr("translate") + " (AI)", title: tr("translate") + " (AI)", onclick: preview ? closeTranslation : translate}, icon("languages", 17), aiTag()) : null,
               h("button", {type: "button", class: "iconbtn", "aria-label": tr("edit"), title: tr("edit"), onclick: edit}, icon("pencil", 17)),
-              h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
+              h("button", {type: "button", class: "iconbtn del", "aria-label": tr("delete"), title: tr("delete"), onclick: () => { job++; preview = null; msg = ""; mode = "del"; draw(); }}, icon("trash", 17)))),
           h("h2", {}, hlNodes(note.title, tk)),
           h("div", {class: "chips"}, note.tags.map((t) => h("button", {type: "button", class: "chip" + (state.sel.has(t) ? " on" : ""), onclick: () => toggleTag(t)}, "#" + t)))),
-        h("div", {class: "sheet"}, readerBody(note, tk), h("div", {class: "err"}, msg)));
+        h("div", {class: "sheet"}, preview ? translationBlock(tk) : readerBody(note, tk), h("div", {class: "err"}, msg)));
       setTimeout(() => { watchToc(root); syncReadButton(); }, 0);   // after the panel is in the page
     } else if (mode === "del") {
       root.replaceChildren(h("h2", {}, note.title), h("div", {class: "confirm"}, h("span", {}, tr("confirm_delete")),

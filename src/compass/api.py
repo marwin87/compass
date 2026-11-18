@@ -87,6 +87,24 @@ def read(note_id: int) -> notes.Note:
     return note
 
 
+AI_STATUS = {"not_enabled": 409, "not_configured": 409, "timeout": 504, "failed": 502}
+
+
+@router.post("/{note_id}/translate")
+def translate(note_id: int) -> dict[str, str]:  # {"lang": "en"|"pl"|"", "text": ...}
+    """A PL<->EN preview of the note body; nothing is saved. A plain `def`: runs in the threadpool."""
+    note = notes.get_note(note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    try:
+        lang, text = ai.translate(note.body, settings.current())
+        return {"lang": lang, "text": text}
+    except ai.AIError as problem:
+        raise HTTPException(
+            status_code=AI_STATUS[problem.code], detail={"code": problem.code}
+        ) from None
+
+
 @router.put("/{note_id}")
 def update(note_id: int, data: NoteIn) -> notes.Note:
     try:
