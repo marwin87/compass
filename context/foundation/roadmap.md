@@ -148,7 +148,7 @@ None. Every layer this milestone needs (data, API, page, login, container) is al
 ## Parked
 
 - **Multiple users, accounts, and sharing** — Why parked: PRD Non-Goals; one instance serves one person.
-- **AI features** — Why parked: PRD Non-Goals for the MVP.
+- **AI features** — Moved: planned in `context/foundation/roadmap-ai.md` (milestone M-03, from `prd-ai.md`); not part of M-02.
 - **Study mode (flashcards and spaced repetition)** — Why parked: PRD Non-Goals for the MVP.
 - **Advanced editing and attachments (rich-text editor, images, PDFs)** — Why parked: PRD Non-Goals for the MVP.
 - **Publishing the Docker image as a GitHub package** — Why parked: not a PRD requirement; recorded in M-01 as a later step (the image is built locally for now).

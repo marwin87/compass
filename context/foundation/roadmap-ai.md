@@ -1,0 +1,193 @@
+---
+project: Compass
+version: 1
+status: draft
+created: 2026-11-18
+updated: 2026-11-18
+prd_version: 1
+prd_file: prd-ai.md
+main_goal: quality
+top_blocker: scope
+milestone_id: ai-features
+milestone_seq: 3
+milestone_status: open
+---
+
+# Roadmap: Compass, AI features
+
+> Derived from `context/foundation/prd-ai.md` (v1) + the codebase baseline copied from `roadmap.md`.
+> A separate roadmap, kept apart from `roadmap.md` on purpose: M-02 there stays open and this milestone runs next to it.
+> `/10x-roadmap` and `/10x-archive` work on `roadmap.md` only, so statuses and Done entries here are set by hand (as "closed in the roadmap directly").
+> Slices are listed in dependency order. The "At a glance" table is the index.
+
+## Milestone
+
+**M-03: AI features** — Status: open
+
+- **Intent:** With an API key configured on the server and AI switched on, the user can translate a note, import notes from a PDF, MS Word or Excel file with suggested categories and tags, and talk to their notes, while search speed and everything that exists today stay unchanged.
+- **Source materials:** `context/foundation/prd-ai.md` (v1); archived greenfield notes `context/foundation/archive/shape-notes-2026-11-18-0851.md` (`Forward: rag`, input material only).
+- **Done when:** every F-NN and S-NN below is `done`.
+- **Scope anchors:** FR-010 to FR-018 (new); FR-007, FR-008, FR-009 (preserved); Success Criteria §Guardrails (search speed, no key = app as today, provider failure handled, export and import intact).
+- **Budget:** 6 weeks of after-hours work, acknowledged on 2026-11-18.
+
+## Vision recap
+
+Compass finds notes in a fraction of a second, but without an LLM it is a plain note search tool. M-03 lifts it: notes written in another language can be read in PL or EN, notes locked in PDF, Word and Excel files come in already split into topics with a category and tags, and the knowledge base can be asked questions with sources named.
+
+## North star
+
+**S-01: User can translate a note PL<->EN and copy the result** — the smallest end-to-end slice that proves the whole AI path works: a key on the server, the switch in Settings, a model call, a clear error when it fails, and the note untouched. Every later slice reuses that path.
+
+> "North star" here means the smallest end-to-end slice whose delivery would prove the core idea of this milestone, placed as early as Prerequisites allow, because the rest only matters if it works.
+
+## At a glance
+
+| ID   | Change ID          | Outcome (user can …)                                                                                   | Prerequisites | PRD refs                         | Status  |
+| ---- | ------------------ | ------------------------------------------------------------------------------------------------------ | ------------- | -------------------------------- | ------- |
+| F-01 | ai-foundation      | switch AI on in Settings, pick OpenRouter or a local model, and see whether it is configured and whether content leaves my machine | — | FR-010, FR-011                   | pending |
+| S-01 | translate-note     | translate a note PL<->EN, read the preview and copy it, with the note unchanged                        | F-01          | FR-012, FR-013, US-01            | pending |
+| S-02 | import-word-file   | import one MS Word file, see it split into proposed notes, review them and save the ones I confirm      | F-01          | FR-014, FR-018                   | pending |
+| S-03 | import-suggestions | see a suggested category and tags on every proposed note, taken from existing ones first               | S-02          | FR-015                           | pending |
+| S-04 | import-rich-text   | get imported text rewritten with headings, lists and tables so it reads better                          | S-02          | FR-016                           | pending |
+| S-05 | import-pdf-excel   | import PDF and Excel files through the same review flow                                                | S-02          | FR-014                           | pending |
+| S-06 | chat-with-notes    | ask questions of my notes and get answers that name the notes they come from                           | F-01          | FR-017                           | pending |
+
+## Baseline
+
+What's already in place in the codebase as of `2026-11-17` (copied from `roadmap.md`; re-check before planning the first slice).
+Foundations below assume these are present and do NOT re-scaffold them.
+
+- **Frontend:** present — one page in a dark-first three-column layout built from DOM calls (`src/compass/ui/page.py`, reader in `src/compass/ui/reader.py`, rules in `docs/STYLE_GUIDE.md`): live search, add, view, edit, delete, tags, categories; a Settings page (`/settings`: appearance, data tools, keyboard shortcuts, about); a Markdown note reader (headings, lists, tables, callouts, highlighted code with Copy, contents) with a reading mode; toasts, skeleton loading and error states; Polish and English (texts in `src/compass/ui/i18n.py`); import, export and category management live in Settings → Data.
+- **Backend / API:** present — FastAPI app in `src/compass/`: login, `/health`, `/api/notes`, `/api/tags`, `/api/categories`, `/api/settings` (server-side preferences), `/api/about`, `DELETE /api/data`, `/api/export` and `/api/import` (JSON backup of Compass only; replaces everything one to one).
+- **Data:** present — SQLite file with `notes`, `tags`, `note_tags`, `categories`, `settings` and a folded search index (`notes_fts`).
+- **Auth:** present — single-password login with a signed session cookie.
+- **Deploy / infra:** present — local Docker image with a data volume and a CI workflow; no registry publishing.
+- **Observability:** absent — no logging or error tracking (matters for provider failures and cost).
+- **AI:** absent — no model client, no key handling, no Settings switch.
+
+## Foundations
+
+### F-01: AI foundation
+
+- **Outcome:** user can switch AI on and off in Settings at any time; once on, the user picks the connection (OpenRouter or a local model), the app checks that the chosen connection is configured and shows what is missing, and AI features stay off until it is; the notice says whether note content leaves the machine for the chosen connection.
+- **Change ID:** ai-foundation
+- **PRD refs:** FR-010, FR-011; Success Criteria §Guardrails
+- **Prerequisites:** —
+- **Unknowns:** where in Settings the switch, the connection choice and the notice live (the page already reserves room for server-side configuration).
+- **Decisions (2026-11-18):**
+  - One client for every connection: OpenRouter and local servers (for example Ollama, LM Studio, llama.cpp) speak the same OpenAI-compatible protocol, so a connection is only three values: address, key, model. No class hierarchy; a new connection later is a new preset, not new code.
+  - Secret in `.env` only (the OpenRouter key; a local server usually needs none, an optional key is allowed). Address and model name are set in Settings and stored on the server like the other preferences.
+  - "Configured" is a static check of the required values (OpenRouter: key and model; Local: address and model). No test call, so it costs nothing; an unreachable local server shows up as a clear error on first use.
+  - When the chosen connection is not configured, AI stays off and Settings lists what is missing; the app behaves exactly as today.
+- **Risk:** every AI call shares this layer: a clear message on failure or timeout, no blocking of search or the notes list, and no key or note content in logs or in the export file. The on/off state and the connection settings must not leak into the export file. If it is sloppy, all later slices inherit it. Later: conversation (S-06) also needs a model for finding notes, which a local model may not offer (PRD Open Question 6).
+- **Status:** pending
+
+## Slices
+
+### S-01: Translate a note PL<->EN and copy it
+
+- **Outcome:** user can translate a note PL<->EN, read a preview and copy it to the clipboard; nothing is saved and the stored note is unchanged.
+- **Change ID:** translate-note
+- **PRD refs:** FR-012, FR-013, US-01
+- **Prerequisites:** F-01
+- **Parallel with:** S-02
+- **Blockers:** —
+- **Unknowns:** how the target language is chosen (the other of PL and EN); what happens to code blocks, tables and links in the translation.
+- **Risk:** the model may translate code blocks or break Markdown, and every open of the same note pays again because nothing is saved (accepted in shaping).
+- **Status:** pending
+
+### S-02: Import one Word file as proposed notes
+
+- **Outcome:** user can import one MS Word file; the file is split into topics, each topic is a proposed note, and the user reviews the list, deselects or edits entries, and only confirmed notes are saved; the original file is not stored.
+- **Change ID:** import-word-file
+- **PRD refs:** FR-014, FR-018
+- **Prerequisites:** F-01
+- **Parallel with:** S-01
+- **Blockers:** —
+- **Unknowns:** which format goes first (Word proposed: the simplest text to extract; the user decides); how a long file is cut into parts for the model; what happens to proposed notes if the call fails midway (Socrates: model work already paid for is lost).
+- **Risk:** the biggest new surface in the milestone: file parsing, a splitting rule the app owns, and a review screen. Keep the existing JSON import (FR-009) untouched and separate.
+- **Status:** pending
+
+### S-03: Suggest a category and tags for each proposed note
+
+- **Outcome:** user sees a suggested category and tags on every proposed note, taken from existing ones first and new only when none fits.
+- **Change ID:** import-suggestions
+- **PRD refs:** FR-015
+- **Prerequisites:** S-02
+- **Parallel with:** S-04
+- **Blockers:** —
+- **Unknowns:** how to send hundreds of existing tags to the model (Socrates: the list may not fit); how to avoid near-duplicates such as db / bazy / database.
+- **Risk:** tag chaos in the database; the review screen is the guard, so the suggestions must be editable there.
+- **Status:** pending
+
+### S-04: Rewrite imported text with rich-text elements
+
+- **Outcome:** user gets imported text rewritten with headings, lists and tables so that it reads better in the reader.
+- **Change ID:** import-rich-text
+- **PRD refs:** FR-016
+- **Prerequisites:** S-02
+- **Parallel with:** S-03
+- **Blockers:** —
+- **Unknowns:** how to check that the rewrite changed structure only, not meaning (Socrates: the model may change content).
+- **Risk:** silent loss of detail with no original to compare, because the file is not stored; the review screen is the only check.
+- **Status:** pending
+
+### S-05: Import PDF and Excel through the same flow
+
+- **Outcome:** user can import PDF and Excel files through the same split, suggest and review flow.
+- **Change ID:** import-pdf-excel
+- **PRD refs:** FR-014
+- **Prerequisites:** S-02
+- **Parallel with:** S-06
+- **Blockers:** —
+- **Unknowns:** scanned PDFs (PRD Open Question 4); how a spreadsheet becomes topics (no narrative text); file size limit and cost shown before start (PRD Open Question 3).
+- **Risk:** two more parsers with different failure modes; an empty extraction must end in a clear message, not in an empty list.
+- **Status:** pending
+
+### S-06: Talk to the notes with named sources
+
+- **Outcome:** user can ask questions of their notes and get answers that name the notes they come from.
+- **Change ID:** chat-with-notes
+- **PRD refs:** FR-017
+- **Prerequisites:** F-01
+- **Parallel with:** S-05
+- **Blockers:** —
+- **Unknowns:** how notes are retrieved for a question (the archived `Forward: rag` block is input, not a decision); whether it fits the 6-week budget (PRD Open Question 5); what the answer says when the notes do not contain it.
+- **Risk:** the costliest item. It may need an index of its own next to the search index, and content of many notes goes to the provider on every question. The search index and its rebuild must stay untouched. Expect to split it into smaller slices when planning.
+- **Status:** pending
+
+## Backlog Handoff
+
+| Roadmap ID | Change ID          | Suggested issue title                                   | Ready for `/10x-plan` | Notes                          |
+| ---------- | ------------------ | ------------------------------------------------------- | --------------------- | ------------------------------ |
+| F-01       | ai-foundation      | Add the AI switch, server-side key and provider client  | yes                   | Decisions recorded in F-01     |
+| S-01       | translate-note     | Translate a note PL<->EN with a copyable preview        | after F-01            | North star                     |
+| S-02       | import-word-file   | Import a Word file as proposed notes with review        | after F-01            | Format order to confirm        |
+| S-03       | import-suggestions | Suggest category and tags for proposed notes            | after S-02            |                                |
+| S-04       | import-rich-text   | Rewrite imported text with rich-text elements           | after S-02            |                                |
+| S-05       | import-pdf-excel   | Import PDF and Excel files through the same flow        | after S-02            | Open: scans, size limit        |
+| S-06       | chat-with-notes    | Ask questions of the notes with named sources           | after F-01            | May split; fit in budget open  |
+
+## Open Roadmap Questions
+
+1. **Which model provider and model?** — Resolved 2026-11-18: OpenRouter or a local model through one common client; the model name is set in Settings.
+2. **Which file format is imported first?** — Owner: user. Block: S-02 (Word proposed).
+3. **Are scanned PDFs in scope?** — Owner: user. Block: S-05.
+4. **Should import limit file size or show an estimated cost first?** — Owner: user. Block: S-05.
+5. **Does S-06 (conversation) fit in the 6-week budget with everything else?** — Owner: user. Block: roadmap-wide.
+6. **Expected query rate and data volume** — Owner: user. Block: roadmap-wide (does not gate any slice).
+
+## Parked
+
+- **Study mode (flashcards and spaced repetition)** — Why parked: PRD v1 Non-Goals; not part of this scope.
+- **Translation into languages other than PL and EN** — Why parked: `prd-ai.md` Non-Goals; more languages may come later.
+- **Saving a translation as a note** — Why parked: `prd-ai.md` Non-Goals.
+- **Storing the original file or images of an import** — Why parked: `prd-ai.md` Non-Goals.
+
+## Milestone History
+
+(Append-only. Empty: M-03 is the first milestone of this roadmap. M-01 and M-02 are recorded in `roadmap.md`.)
+
+## Done
+
+(Empty. Entries are added by hand when a slice is finished, format: `- **<ID>: <Outcome>** — Done <YYYY-MM-DD> → `context/changes/<change-id>/`. Lesson: —.`)
