@@ -5,7 +5,7 @@
 
 **Compass is an AI-powered.** personal knowledge base that keeps all your notes in one place. Find anything in seconds with just a few keystrokes, or ask AI questions and get answers grounded in your own notes, with clear references to the sources it used. Each Compass instance is dedicated to a single user.
 
-- **Chat with your notes:** ask in plain language; the answer is written only from your notes and cites them (`[1]`, `[2]`), each citation opening the source note. This is retrieval-augmented generation (RAG), described in [How the AI works](#how-the-ai-works).
+- **Chat with your notes:** ask in plain language; the answer is written only from your notes and marks each statement with a numbered citation like `[1]`; the numbers match the **Sources** list under the answer, and clicking one opens that note. This is retrieval-augmented generation (RAG), described in [How the AI works](#how-the-ai-works).
 - **AI that stays optional:** translate a note PL↔EN, summarize it, and turn a Word or text file into notes with a suggested category and tags. All of it is off by default; with AI off the app looks and works exactly as without it.
 - **Your models, your choice:** OpenRouter or a local, OpenAI-compatible server (Ollama, LM Studio). With a local model your notes never leave the machine.
 - **Fast, forgiving search:** results ranked by relevance (exact tag, then title, then body); typos and missing Polish letters are forgiven (`zlozonosc` finds "złożoność").
