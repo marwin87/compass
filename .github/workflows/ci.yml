@@ -106,7 +106,7 @@ jobs:
       - name: Start the container and wait for /health
         run: |
           docker run -d --name compass -p 8011:8011 \
-            -e COMPASS_PASSWORD=$PASSWORD -e COMPASS_SECRET_KEY=ci-secret-key-0123456789abcdef \
+            -e COMPASS_PASSWORD=$PASSWORD -e COMPASS_SECRET_KEY=ci-secret-key-0123456789abcdef0123456789 \
             compass:ci
           for i in $(seq 1 30); do curl -fsS $URL/health >/dev/null && exit 0; sleep 1; done
           echo "::error::the container did not become healthy"; exit 1
