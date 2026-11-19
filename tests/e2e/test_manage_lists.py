@@ -191,7 +191,8 @@ def test_a_long_tag_list_scrolls_inside_its_card_and_is_capped(
     assert rows.evaluate(
         "el => el.scrollHeight > el.clientHeight + 50"
     )  # the list scrolls, the page does not grow
-    assert app.evaluate("document.documentElement.scrollHeight") < 3500
+    # the Settings page itself is about 3.5k px tall; 300 uncapped rows would add far more than the margin
+    assert app.evaluate("document.documentElement.scrollHeight") < 3800
     app.get_by_placeholder(T["tags_search_ph"]).fill("tag31")
     expect(app.locator("#tagrows li")).to_have_count(10)
     expect(app.locator("#taghint")).to_have_text("")

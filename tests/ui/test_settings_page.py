@@ -302,3 +302,14 @@ def test_the_t_key_switches_the_theme_on_both_pages(authed: TestClient) -> None:
     for path in ("/", "/settings"):
         assert "async function toggleTheme" in authed.get(path).text
     assert "sc_theme" in STRINGS["pl"] and "sc_theme" in STRINGS["en"]
+
+
+def test_the_shortcut_window_opens_with_the_question_mark_and_the_sidebar_icon(
+    authed: TestClient,
+) -> None:
+    notes = authed.get("/").text
+    assert 'id="kbbtn"' in notes and "function showShortcuts" in notes
+    settings = authed.get("/settings").text
+    assert "function showShortcuts" in settings and 'id="kbbtn"' not in settings
+    for lang in LANGS:
+        assert {"sc_help", "sc_all_settings"} <= STRINGS[lang].keys()

@@ -92,6 +92,16 @@ input,textarea,select{font:inherit;color:var(--ink)}
 [hidden]{display:none!important}
 mark{background:var(--mark);color:inherit;border-radius:4px;padding:0 2px}
 kbd{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted);background:rgba(255,255,255,.04)}
+.krow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line)}
+.krow:last-child{border-bottom:0}
+.keys{display:flex;gap:6px;align-items:center;flex:none}
+dialog{border:1px solid var(--line);border-radius:20px;padding:22px;width:min(520px,calc(100% - 32px));background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.dlg-head h3{margin:0;font-size:18px}
+.kdlg h3{margin:0;font-size:18px}.kdlg .krow:first-of-type{border-top:1px solid var(--line)}.kdlg .krow{padding:10px 4px}
+.kdlg .kfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px}
+.sidepair{display:flex;gap:6px}.sidepair .sidebtn:first-child{flex:1}
 .muted{color:var(--muted)}
 .ic{display:inline-flex;align-items:center;justify-content:center;flex:none}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;padding:8px 14px;font-size:13px;font-weight:500;transition:background var(--ease),border-color var(--ease),transform var(--ease),filter var(--ease)}
@@ -317,7 +327,7 @@ INDEX_HTML = (
       <li><span class="ic" data-icon="star"></span><span>[[legend3]]</span></li>
     </ul>
     <div class="spacer"></div>
-    <a class="btn wide sidebtn" href="/settings"><span class="ic" data-icon="cog"></span>[[settings_title]]</a>
+    <div class="sidepair"><a class="btn sidebtn" href="/settings"><span class="ic" data-icon="cog"></span>[[settings_title]]</a><button type="button" class="btn sidebtn" id="kbbtn" aria-label="[[sc_help]]" title="[[sc_help]]"><span class="ic" data-icon="keyboard"></span></button></div>
     <form method="post" action="/logout"><button class="btn wide sidebtn"><span class="ic" data-icon="logout"></span>[[logout]]</button></form>
   </aside>
   <div class="scrim" id="scrim" hidden></div>
@@ -835,6 +845,7 @@ $("#catmore").addEventListener("click", () => { catsOpen = !catsOpen; fitList("c
 $("#tagmore").addEventListener("click", () => { tagsOpen = !tagsOpen; fitTags(); });
 const openMenu = (on) => { $("#app").classList.toggle("menu", on); $("#scrim").hidden = !on; };
 $("#menu").addEventListener("click", () => openMenu(true));
+$("#kbbtn").addEventListener("click", () => { openMenu(false); showShortcuts(); });
 $("#scrim").addEventListener("click", () => openMenu(false));
 $("#shortcut").textContent = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘ K" : "Ctrl K";
 document.addEventListener("keydown", (e) => {

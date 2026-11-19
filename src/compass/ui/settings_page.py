@@ -50,9 +50,6 @@ body{background:radial-gradient(1000px 500px at 80% -10%,rgba(82,117,255,.11),tr
 .aistate.ok{color:var(--ok)}
 .aistate.bad{color:var(--danger)}
 .sselect:focus{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--accent-soft)}
-.krow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line)}
-.krow:last-child{border-bottom:0}
-.keys{display:flex;gap:6px;align-items:center;flex:none}
 .sk-row{padding:14px 20px;display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid var(--line)}
 .sk-row:last-child{border-bottom:0}
 .dl{display:grid;grid-template-columns:minmax(120px,200px) minmax(0,1fr);margin:0}
@@ -62,10 +59,6 @@ body{background:radial-gradient(1000px 500px at 80% -10%,rgba(82,117,255,.11),tr
 .dl dt{color:var(--muted)}
 .dl dd{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .aboutfail{padding:22px 20px;color:var(--muted);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-dialog{border:1px solid var(--line);border-radius:20px;padding:22px;width:min(520px,calc(100% - 32px));background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
-dialog::backdrop{background:rgba(5,6,12,.6);backdrop-filter:blur(2px)}
-.dlg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.dlg-head h3{margin:0;font-size:18px}
 .catrows{list-style:none;margin:12px 0 0;padding:0;max-height:50vh;overflow:auto}
 .catrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
 .catrow .name{flex:1;min-width:120px;font-weight:600}
@@ -456,13 +449,7 @@ async function loadAiStatus() {
 loadAiStatus();
 
 // Keyboard shortcuts
-const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-const SHORTCUTS = [
-  [["/"], "sc_search"], [[MAC ? "⌘" : "Ctrl", "K"], "sc_search_any"], [["N"], "sc_new"], [["↑", "↓"], "sc_move"],
-  [["T"], "sc_theme"], [["Esc"], "sc_clear"], [["Esc"], "sc_reading_exit"],
-];
-$("#shortcutlist").append(...SHORTCUTS.map(([keys, label]) => h("div", {class: "krow"}, h("span", {}, tr(label)), h("span", {class: "keys"}, keys.map((k) => h("kbd", {}, k))))),
-  h("div", {class: "krow"}, h("span", {}, tr("sc_reading_open")), h("span", {class: "keys"}, icon("book", 16))));
+$("#shortcutlist").append(...shortcutRows());
 
 // About
 const humanSize = (n) => (n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB");

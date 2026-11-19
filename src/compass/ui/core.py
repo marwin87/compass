@@ -49,6 +49,7 @@ const ICONS = {
   bulb: [["path", {d: "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"}], ["path", {d: "M9 18h6"}], ["path", {d: "M10 22h4"}]],
   "alert-circle": [["circle", {cx: 12, cy: 12, r: 10}], ["path", {d: "M12 8v4"}], ["path", {d: "M12 16h.01"}]],
   "check-circle": [["path", {d: "M22 11.08V12a10 10 0 1 1-5.93-9.14"}], ["polyline", {points: "22 4 12 14.01 9 11.01"}]],
+  keyboard: [["rect", {x: 2, y: 4, width: 20, height: 16, rx: 2}], ["path", {d: "M6 8h.01"}], ["path", {d: "M10 8h.01"}], ["path", {d: "M14 8h.01"}], ["path", {d: "M18 8h.01"}], ["path", {d: "M8 12h.01"}], ["path", {d: "M12 12h.01"}], ["path", {d: "M16 12h.01"}], ["path", {d: "M7 16h10"}]],
   list: [["path", {d: "M8 6h13"}], ["path", {d: "M8 12h13"}], ["path", {d: "M8 18h13"}], ["path", {d: "M3 6h.01"}], ["path", {d: "M3 12h.01"}], ["path", {d: "M3 18h.01"}]],
   "move-h": [["path", {d: "m18 8 4 4-4 4"}], ["path", {d: "m6 8-4 4 4 4"}], ["path", {d: "M2 12h20"}]],
   alert: [["path", {d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"}], ["path", {d: "M12 9v4"}], ["path", {d: "M12 17h.01"}]],
@@ -176,6 +177,34 @@ document.addEventListener("keydown", (e) => {
   if ((e.key !== "t" && e.key !== "T") || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable || document.querySelector("dialog[open]") || aiBlocked()) return;
   e.preventDefault(); toggleTheme();
+});
+// --- keyboard shortcuts: one list for the Settings section and the "?" window (also opened by the sidebar icon on the notes page)
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+const SHORTCUTS = [
+  [["/"], "sc_search"], [[MAC ? "⌘" : "Ctrl", "K"], "sc_search_any"], [["N"], "sc_new"], [["↑", "↓"], "sc_move"],
+  [["T"], "sc_theme"], [["?"], "sc_help"], [["Esc"], "sc_clear"], [["Esc"], "sc_reading_exit"],
+];
+const shortcutRows = () => [...SHORTCUTS.map(([keys, label]) => h("div", {class: "krow"}, h("span", {}, tr(label)), h("span", {class: "keys"}, keys.map((k) => h("kbd", {}, k))))),
+  h("div", {class: "krow"}, h("span", {}, tr("sc_reading_open")), h("span", {class: "keys"}, icon("book", 16)))];
+let kdlg = null;
+function showShortcuts() {
+  if (document.querySelector("dialog[open]")) return;
+  if (!kdlg) {
+    const close = () => kdlg.close();
+    kdlg = h("dialog", {class: "kdlg", "aria-label": tr("settings_nav_shortcuts")},
+      h("div", {class: "dlg-head"}, h("h3", {}, tr("settings_nav_shortcuts")), h("button", {type: "button", class: "btn icon", "aria-label": tr("ai_close"), title: tr("ai_close"), onclick: close}, icon("x", 14))),
+      h("div", {}, shortcutRows()),
+      h("div", {class: "kfoot"}, location.pathname === "/settings" ? h("span") : h("a", {class: "linkbtn", href: "/settings#shortcuts"}, tr("sc_all_settings")), h("button", {type: "button", class: "btn", onclick: close}, tr("ai_close"))));
+    kdlg.addEventListener("click", (e) => { if (e.target === kdlg) close(); });   // a click on the backdrop
+    document.body.append(kdlg);
+  }
+  kdlg.showModal();
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "?" || e.ctrlKey || e.metaKey || e.altKey) return;
+  const a = document.activeElement, emptySearch = a.id === "q" && !a.value;      // the search box has focus on load: a "?" as its first character opens the window
+  if ((/INPUT|TEXTAREA|SELECT/.test(a.tagName) && !emptySearch) || a.isContentEditable || aiBlocked()) return;
+  e.preventDefault(); showShortcuts();
 });
 const READ_WIDTHS = [680, 760, 880], READ_SIZES = [15, 22];   // reading mode: text column widths (px) and text size range
 async function saveSettings(patch) {              // true when saved; on failure a toast says so and the caller reverts

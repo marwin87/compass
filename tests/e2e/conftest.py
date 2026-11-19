@@ -46,7 +46,7 @@ def server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         **os.environ,
         # Set explicitly: a developer's real .env must never leak into the tests.
         "COMPASS_PASSWORD": PASSWORD,
-        "COMPASS_SECRET_KEY": "e2e-secret-key-0123456789abcdef",
+        "COMPASS_SECRET_KEY": "e2e-secret-key-0123456789abcdef0",
         "COMPASS_DB_PATH": str(folder / "compass.db"),
     }
     process = subprocess.Popen(
