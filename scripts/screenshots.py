@@ -38,6 +38,7 @@ import tempfile
 import threading
 import time
 import zlib
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -127,7 +128,7 @@ class FakeModel(BaseHTTPRequestHandler):
         messages = payload["messages"]
         system = messages[0]["content"]
         if system.startswith(
-            "You answer questions"
+            "You are a friendly assistant"
         ):  # the chat: cite the excerpts it was given
             prompt = messages[-1]["content"]
             numbers = {  # note title -> number of its excerpt
@@ -155,15 +156,51 @@ class FakeModel(BaseHTTPRequestHandler):
         pass
 
 
+# Saved conversations for the "manage conversations" shot: (title, days since the last message, questions asked)
+OLD_CHATS = [
+    ("Plan treningowy: co z regeneracją?", 2, 3),
+    ("Indeksy w SQLite", 6, 2),
+    ("Cheatsheet Git: cofanie zmian", 15, 4),
+    ("Przepis na focaccię", 41, 2),
+    ("Budżet domowy na 2026", 58, 5),
+    ("Notatki ze spotkania z zespołem", 95, 3),
+    ("Podróż do Lizbony: plan dni", 140, 6),
+]
+
+
+def conversations() -> list[dict[str, object]]:
+    """Chats in the export format, dated relative to today so the 30-day mark is always visible."""
+    now, out = datetime.now(UTC), []
+    for title, days, turns in OLD_CHATS:
+        last = now - timedelta(days=days)
+        messages = []
+        for n in range(turns * 2):
+            at = (last - timedelta(minutes=(turns * 2 - n) * 2)).isoformat(
+                timespec="seconds"
+            )
+            role = "user" if n % 2 == 0 else "assistant"
+            text = "Pytanie o notatki." if role == "user" else "Odpowiedź z notatek."
+            messages.append(
+                {"role": role, "text": text, "created_at": at, "sources": []}
+            )
+        out.append(
+            {
+                "title": title,
+                "created_at": messages[0]["created_at"],
+                "messages": messages,
+            }
+        )
+    return out
+
+
 # ===== B. seed (edit): put the app in a good-looking state ================================================
 def seed(url: str, stub_port: int) -> None:
     """Runs once after the app is up and before the browser opens. Use the app's API/CLI, not the UI."""
     api = httpx.Client(base_url=url)
     assert api.post("/login", data={"password": PASSWORD}).status_code == 303
-    demo = (ROOT / "demo" / "compass-demo.json").read_bytes()
-    r = api.post(
-        "/api/import", content=demo, headers={"content-type": "application/json"}
-    )
+    demo = json.loads((ROOT / "demo" / "compass-demo.json").read_text("utf-8"))
+    demo["conversations"] = conversations()
+    r = api.post("/api/import", json=demo)
     assert r.status_code == 200, r.text
     settings = {  # switch AI on and point it at the stub
         "theme": "dark",
@@ -213,6 +250,20 @@ def steps(page: Page, url: str) -> None:
     page.get_by_role("button", name="Send").click()
     expect(detail.get_by_text("Sources", exact=True)).to_be_visible()
     shot(page, "ai-chat")
+
+    # manage conversations: everything older than 30 days selected, ready to delete
+    chat = page.locator(".chatcard")
+    chat.get_by_role("button", name="Manage conversations").click()
+    chat.get_by_role("button", name="Select older than 30 days").click()
+    expect(chat.get_by_text("Selected: 4")).to_be_visible()
+    shot(page, "ai-chat-manage")
+    chat.get_by_role("button", name="Manage conversations").click()
+
+    # the shortcut window (the keyboard icon in the side panel, or the ? key)
+    page.get_by_role("button", name="Show keyboard shortcuts").click()
+    expect(page.get_by_role("dialog")).to_be_visible()
+    shot(page, "shortcuts")
+    page.keyboard.press("Escape")
 
     # list with the side panel, then typo-tolerant search
     open_note(page, "Cheatsheet: Git i Docker")

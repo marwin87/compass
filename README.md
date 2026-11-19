@@ -18,6 +18,10 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
 
 **Chat with your notes:** the **Ask** button next to the search box opens a chat panel. The answer is written only from the matching notes and the notes it cites are listed as sources (click one to open it). Conversations are saved.
 
+<img src="docs/screenshots/ai-chat-manage.png" alt="Managing saved conversations: select many and delete at once" width="860">
+
+**Manage conversations:** the list icon in the chat header opens every saved conversation with its message count and last activity. Tick some, or select everything older than 30 days in one click (shown in red), and delete them together after one confirmation.
+
 <img src="docs/screenshots/ai-summary.png" alt="AI summary of a long note" width="860">
 
 **AI summary:** one click writes a short summary and key points above the note. It is kept next to the note (the note itself is never changed) and marked as outdated once you edit the note.
@@ -46,6 +50,12 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
 
 **Settings:** theme, language, reading options, categories, tags, backup.
 
+<img src="docs/screenshots/shortcuts.png" alt="Keyboard shortcuts window" width="860">
+
+**Keyboard shortcuts:** press `?` (or click the keyboard icon next to Settings in the side panel) for the list; `T` switches between the dark and light theme.
+
+The screenshots are regenerated with `uv run python scripts/screenshots.py` (temporary database, demo data and a local model stub; needs `uv run playwright install chromium` once).
+
 ## Stack
 
 Python 3.12, FastAPI, SQLite (stdlib `sqlite3`), [pypdf](https://pypdf.readthedocs.io/) (PDF import), [uv](https://docs.astral.sh/uv/).
@@ -68,7 +78,7 @@ cookie. Your notes, tags and search are not translated and work the same in both
 
 The **Settings** page (`/settings`, from the side panel) has Appearance (theme, language, reading text size and
 width, default list order), Categories and Tags (search, rename, merge, delete), Backup (export and import),
-Keyboard shortcuts, a Danger zone (clear all data) and About (version, counts, database size and path). Preferences are stored on the server (`GET`/`PUT /api/settings`),
+Keyboard shortcuts (the same list opens anywhere with `?`; `T` flips the theme), a Danger zone (clear all data) and About (version, counts, database size and path). Preferences are stored on the server (`GET`/`PUT /api/settings`),
 so they follow you between browsers; the language is a cookie.
 
 ## Categories
@@ -86,6 +96,8 @@ can be deleted).
 
 - **Chat with your notes:** the **Ask** button in the search bar opens a chat panel. Questions can follow each other
   (the last 6 turns are remembered), conversations are saved, can be renamed and deleted, and travel in the export file.
+  **Manage conversations** (the list icon in the chat header) shows all of them with message counts and last activity, selects
+  many at once or everything older than 30 days, and deletes the selection after one confirmation.
   Every answer lists the notes it comes from; a note deleted later stays in the list marked as deleted.
 - **Summarize:** one click writes a short summary and key points above the note. It is kept next to the note (the note itself is
   never changed) and marked as outdated once you edit the note.
@@ -154,7 +166,7 @@ The merged list is cut to what a model can use: at most 8 notes, 2 chunks per no
 | Chunk size | `chunks.py` (`CHUNK_CHARS`) | 1,200 chars |
 | Model wait | `ai.py` (`TIMEOUT`) | 60 s of silence |
 
-API: `GET/POST/DELETE /api/ai/index` (state, build as a stream, clear), `GET/POST /api/chats`, `PATCH/DELETE /api/chats/{id}`, `POST /api/chats/{id}/ask` (the stream).
+API: `GET/POST/DELETE /api/ai/index` (state, build as a stream, clear), `GET/POST /api/chats` (the list carries `updated_at` and `count`), `POST /api/chats/delete` (`{"ids": [...]}`, several at once), `PATCH/DELETE /api/chats/{id}`, `POST /api/chats/{id}/ask` (the stream).
 
 ## Tags
 

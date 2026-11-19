@@ -8,15 +8,15 @@ loses nothing). A conversation is created on the first question, so no empty one
 CHAT_CSS = r"""
 .chatcard{display:flex;flex-direction:column;height:100%;min-height:440px}
 .chat{display:flex;flex-direction:column;flex:1;min-height:0}
-.chat .aihd{flex-wrap:wrap;padding:12px 18px}
-.dd{position:relative;flex:1 1 130px;min-width:110px;max-width:230px}
+.chat .aihd{flex-wrap:wrap;padding:12px 18px;gap:6px}
+.dd{position:relative;flex:1 1 110px;min-width:90px;max-width:230px}
 .ddbtn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 6px 12px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:border-color var(--ease),box-shadow var(--ease)}
 .ddbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ddbtn svg{flex:none;color:var(--muted);transition:transform var(--ease)}
 .ddbtn:hover{border-color:var(--line-strong)}
 .ddbtn:focus-visible,.dd.open .ddbtn{outline:0;border-color:var(--line-strong);box-shadow:0 0 0 3px var(--ai-soft)}
 .dd.open .ddbtn svg{transform:rotate(180deg)}
-.chat .chatname{flex:1 1 130px;min-width:110px;max-width:230px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 0 0 3px var(--ai-soft);outline:0}
+.chat .chatname{flex:1 1 110px;min-width:90px;max-width:230px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 0 0 3px var(--ai-soft);outline:0}
 .ddmenu{position:absolute;z-index:5;left:0;top:calc(100% + 6px);min-width:100%;width:max-content;max-width:min(380px,80vw);max-height:260px;overflow:auto;padding:6px;margin:0;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);scrollbar-width:thin}
 .ddmenu[hidden]{display:none}
 .ddopt{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;font-weight:500;border-radius:10px;cursor:pointer;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
