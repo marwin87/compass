@@ -223,3 +223,27 @@ def test_renaming_needs_a_login() -> None:
     from compass.main import app
 
     assert TestClient(app).patch("/api/chats/1", json={"title": "x"}).status_code == 401
+
+
+def test_several_conversations_are_deleted_at_once(
+    authed: TestClient, fake: Fake
+) -> None:
+    setup_ai(authed, fake)
+    fake.sse = ["ok"]
+    a, b, c = new(authed), new(authed), new(authed)
+    put(authed, a, "x")
+    listing = {r["id"]: r for r in authed.get("/api/chats").json()}
+    assert listing[a]["count"] == 2 and listing[b]["count"] == 0
+    assert listing[a]["updated_at"] >= listing[a]["created_at"]
+    r = authed.post("/api/chats/delete", json={"ids": [a, b, b, 9999]})
+    assert r.json() == {"deleted": 2}
+    assert [x["id"] for x in authed.get("/api/chats").json()] == [c]
+    assert authed.post("/api/chats/delete", json={"ids": []}).status_code == 422
+    assert authed.post("/api/chats/delete", json={"ids": ["x"]}).status_code == 422
+
+
+def test_bulk_delete_needs_a_login() -> None:
+    from compass.main import app
+
+    c = TestClient(app, follow_redirects=False)
+    assert c.post("/api/chats/delete", json={"ids": [1]}).status_code == 401

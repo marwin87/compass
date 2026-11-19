@@ -66,6 +66,13 @@ class Conversation(BaseModel):
     created_at: str
 
 
+class ChatListing(Conversation):
+    """A row of the chat list: when it was last written to and how many messages it holds."""
+
+    updated_at: str
+    count: int
+
+
 class Thread(Conversation):
     messages: list[Message]
 
@@ -87,15 +94,21 @@ def create() -> Conversation:
     return Conversation(id=int(cur.lastrowid or 0), title="", created_at=now)
 
 
-def list_all() -> list[Conversation]:
+def list_all() -> list[ChatListing]:
     conn = connect()
     try:
         rows = conn.execute(
-            "SELECT id, title, created_at FROM conversations ORDER BY id DESC"
+            "SELECT c.id, c.title, c.created_at, "
+            "COALESCE((SELECT MAX(created_at) FROM chat_messages WHERE conversation_id = c.id), c.created_at), "
+            "(SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id) "
+            "FROM conversations c ORDER BY c.id DESC"
         ).fetchall()
     finally:
         conn.close()
-    return [Conversation(id=r[0], title=r[1], created_at=r[2]) for r in rows]
+    return [
+        ChatListing(id=r[0], title=r[1], created_at=r[2], updated_at=r[3], count=r[4])
+        for r in rows
+    ]
 
 
 def get(conversation_id: int) -> Thread | None:
@@ -192,6 +205,19 @@ def delete(conversation_id: int) -> bool:
     finally:
         conn.close()
     return cur.rowcount > 0
+
+
+def delete_many(ids: list[int]) -> int:
+    """Delete several conversations at once; returns how many existed."""
+    conn = connect()
+    try:
+        with conn:
+            cur = conn.executemany(
+                "DELETE FROM conversations WHERE id = ?", [(i,) for i in set(ids)]
+            )
+    finally:
+        conn.close()
+    return cur.rowcount
 
 
 def _save(

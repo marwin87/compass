@@ -26,6 +26,7 @@ CHAT_CSS = r"""
 .ddopt:not([aria-selected=true])::before{content:"";flex:none;width:6px}
 .chat .aihd .btn{padding:5px 10px;font-size:12px}
 .chat .aihd .btn.icon{padding:5px 8px}
+.chat .aihd .btn.act{background:var(--accent-soft)}
 .chat .chatask{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:13px;border-bottom:1px solid var(--line)}
 .chatlog{flex:1;min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin}
 .chatempty{margin:auto;max-width:420px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6}
@@ -51,6 +52,18 @@ CHAT_CSS = r"""
 .chatbox textarea::placeholder{color:var(--faint)}
 .chatbox .chatbar{display:flex;justify-content:flex-end}
 .chatbox .btn{border-radius:12px;padding:8px 20px}
+.chatmgr{display:flex;flex-direction:column;flex:1;min-height:0}
+.chatmgr .mbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 18px;background:var(--raise);border-bottom:1px solid var(--line);font-size:13px}
+.chatmgr .mbar label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.chatmgr .mbar .btn{padding:5px 10px;font-size:12px}
+.chatmgr .mbar .btn[disabled]{opacity:.4;cursor:not-allowed}
+.chatmgr input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.chatmgr .mlist{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}
+.chatmgr .mrow{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line);cursor:pointer}
+.chatmgr .mrow:hover,.chatmgr .mrow.on{background:var(--accent-soft)}
+.chatmgr .mrow .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.chatmgr .mrow .mm{color:var(--faint);font-size:12px;white-space:nowrap}
+.chatmgr .mrow.old .mm{color:var(--danger)}
 .chatnote{padding:0 18px 12px;font-size:12px;color:var(--faint)}
 @media (max-width:900px){.chatcard{min-height:calc(100dvh - 120px)}}
 """
@@ -97,16 +110,59 @@ function makeChat(cb) {
   const rename = h("button", {type: "button", class: "btn icon", "aria-label": tr("chat_rename"), title: tr("chat_rename"), onclick: () => editName(true)}, icon("pencil", 14));
   const ask = h("div", {class: "chatask", hidden: true}, h("span", {}, tr("chat_delete_ask")),
     h("button", {type: "button", class: "btn danger", onclick: removeConv}, tr("yes_delete")), h("button", {type: "button", class: "btn", onclick: () => askDelete(false)}, tr("back")));
+  const manageBtn = h("button", {type: "button", class: "btn icon", "aria-label": tr("chat_manage"), title: tr("chat_manage"), onclick: () => manage(mgr.hidden)}, icon("list", 14));
   const head = h("div", {class: "aihd"},
-    icon("spark", 16), h("span", {}, tr("chat_h")), select.el, nameIn, h("button", {type: "button", class: "btn icon", "aria-label": tr("chat_new"), title: tr("chat_new"), onclick: () => openConv("")}, icon("plus", 14)), rename, del, h("span", {class: "grow"}), aiTag(),
+    icon("spark", 16), h("span", {}, tr("chat_h")), select.el, nameIn, h("button", {type: "button", class: "btn icon", "aria-label": tr("chat_new"), title: tr("chat_new"), onclick: () => openConv("")}, icon("plus", 14)), rename, del, manageBtn, h("span", {class: "grow"}), aiTag(),
     h("button", {type: "button", class: "btn icon", "aria-label": tr("ai_close"), title: tr("ai_close"), onclick: cb.close}, icon("x", 14)));
   const log = h("div", {class: "chatlog", role: "log", "aria-live": "polite"});
+  // --- management: pick many conversations and delete them at once (older than OLD_DAYS are one click)
+  const OLD_DAYS = 30;
+  let picked = new Set();
+  const mAll = h("input", {type: "checkbox", onchange: () => { picked = new Set(mAll.checked ? convs.map((c) => c.id) : []); mdraw(); }});
+  const mCount = h("span", {class: "muted"});
+  const mOld = h("button", {type: "button", class: "btn", onclick: () => { picked = new Set(convs.filter(isOld).map((c) => c.id)); mdraw(); }}, tr("chat_select_old"));
+  const mDel = h("button", {type: "button", class: "btn danger", onclick: () => { mAsk.hidden = false; mAskText.textContent = tr("chat_delete_many_ask", {count: picked.size}); }}, tr("chat_delete_selected"));
+  const mAskText = h("span", {});
+  const mAsk = h("div", {class: "chatask", hidden: true}, mAskText,
+    h("button", {type: "button", class: "btn danger", onclick: removeMany}, tr("yes_delete")), h("button", {type: "button", class: "btn", onclick: () => { mAsk.hidden = true; }}, tr("back")));
+  const mList = h("div", {class: "mlist"});
+  const mgr = h("div", {class: "chatmgr", hidden: true},
+    h("div", {class: "mbar"}, h("label", {}, mAll, tr("chat_select_all")), mCount, h("span", {class: "grow"}), mOld, mDel), mAsk, mList);
+  const isOld = (c) => Date.now() - new Date(c.updated_at).getTime() > OLD_DAYS * 864e5;
+  function mdraw() {
+    mList.replaceChildren(...(convs.length ? convs.map((c) => h("label", {class: "mrow" + (picked.has(c.id) ? " on" : "") + (isOld(c) ? " old" : "")},
+      h("input", {type: "checkbox", checked: picked.has(c.id), onchange: (e) => { e.target.checked ? picked.add(c.id) : picked.delete(c.id); mdraw(); }}),
+      h("span", {class: "tt", title: c.title}, c.title || tr("chat_untitled")),
+      h("span", {class: "mm"}, tr("chat_msgs", {count: c.count}) + " · " + longDate(c.updated_at)))) : [h("div", {class: "chatempty"}, tr("chat_none"))]));
+    mCount.textContent = picked.size ? tr("chat_selected", {count: picked.size}) : tr("chat_total", {count: convs.length});
+    mDel.disabled = !picked.size; mAll.checked = !!convs.length && picked.size === convs.length; mAll.indeterminate = picked.size > 0 && picked.size < convs.length;
+    mAsk.hidden = true;
+  }
+  async function manage(on) {
+    if (on && run) return;      // an answer is being written
+    askDelete(false); editName(false);
+    if (on) { picked = new Set(); await loadList(); mdraw(); }
+    mgr.hidden = !on; log.hidden = form.hidden = note.hidden = on;
+    manageBtn.classList.toggle("act", on);
+    if (!on) input.focus();
+  }
+  async function removeMany() {
+    const ids = [...picked]; mAsk.hidden = true;
+    try {
+      const r = await api("/api/chats/delete", json("POST", {ids}));
+      if (!r.ok) throw new Error("delete");
+      toast(tr("chat_deleted_many", {count: (await r.json()).deleted}), "ok");
+    } catch (e) { if (e.message !== "not authenticated") toast(tr("chat_delete_failed"), "bad", 4000); return; }
+    if (ids.includes(cur.id)) { cur = {id: null, messages: []}; draw(); }
+    picked = new Set(); await loadList(); mdraw();
+  }
   const input = h("textarea", {rows: "3", maxlength: "4000", placeholder: tr("chat_ph"), "aria-label": tr("chat_ph")});
   const send = h("button", {type: "button", class: "btn primary", onclick: () => run ? stop() : ask1(input.value)}, tr("chat_send"));
   const grow = () => { input.style.height = "auto"; input.style.height = Math.min(220, input.scrollHeight) + "px"; };      // the box grows with the text, up to a limit
   input.addEventListener("input", grow);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!run) ask1(input.value); } });
-  const el = h("div", {class: "chat"}, head, ask, log, h("div", {class: "chatform"}, h("div", {class: "chatbox"}, input, h("div", {class: "chatbar"}, send))), h("div", {class: "chatnote"}, tr("chat_hint")));
+  const form = h("div", {class: "chatform"}, h("div", {class: "chatbox"}, input, h("div", {class: "chatbar"}, send))), note = h("div", {class: "chatnote"}, tr("chat_hint"));
+  const el = h("div", {class: "chat"}, head, ask, log, mgr, form, note);
   const down = () => { log.scrollTop = log.scrollHeight; };
   const askDelete = (on) => { ask.hidden = !on; };
   function editName(on) {          // the dropdown turns into a text field: Enter saves, Esc or leaving cancels

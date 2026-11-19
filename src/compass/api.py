@@ -456,7 +456,7 @@ class Question(BaseModel):
 
 
 @chat_router.get("")
-def list_chats() -> list[chat.Conversation]:
+def list_chats() -> list[chat.ChatListing]:
     return chat.list_all()
 
 
@@ -492,6 +492,16 @@ def rename_chat(chat_id: int, data: ChatTitle) -> chat.Conversation:
 def delete_chat(chat_id: int) -> None:
     if not chat.delete(chat_id):
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+
+class ChatIds(BaseModel):
+    ids: Annotated[list[int], Field(min_length=1, max_length=5000)]
+
+
+@chat_router.post("/delete")
+def delete_chats(data: ChatIds) -> dict[str, int]:
+    """Delete the chosen conversations in one go (an id that no longer exists is skipped)."""
+    return {"deleted": chat.delete_many(data.ids)}
 
 
 @chat_router.post("/{chat_id}/ask")
