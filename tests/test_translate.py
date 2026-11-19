@@ -138,6 +138,15 @@ def test_openrouter_sends_the_key_and_never_returns_it(
     assert fake.requests[0]["auth"] == f"Bearer {KEY}"
 
 
+def test_local_connection_never_gets_the_openrouter_key(
+    authed: TestClient, fake: Fake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", KEY)
+    setup_ai(authed, fake)
+    authed.post(f"/api/notes/{add(authed)}/translate", params=EN)
+    assert fake.requests[0]["auth"] is None
+
+
 def test_off_or_unconfigured_makes_no_call(authed: TestClient, fake: Fake) -> None:
     nid = add(authed)
     r = authed.post(f"/api/notes/{nid}/translate", params=EN)

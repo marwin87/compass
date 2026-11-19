@@ -1,5 +1,6 @@
 import json
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -477,3 +478,18 @@ def test_export_lists_categories_without_notes(authed: TestClient) -> None:
 def test_a_bad_categories_list_is_rejected(authed: TestClient, bad: object) -> None:
     r = do_import(authed, doc_of(categories=bad))
     assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_file"
+
+
+def test_chunked_upload_is_cut_off_at_the_limit(
+    authed: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No Content-Length (chunked body): the limit still holds."""
+    monkeypatch.setattr(api, "MAX_IMPORT_BYTES", 100)
+
+    def body() -> Iterator[bytes]:
+        for _ in range(10):
+            yield b"x" * 50
+
+    r = authed.post("/api/import", content=body())
+    assert r.status_code == 413
+    assert r.json()["detail"]["code"] == "file_too_large"

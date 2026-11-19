@@ -295,10 +295,13 @@ async def _upload(request: Request, limit: int) -> bytes:
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > limit:
         raise too_large
-    raw = await request.body()
-    if len(raw) > limit:
-        raise too_large
-    return raw
+    # Stream and stop at the limit: a chunked body has no Content-Length to trust.
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw += chunk
+        if len(raw) > limit:
+            raise too_large
+    return bytes(raw)
 
 
 def _lines(events: Iterator[dict[str, object]]) -> Iterator[str]:

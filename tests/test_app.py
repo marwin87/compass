@@ -69,3 +69,19 @@ def test_refuses_to_start_without_config(
     monkeypatch.delenv(name)
     with pytest.raises(RuntimeError, match=name):
         create_app()
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("COMPASS_PASSWORD", "change-me"),
+        ("COMPASS_SECRET_KEY", "change-me-too"),
+        ("COMPASS_SECRET_KEY", "too-short"),
+    ],
+)
+def test_refuses_placeholder_or_weak_secrets(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv(name, value)
+    with pytest.raises(RuntimeError, match=name):
+        create_app()

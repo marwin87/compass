@@ -131,7 +131,8 @@ def _post(
     s: dict[str, object], path: str, payload: dict[str, object]
 ) -> urllib.request.Request:
     headers = {"Content-Type": "application/json"}
-    if key := config.ai_key():
+    # The key belongs to OpenRouter only: a local address must never receive it.
+    if s["ai_connection"] != "local" and (key := config.ai_key()):
         headers["Authorization"] = f"Bearer {key}"
     return urllib.request.Request(
         base_url(s) + path, json.dumps(payload).encode(), headers
