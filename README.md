@@ -14,45 +14,69 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
 
 ## Screenshots
 
-<img src="docs/screenshots/ai-chat.png" alt="Chat with notes: an answer with cited sources" width="860">
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/ai-chat.png"><img src="docs/screenshots/ai-chat.png" alt="Chat with notes: an answer with cited sources" width="100%"></a><br>
+      <sub><b>Chat: answers from your notes, with sources</b></sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/ai-chat-manage.png"><img src="docs/screenshots/ai-chat-manage.png" alt="Managing saved conversations" width="100%"></a><br>
+      <sub><b>Manage conversations: select many, delete at once</b></sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/list.png"><img src="docs/screenshots/list.png" alt="Note list, side panel and reader" width="100%"></a><br>
+      <sub><b>Notes: categories, tags, list and reader</b></sub>
+    </td>
+  </tr>
+</table>
 
-**Chat with your notes:** the **Ask** button next to the search box opens a chat panel. The answer is written only from the matching notes and the notes it cites are listed as sources (click one to open it). Conversations are saved.
+<details>
+<summary><b>More screenshots</b></summary>
 
-<img src="docs/screenshots/ai-chat-manage.png" alt="Managing saved conversations: select many and delete at once" width="860">
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/ai-summary.png"><img src="docs/screenshots/ai-summary.png" alt="AI summary of a long note" width="100%"></a><br>
+      <sub><b>AI summary above the note</b></sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/ai-translate.png"><img src="docs/screenshots/ai-translate.png" alt="AI translation preview" width="100%"></a><br>
+      <sub><b>AI translation PL↔EN</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/search.png"><img src="docs/screenshots/search.png" alt="Search forgiving a typo" width="100%"></a><br>
+      <sub><b>Search forgives typos</b></sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/editor.png"><img src="docs/screenshots/editor.png" alt="Note editor" width="100%"></a><br>
+      <sub><b>Markdown editor with preview</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Settings" width="100%"></a><br>
+      <sub><b>Settings</b></sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/ai-settings.png"><img src="docs/screenshots/ai-settings.png" alt="Settings: AI features" width="100%"></a><br>
+      <sub><b>Settings: AI features (optional, off by default)</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/shortcuts.png"><img src="docs/screenshots/shortcuts.png" alt="Keyboard shortcuts window" width="100%"></a><br>
+      <sub><b>Keyboard shortcuts: press <kbd>?</kbd> anywhere</b></sub>
+    </td>
+    <td width="50%"></td>
+  </tr>
+</table>
 
-**Manage conversations:** the list icon in the chat header opens every saved conversation with its message count and last activity. Tick some, or select everything older than 30 days in one click (shown in red), and delete them together after one confirmation.
+</details>
 
-<img src="docs/screenshots/ai-summary.png" alt="AI summary of a long note" width="860">
-
-**AI summary:** one click writes a short summary and key points above the note. It is kept next to the note (the note itself is never changed) and marked as outdated once you edit the note.
-
-<img src="docs/screenshots/ai-translate.png" alt="AI translation preview" width="860">
-
-**AI translation PL↔EN:** a preview in place of the note, with the direction guessed from its text and a swap button. Code blocks and URLs are kept as they are.
-
-<img src="docs/screenshots/ai-settings.png" alt="Settings: AI features" width="860">
-
-**AI is optional and off by default.** Settings → AI features: OpenRouter or a local model (e.g. Ollama), a model for writing, one for embeddings and one for reading images (vision), the chat index, and a status line that says whether your notes leave the machine.
-
-<img src="docs/screenshots/list.png" alt="Note list, side panel and reader" width="860">
-
-**Notes:** categories and tags in the side panel, the list in the middle, the Markdown reader on the right.
-
-<img src="docs/screenshots/search.png" alt="Search forgiving a typo" width="860">
-
-**Search:** `indkes` finds "Indeks"; typos and missing Polish letters are forgiven.
-
-<img src="docs/screenshots/editor.png" alt="Note editor" width="860">
-
-**Editor:** Markdown with a toolbar and preview, tags and a category.
-
-<img src="docs/screenshots/settings.png" alt="Settings" width="860">
-
-**Settings:** theme, language, reading options, categories, tags, backup.
-
-<img src="docs/screenshots/shortcuts.png" alt="Keyboard shortcuts window" width="860">
-
-**Keyboard shortcuts:** press `?` (or click the keyboard icon next to Settings in the side panel) for the list; `T` switches between the dark and light theme.
+Click a picture for the full size.
 
 The screenshots are regenerated with `uv run python scripts/screenshots.py` (temporary database, demo data and a local model stub; needs `uv run playwright install chromium` once).
 
