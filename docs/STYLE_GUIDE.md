@@ -112,7 +112,7 @@ Dark is the default theme; the light theme is `:root[data-theme=light]`. The cho
   hero with date, category, tags and the Copy / Edit / Delete icon buttons at the top right, text on the
   rounded `.sheet`. Edit, new and confirm modes use the plain panel.
 - **Dialog:** native `<dialog>` with `showModal()` (Esc closes it, focus is trapped by the browser).
-- **Keyboard:** `/` and Ctrl/Cmd+K focus search, `N` new note, Esc clears filters, Up/Down move through
+- **Keyboard:** `T` flips the theme dark/light on both pages (`toggleTheme` in `core.py`: applies at once, saves through `saveSettings`, reverts on failure; the Settings control follows through the `themechange` event; it is a shortcut, not a second control, so the "theme only in Settings" rule stands). `/` and Ctrl/Cmd+K focus search, `N` new note, Esc clears filters, Up/Down move through
   the notes from the search box or from anywhere outside a form. Shortcuts never fire inside inputs,
   textareas or selects, and never while the dialog is open.
 - **Sorting:** the `#sort` select above the list (`SORT_LABELS`): default (newest first, or by relevance while

@@ -315,7 +315,6 @@ SETTINGS_HTML = (
 
 SETTINGS_JS = r"""
 // --- the Settings page: each control applies at once, saves, and goes back when the save fails
-const applyTheme = (t) => { document.documentElement.dataset.theme = t; };
 function segmented(options, value, onPick) {
   const buttons = options.map(([v, ...label]) => h("button", {type: "button", class: "segbtn", "data-v": String(v), onclick: () => onPick(v)}, label));
   const set = (val) => buttons.forEach((b) => { const on = b.dataset.v === String(val); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
@@ -335,6 +334,7 @@ async function change(key, value, show) {
 const themeSeg = segmented([["dark", icon("moon", 15), tr("theme_dark")], ["light", icon("sun", 15), tr("theme_light")]], SETTINGS.theme,
   (v) => change("theme", v, (x) => { applyTheme(x); themeSeg.set(x); }));
 $("#ctl-theme").append(themeSeg.el);
+document.addEventListener("themechange", (e) => themeSeg.set(e.detail));      // the T key changed it
 
 const langSeg = segmented([["en", "EN"], ["pl", "PL"]], LANG, (v) => { if (v === LANG) return; document.cookie = "lang=" + v + "; path=/; max-age=31536000; SameSite=Lax"; location.reload(); });
 $("#ctl-lang").append(langSeg.el);
@@ -459,7 +459,7 @@ loadAiStatus();
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const SHORTCUTS = [
   [["/"], "sc_search"], [[MAC ? "⌘" : "Ctrl", "K"], "sc_search_any"], [["N"], "sc_new"], [["↑", "↓"], "sc_move"],
-  [["Esc"], "sc_clear"], [["Esc"], "sc_reading_exit"],
+  [["T"], "sc_theme"], [["Esc"], "sc_clear"], [["Esc"], "sc_reading_exit"],
 ];
 $("#shortcutlist").append(...SHORTCUTS.map(([keys, label]) => h("div", {class: "krow"}, h("span", {}, tr(label)), h("span", {class: "keys"}, keys.map((k) => h("kbd", {}, k))))),
   h("div", {class: "krow"}, h("span", {}, tr("sc_reading_open")), h("span", {class: "keys"}, icon("book", 16))));

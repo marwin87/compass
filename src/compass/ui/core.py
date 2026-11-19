@@ -165,6 +165,18 @@ const sk = (w, ht = 12, cls = "") => h("span", {class: "sk " + cls, style: "widt
 // Sort orders of the note list ("" = relevance while searching, newest first otherwise) and their labels
 const SORT_LABELS = {"": "sort_default", title_asc: "sort_title_asc", title_desc: "sort_title_desc", date_desc: "sort_date_desc", date_asc: "sort_date_asc"};
 // --- settings: the values were embedded by the server (SETTINGS); changes are saved at once
+// --- theme: the T key flips dark/light on both pages (saved like the Settings control; "themechange" lets the Settings control follow)
+const applyTheme = (t) => { document.documentElement.dataset.theme = t; document.dispatchEvent(new CustomEvent("themechange", {detail: t})); };
+async function toggleTheme() {
+  const before = SETTINGS.theme, next = before === "light" ? "dark" : "light";
+  applyTheme(next);
+  if (!(await saveSettings({theme: next}))) applyTheme(before);
+}
+document.addEventListener("keydown", (e) => {
+  if ((e.key !== "t" && e.key !== "T") || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable || document.querySelector("dialog[open]") || aiBlocked()) return;
+  e.preventDefault(); toggleTheme();
+});
 const READ_WIDTHS = [680, 760, 880], READ_SIZES = [15, 22];   // reading mode: text column widths (px) and text size range
 async function saveSettings(patch) {              // true when saved; on failure a toast says so and the caller reverts
   try {

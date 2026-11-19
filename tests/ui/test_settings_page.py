@@ -296,3 +296,9 @@ def test_the_vision_model_is_in_the_ai_section_and_images_are_accepted(
     load = page.split('id="load"')[1].split("</section>")[0]
     assert ".png,.jpg,.jpeg,.webp" in load and "image/webp" in load
     assert ".pdf" in load and "application/pdf" in load
+
+
+def test_the_t_key_switches_the_theme_on_both_pages(authed: TestClient) -> None:
+    for path in ("/", "/settings"):
+        assert "async function toggleTheme" in authed.get(path).text
+    assert "sc_theme" in STRINGS["pl"] and "sc_theme" in STRINGS["en"]
