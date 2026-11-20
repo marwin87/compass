@@ -57,6 +57,41 @@ def _parse_summary(index: int, raw: object) -> ParsedSummary | None:
     return ParsedSummary(text, created_at, stale)
 
 
+def _parse_tags(index: int, raw: object) -> list[str]:
+    if not isinstance(raw, list) or not all(isinstance(t, str) for t in raw):
+        raise _bad(index, "tags")
+    try:
+        return normalize_tags(raw)
+    except ValueError:
+        raise _bad(index, "tags") from None
+
+
+def _parse_when(index: int, raw: object) -> datetime:
+    if not isinstance(raw, str):
+        raise _bad(index, "created_at")
+    try:
+        when = datetime.fromisoformat(raw)
+    except ValueError:
+        raise _bad(index, "created_at") from None
+    return when if when.tzinfo else when.replace(tzinfo=UTC)
+
+
+def _parse_category(index: int, raw: object) -> str | None:
+    """Optional: absent or null means the default."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise _bad(index, "category")
+    name = " ".join(raw.split()) or None
+    if name is not None:
+        try:
+            categories.normalize(name)
+        except categories.CategoryError as problem:
+            if problem.code != "name_reserved":  # the default's own labels are fine
+                raise _bad(index, "category") from None
+    return name
+
+
 def _parse_note(index: int, raw: object) -> ParsedNote:
     if not isinstance(raw, dict):
         raise _bad(index, "note")
@@ -66,40 +101,13 @@ def _parse_note(index: int, raw: object) -> ParsedNote:
     body = raw.get("body")
     if not isinstance(body, str) or len(body) > MAX_BODY:
         raise _bad(index, "body")
-    tags = raw.get("tags")
-    if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
-        raise _bad(index, "tags")
-    try:
-        clean_tags = normalize_tags(tags)
-    except ValueError:
-        raise _bad(index, "tags") from None
-    created_at = raw.get("created_at")
-    if not isinstance(created_at, str):
-        raise _bad(index, "created_at")
-    try:
-        when = datetime.fromisoformat(created_at)
-    except ValueError:
-        raise _bad(index, "created_at") from None
-    if when.tzinfo is None:
-        when = when.replace(tzinfo=UTC)
-    category = raw.get("category")  # optional: absent or null means the default
-    if category is not None:
-        if not isinstance(category, str):
-            raise _bad(index, "category")
-        try:
-            category = " ".join(category.split()) or None
-            if category is not None:
-                categories.normalize(category)
-        except categories.CategoryError as problem:
-            if problem.code != "name_reserved":  # the default's own labels are fine
-                raise _bad(index, "category") from None
     return ParsedNote(
         title.strip(),
         body,
-        tuple(clean_tags),
-        created_at,
-        when,
-        category,
+        tuple(_parse_tags(index, raw.get("tags"))),
+        raw["created_at"] if isinstance(raw.get("created_at"), str) else "",
+        _parse_when(index, raw.get("created_at")),
+        _parse_category(index, raw.get("category")),
         _parse_summary(index, raw.get("summary")),
         raw["id"] if _is_int(raw.get("id")) else None,
     )

@@ -11,11 +11,10 @@ import logging
 import re
 import time
 from collections.abc import Iterator
-from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
-from compass import ai, ask, chunks
+from compass import ai, ask, chunks, summaries
 from compass.db import connect
 
 log = logging.getLogger(
@@ -77,15 +76,11 @@ class Thread(Conversation):
     messages: list[Message]
 
 
-def _now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
 def create() -> Conversation:
     conn = connect()
     try:
         with conn:
-            now = _now()
+            now = summaries.now()
             cur = conn.execute(
                 "INSERT INTO conversations(title, created_at) VALUES ('', ?)", (now,)
             )
@@ -235,7 +230,7 @@ def _save(
                 is None
             ):
                 return 0  # deleted while the model worked
-            now = _now()
+            now = summaries.now()
             conn.execute(
                 "UPDATE conversations SET title = ? WHERE id = ? AND title = ''",
                 (" ".join(question.split())[:TITLE_CHARS], conversation_id),

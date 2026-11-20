@@ -32,10 +32,6 @@ class Category(BaseModel):
     count: int
 
 
-def default_id() -> int:
-    return DEFAULT_CATEGORY_ID
-
-
 def normalize(name: str) -> tuple[str, str]:
     """Return (display name, unique key); raise `name_invalid` or `name_reserved`."""
     clean = " ".join(name.split())
