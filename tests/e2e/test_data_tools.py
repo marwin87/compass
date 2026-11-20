@@ -4,7 +4,7 @@ import json
 import re
 from pathlib import Path
 
-import httpx
+import httpx2 as httpx
 from playwright.sync_api import Page, expect
 
 from tests.e2e.pages import T, open_settings, seed, unique

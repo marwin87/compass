@@ -3,7 +3,7 @@
 import re
 from collections.abc import Iterator
 
-import httpx
+import httpx2 as httpx
 import pytest
 from playwright.sync_api import Browser, Page, expect
 

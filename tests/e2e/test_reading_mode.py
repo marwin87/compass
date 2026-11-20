@@ -2,7 +2,7 @@
 
 import re
 
-import httpx
+import httpx2 as httpx
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.pages import T, card, detail_title, seed, unique

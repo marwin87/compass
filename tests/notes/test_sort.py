@@ -19,7 +19,7 @@ def seed(rows: list[tuple[str, str, list[str], str]], category_id: int = 1) -> N
     conn.close()
 
 
-def titles(c: TestClient, **params: object) -> list[str]:
+def titles(c: TestClient, **params: str | int) -> list[str]:
     r = c.get("/api/notes", params=params)
     assert r.status_code == 200
     return [n["title"] for n in r.json()]

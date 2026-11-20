@@ -4,7 +4,7 @@ import re
 import time
 from collections.abc import Sequence
 
-import httpx
+import httpx2 as httpx
 from playwright.sync_api import Locator, Page
 
 from compass.ui.i18n import STRINGS

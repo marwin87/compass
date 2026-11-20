@@ -2,7 +2,7 @@
 
 import re
 
-import httpx
+import httpx2 as httpx
 from playwright.sync_api import Browser, Page, expect
 
 from compass.ui.i18n import STRINGS
