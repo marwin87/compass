@@ -2,10 +2,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from compass import ai, ask, chat
-from tests.test_ask import note
-from tests.test_chunks import events, ready
-from tests.test_translate import Fake, fake, setup_ai  # noqa: F401
+from compass import ai
+from compass.ai import chat, retrieval
+from tests.ai.test_ask import note
+from tests.ai.test_chunks import events, ready
+from tests.ai.test_translate import Fake, fake, setup_ai  # noqa: F401
 
 
 def new(c: TestClient) -> int:
@@ -91,9 +92,9 @@ def test_nothing_found_still_asks_the_model_to_say_so(
 
 def test_citations_are_renumbered_after_the_sources() -> None:
     excerpts = [
-        ask.Excerpt(1, "A", "a1"),
-        ask.Excerpt(2, "B", "b"),
-        ask.Excerpt(1, "A", "a2"),
+        retrieval.Excerpt(1, "A", "a1"),
+        retrieval.Excerpt(2, "B", "b"),
+        retrieval.Excerpt(1, "A", "a2"),
     ]
     text, sources = chat.renumber("x [2] y [3][1] z [9] [0]", excerpts)
     assert text == "x [1] y [2] z  "  # [3][1] are both note A: one citation

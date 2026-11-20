@@ -9,13 +9,18 @@
 
 ## Project Structure
 
-- `src/compass/`: the backend (FastAPI app: `main.py`, `routes/` (one module per HTTP resource), `api.py` (limits and error maps the routes share), `auth.py`, `notes.py`, `categories.py`, `tags.py`,
-  `transfer.py`, `settings.py`, `about.py`, `db.py`, `search.py`, `config.py`).
+- `src/compass/`: the backend (FastAPI app). Shell: `main.py`, `auth.py`, `config.py`, `db.py`, `settings.py`,
+  `about.py`, `search.py` (text folding and fuzzy matching, used by `db.py` and the domain). `routes/`: one module per
+  HTTP resource; `api.py` holds the limits and error maps the routes share. `notes/`: the notes domain (`__init__.py`
+  is the notes themselves; `categories.py`, `tags.py`, `summaries.py`, `transfer.py` for export/import files).
+  `ai/`: everything that calls a model (`__init__.py` is the client; `chunks.py` the vector index, `retrieval.py`
+  the excerpts for a question, `chat.py` the saved conversations). `importing/`: file import (`importer.py`
+  with the `docx.py`, `pdf.py` and `textfile.py` readers).
 - `src/compass/ui/`: everything the browser receives: pages (`page.py`, `settings_page.py`, `login.py`), shared
   script (`core.py`), the note reader and editor (`reader.py`, `editor.py`) and translations (`i18n.py`). The backend
   never builds HTML; frontend conventions: `@docs/STYLE_GUIDE.md`.
-- `tests/`: pytest, laid out like `src/compass/`: backend tests in `tests/` (one file per area), UI tests in
-  `tests/ui/` (see `docs/STYLE_GUIDE.md`); `demo/`: importable demo data; `context/`: PRD, roadmap and change plans.
+- `tests/`: pytest, laid out like `src/compass/`: backend tests in `tests/notes/`, `tests/ai/` and
+  `tests/importing/` (one file per area; app-level ones in `tests/`), UI tests in `tests/ui/` (see `docs/STYLE_GUIDE.md`); `demo/`: importable demo data; `context/`: PRD, roadmap and change plans.
 
 See `@context/foundation/prd.md` for domain rules and `@context/foundation/tech-stack.md` for stack rationale.
 

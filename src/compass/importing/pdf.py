@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pypdf import PdfReader
 from pypdf.errors import DependencyError, PyPdfError
 
-from compass.docx import BadFile, Block
+from compass.importing.docx import BadFile, Block
 
 REPEATED_PAGES = 3  # a line must be on at least this many pages, and on half of all pages, to be a header
 MIN_PAGE_TEXT = 40  # characters; a page with less is read as a picture

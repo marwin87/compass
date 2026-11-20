@@ -5,11 +5,11 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from compass import chunks
-from tests.test_ask import note
-from tests.test_chat import new, put
-from tests.test_chunks import ready
-from tests.test_translate import Fake, fake, setup_ai  # noqa: F401
+from compass.ai import chunks
+from tests.ai.test_ask import note
+from tests.ai.test_chat import new, put
+from tests.ai.test_chunks import ready
+from tests.ai.test_translate import Fake, fake, setup_ai  # noqa: F401
 
 NOW = "2026-01-01T00:00:00+00:00"
 

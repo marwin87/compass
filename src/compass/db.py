@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 from compass.search import fold
@@ -154,6 +155,10 @@ def _ensure_categories(conn: sqlite3.Connection) -> None:
                 raise
     conn.execute("CREATE INDEX IF NOT EXISTS notes_category ON notes(category_id)")
     conn.commit()
+
+
+def now() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def connect() -> sqlite3.Connection:

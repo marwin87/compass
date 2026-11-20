@@ -8,7 +8,7 @@ Markdown lists, tables and code reach the model as they are.
 import re
 import unicodedata
 
-from compass.docx import BadFile, Block
+from compass.importing.docx import BadFile, Block
 
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 FENCE = re.compile(r"^\s*(```|~~~)")

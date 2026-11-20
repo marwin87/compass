@@ -5,9 +5,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from compass import categories
 from compass.db import connect
 from compass.main import app
+from compass.notes import categories
 
 DEFAULT = 1
 

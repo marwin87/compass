@@ -12,7 +12,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 
-from compass import ai, chunks, notes
+from compass import ai, notes
+from compass.ai import chunks
 from compass.search import fold, words
 
 log = logging.getLogger(

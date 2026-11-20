@@ -14,7 +14,8 @@ from collections.abc import Iterator
 
 from pydantic import BaseModel
 
-from compass import ai, ask, chunks, summaries
+from compass import ai, db
+from compass.ai import chunks, retrieval
 from compass.db import connect
 
 log = logging.getLogger(
@@ -80,7 +81,7 @@ def create() -> Conversation:
     conn = connect()
     try:
         with conn:
-            now = summaries.now()
+            now = db.now()
             cur = conn.execute(
                 "INSERT INTO conversations(title, created_at) VALUES ('', ?)", (now,)
             )
@@ -230,7 +231,7 @@ def _save(
                 is None
             ):
                 return 0  # deleted while the model worked
-            now = summaries.now()
+            now = db.now()
             conn.execute(
                 "UPDATE conversations SET title = ? WHERE id = ? AND title = ''",
                 (" ".join(question.split())[:TITLE_CHARS], conversation_id),
@@ -255,7 +256,9 @@ def _save(
     return int(cur.lastrowid or 0)
 
 
-def renumber(answer: str, excerpts: list[ask.Excerpt]) -> tuple[str, list[Source]]:
+def renumber(
+    answer: str, excerpts: list[retrieval.Excerpt]
+) -> tuple[str, list[Source]]:
     """The answer with its citations renumbered after the notes they point to, and those notes.
 
     The model cites excerpts, [1] to [n]; two excerpts may come from one note. The user sees one
@@ -285,7 +288,7 @@ def renumber(answer: str, excerpts: list[ask.Excerpt]) -> tuple[str, list[Source
     return text, sources
 
 
-def _prompt(excerpts: list[ask.Excerpt], question: str) -> str:
+def _prompt(excerpts: list[retrieval.Excerpt], question: str) -> str:
     shown = "\n\n".join(f"[{n}] {e.text}" for n, e in enumerate(excerpts, 1))
     return f"Excerpts:\n\n{shown or '(no excerpts found)'}\n\nQuestion: {question}"
 
@@ -309,7 +312,7 @@ def answer(
                     yield event
                     return
         synced = time.perf_counter()
-        excerpts = ask.retrieve(
+        excerpts = retrieval.retrieve(
             s, question, [m.text for m in history if m.role == "user"]
         )
         yield {

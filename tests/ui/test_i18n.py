@@ -115,7 +115,7 @@ def test_every_import_error_code_has_a_message_in_both_languages() -> None:
     import re as _re
     from pathlib import Path
 
-    from compass import transfer
+    from compass.notes import transfer
 
     codes = {
         "not_json",

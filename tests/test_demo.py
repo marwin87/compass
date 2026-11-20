@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from compass.transfer import parse_export
+from compass.notes.transfer import parse_export
 
 DEMO = Path(__file__).resolve().parent.parent / "demo" / "compass-demo.json"
 

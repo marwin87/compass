@@ -167,9 +167,9 @@ flowchart LR
     A --> S[(Saved conversation)]
 ```
 
-**1. Indexing (`chunks.py`).** Each note is cut into chunks: by heading, packed up to 1,200 characters by whole paragraphs, a `#` inside a fenced code block is not taken for a heading, and every chunk starts with the note title. Each chunk gets one embedding from the embedding model. Vectors are normalised to unit length and stored as 32-bit floats in the `note_chunks` table (derived data, deleted with the note, never exported). The index is **lazy**: saving or deleting a note never calls the model. A note is *stale* when its text digest or the embedding model differs from what was indexed. Before an answer, up to 20 stale notes are embedded; **Settings → Chat index → Build index** does all of them at once, **Clear index** drops everything.
+**1. Indexing (`ai/chunks.py`).** Each note is cut into chunks: by heading, packed up to 1,200 characters by whole paragraphs, a `#` inside a fenced code block is not taken for a heading, and every chunk starts with the note title. Each chunk gets one embedding from the embedding model. Vectors are normalised to unit length and stored as 32-bit floats in the `note_chunks` table (derived data, deleted with the note, never exported). The index is **lazy**: saving or deleting a note never calls the model. A note is *stale* when its text digest or the embedding model differs from what was indexed. Before an answer, up to 20 stale notes are embedded; **Settings → Chat index → Build index** does all of them at once, **Clear index** drops everything.
 
-**2. Retrieval (`ask.py`).** Two ranked lists are merged by reciprocal rank fusion (`1 / (60 + rank)`):
+**2. Retrieval (`ai/retrieval.py`).** Two ranked lists are merged by reciprocal rank fusion (`1 / (60 + rank)`):
 
 - *by meaning:* the question (plus the previous question of the conversation, so a follow-up like "and when?" still works) is embedded and compared with every chunk by cosine similarity, which for unit vectors is a dot product (`math.sumprod`); the 20 closest chunks win. This is a brute-force scan, fine up to about 50,000 chunks.
 - *by words:* the existing search (full-text, typo and accent tolerant) finds notes and the best chunk of each is taken. Words shorter than 3 characters are ignored.
@@ -184,10 +184,10 @@ The merged list is cut to what a model can use: at most 8 notes, 2 chunks per no
 
 | Setting | Where | Default |
 | --- | --- | --- |
-| Excerpts sent per question | `ask.py` (`MAX_NOTES`, `PER_NOTE`, `CONTEXT_CHARS`) | 8 notes, 2 per note, 12,000 chars |
+| Excerpts sent per question | `ai/retrieval.py` (`MAX_NOTES`, `PER_NOTE`, `CONTEXT_CHARS`) | 8 notes, 2 per note, 12,000 chars |
 | Turns remembered | `chat.py` (`HISTORY_MESSAGES`) | 6 turns |
 | Notes embedded per question | `chat.py` (`SYNC_LIMIT`) | 20 |
-| Chunk size | `chunks.py` (`CHUNK_CHARS`) | 1,200 chars |
+| Chunk size | `ai/chunks.py` (`CHUNK_CHARS`) | 1,200 chars |
 | Model wait | `ai.py` (`TIMEOUT`) | 60 s of silence |
 
 API: `GET/POST/DELETE /api/ai/index` (state, build as a stream, clear), `GET/POST /api/chats` (the list carries `updated_at` and `count`), `POST /api/chats/delete` (`{"ids": [...]}`, several at once), `PATCH/DELETE /api/chats/{id}`, `POST /api/chats/{id}/ask` (the stream).

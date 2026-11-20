@@ -4,12 +4,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, StringConstraints
 from starlette.responses import StreamingResponse
 
-from compass import (
-    ai,
-    api,
-    chat,
-    settings,
-)
+from compass import ai, api, settings
+from compass.ai import chat
 
 router = APIRouter(prefix="/api/chats")
 

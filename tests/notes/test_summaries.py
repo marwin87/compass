@@ -4,9 +4,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from compass import summaries
 from compass.db import connect
-from tests.test_translate import (
+from compass.notes import summaries
+from tests.ai.test_translate import (
     Fake,
     add,
     fake,  # noqa: F401  (the fixture, for pytest)

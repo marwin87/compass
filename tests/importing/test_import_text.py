@@ -5,15 +5,15 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from compass import importer, textfile
-from compass.docx import BadFile, Block
-from tests.test_import_word import events, of, patch_model, post
-from tests.test_translate import (
+from compass.importing import importer, textfile
+from compass.importing.docx import BadFile, Block
+from tests.ai.test_translate import (
     Fake,
     fake,  # noqa: F401  (the fixture, for pytest)
     rows,
     setup_ai,
 )
+from tests.importing.test_import_word import events, of, patch_model, post
 
 MD = (
     "# Docker\n\nObrazy i kontenery.\n- pull\n- run\n\n"

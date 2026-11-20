@@ -8,8 +8,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from compass import ai, docx, importer, notes
-from tests.test_translate import (
+from compass import ai, notes
+from compass.importing import docx, importer
+from tests.ai.test_translate import (
     Fake,
     fake,  # noqa: F401  (the fixture, for pytest)
     rows,

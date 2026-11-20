@@ -3,14 +3,8 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from compass import (
-    ai,
-    api,
-    categories,
-    notes,
-    settings,
-    summaries,
-)
+from compass import ai, api, db, notes, settings
+from compass.notes import categories, summaries
 
 router = APIRouter(prefix="/api/notes")
 
@@ -109,7 +103,7 @@ def summarize(note_id: int) -> summaries.Summary:
     except ai.AIError as problem:
         raise api.ai_error(problem) from None
     if not text:
-        return summaries.Summary(text="", created_at=summaries.now(), stale=False)
+        return summaries.Summary(text="", created_at=db.now(), stale=False)
     # The digest is of the note as it was sent: an edit made while the model worked makes this stale.
     saved = summaries.save(note.id, text, summaries.digest(note.title, note.body))
     if saved is None:

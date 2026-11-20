@@ -3,12 +3,8 @@ import itertools
 from fastapi import APIRouter
 from starlette.responses import StreamingResponse
 
-from compass import (
-    ai,
-    api,
-    chunks,
-    settings,
-)
+from compass import ai, api, settings
+from compass.ai import chunks
 
 router = APIRouter(prefix="/api/ai")
 

@@ -6,13 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from compass import ai, api
-from tests.test_import_word import events, of, patch_model, post
-from tests.test_translate import (
+from tests.ai.test_translate import (
     Fake,
     fake,  # noqa: F401  (the fixture, for pytest)
     rows,
     setup_ai,
 )
+from tests.importing.test_import_word import events, of, patch_model, post
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"pixels"
 JPG = b"\xff\xd8\xff\xe0" + b"pixels"

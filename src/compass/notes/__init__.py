@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from compass import categories, summaries
 from compass.db import connect, index_note, unindex_note
+from compass.notes import categories, summaries
 from compass.search import fold, fuzzy_terms, rank_key, words
 
 LIMIT = 50

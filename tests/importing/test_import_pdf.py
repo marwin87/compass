@@ -7,15 +7,16 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
-from compass import api, importer, pdf
-from compass.docx import BadFile
-from tests.test_import_word import events, of, patch_model, post
-from tests.test_translate import (
+from compass import api
+from compass.importing import importer, pdf
+from compass.importing.docx import BadFile
+from tests.ai.test_translate import (
     Fake,
     fake,  # noqa: F401  (the fixture, for pytest)
     rows,
     setup_ai,
 )
+from tests.importing.test_import_word import events, of, patch_model, post
 
 NOTE = json.dumps([{"title": "T", "body": "b"}])
 

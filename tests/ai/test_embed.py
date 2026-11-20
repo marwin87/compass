@@ -2,7 +2,7 @@
 import pytest
 
 from compass import ai
-from tests.test_translate import Fake, fake  # noqa: F401
+from tests.ai.test_translate import Fake, fake  # noqa: F401
 
 
 def s(**extra: object) -> dict[str, object]:

@@ -7,11 +7,10 @@ been edited (it is still shown, with a warning).
 
 import hashlib
 import sqlite3
-from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
-from compass.db import connect
+from compass.db import connect, now
 
 MAX_SUMMARY = 20000
 
@@ -24,10 +23,6 @@ class Summary(BaseModel):
 
 def digest(title: str, body: str) -> str:
     return hashlib.sha256(f"{title}\n{body}".encode()).hexdigest()
-
-
-def now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def insert(

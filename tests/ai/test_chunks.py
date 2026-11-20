@@ -3,9 +3,9 @@ import json
 
 from fastapi.testclient import TestClient
 
-from compass import chunks
+from compass.ai import chunks
 from compass.db import connect
-from tests.test_translate import Fake, add, fake, setup_ai  # noqa: F401
+from tests.ai.test_translate import Fake, add, fake, setup_ai  # noqa: F401
 
 WORDS = ("cat", "dog", "bird")
 

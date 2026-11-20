@@ -1,10 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from compass import (
-    notes,
-    tags,
-)
+from compass import notes
+from compass.notes import tags
 
 router = APIRouter(prefix="/api/tags")
 

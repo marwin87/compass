@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from compass import ai
-from tests.test_translate import (
+from tests.ai.test_translate import (
     Fake,
     add,
     fake,  # noqa: F401  (the fixture, for pytest)

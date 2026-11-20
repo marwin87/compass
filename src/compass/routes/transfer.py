@@ -6,18 +6,10 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import StreamingResponse
 
-from compass import (
-    ai,
-    api,
-    categories,
-    chat,
-    docx,
-    importer,
-    notes,
-    settings,
-    summaries,
-    transfer,
-)
+from compass import ai, api, notes, settings
+from compass.ai import chat
+from compass.importing import docx, importer
+from compass.notes import categories, summaries, transfer
 
 export_router = APIRouter(prefix="/api/export")
 import_router = APIRouter(prefix="/api/import")

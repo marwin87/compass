@@ -8,7 +8,6 @@ those codes into translated messages.
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from compass import categories
 from compass.notes import (
     MAX_BODY,
     MAX_TITLE,
@@ -17,9 +16,10 @@ from compass.notes import (
     ParsedNote,
     ParsedSource,
     ParsedSummary,
+    categories,
     normalize_tags,
 )
-from compass.summaries import MAX_SUMMARY
+from compass.notes.summaries import MAX_SUMMARY
 
 EXPORT_FORMAT = "compass-export"
 

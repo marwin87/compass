@@ -15,7 +15,7 @@ from collections.abc import Iterator
 
 from compass import ai
 from compass.db import connect
-from compass.summaries import digest
+from compass.notes.summaries import digest
 
 CHUNK_CHARS = 1200
 BATCH = 32  # chunks per embeddings call

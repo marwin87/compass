@@ -23,7 +23,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import PurePath
 
-from compass import ai, categories, docx, notes, pdf, textfile
+from compass import ai, notes
+from compass.importing import docx, pdf, textfile
+from compass.notes import categories
 from compass.search import fold
 
 MAX_TEXT = (

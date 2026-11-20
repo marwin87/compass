@@ -1,10 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from compass import (
-    api,
-    categories,
-)
+from compass import api
+from compass.notes import categories
 
 router = APIRouter(prefix="/api/categories")
 

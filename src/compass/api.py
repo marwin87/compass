@@ -9,7 +9,8 @@ from collections.abc import Iterator
 
 from fastapi import HTTPException
 
-from compass import ai, categories
+from compass import ai
+from compass.notes import categories
 
 CATEGORY_STATUS = {
     "name_invalid": 422,
