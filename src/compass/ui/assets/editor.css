@@ -1,130 +1,149 @@
 .edwrap {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
+    display: grid;
+    gap: 8px;
+    min-width: 0;
 }
+
 .edbar {
-  position: relative;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+    position: relative;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
 }
+
 .edtabs {
-  display: inline-flex;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 2px;
-  background: var(--bg);
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 2px;
+    background: var(--bg);
 }
+
 .edtab {
-  border: 0;
-  background: none;
-  border-radius: 8px;
-  padding: 4px 12px;
-  font-size: 12.5px;
-  color: var(--muted);
-  transition:
-    background var(--ease),
+    border: 0;
+    background: none;
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    color: var(--muted);
+    transition: background var(--ease),
     color var(--ease);
 }
+
 .edtab:hover {
-  color: var(--ink);
+    color: var(--ink);
 }
+
 .edtab.on {
-  background: var(--accent-soft);
-  color: var(--ink);
-  font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--ink);
+    font-weight: 600;
 }
+
 .edtools {
-  display: flex;
-  gap: 2px;
-  flex-wrap: wrap;
-  align-items: center;
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    align-items: center;
 }
+
 .edbtn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: none;
-  color: var(--muted);
-  transition:
-    background var(--ease),
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: none;
+    color: var(--muted);
+    transition: background var(--ease),
     color var(--ease);
 }
+
 .edbtn:hover {
-  background: var(--accent-soft);
-  color: var(--ink);
+    background: var(--accent-soft);
+    color: var(--ink);
 }
+
 .edbtn:focus-visible,
 .edtab:focus-visible,
 .edmenuitem:focus-visible {
-  outline: 2px solid var(--accent-light);
-  outline-offset: 1px;
+    outline: 2px solid var(--accent-light);
+    outline-offset: 1px;
 }
+
 .edpop {
-  position: relative;
-  display: inline-block;
+    position: relative;
+    display: inline-block;
 }
+
 .edmenu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 20;
-  min-width: 190px;
-  margin-top: 6px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--raise);
-  box-shadow: var(--shadow);
-  display: grid;
-  gap: 2px;
-  animation: fadein 0.15s ease-out;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 20;
+    min-width: 190px;
+    margin-top: 6px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--raise);
+    box-shadow: var(--shadow);
+    display: grid;
+    gap: 2px;
+    animation: fadein 0.15s ease-out;
 }
+
 .edmenuitem {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  border: 0;
-  background: none;
-  border-radius: 8px;
-  padding: 7px 10px;
-  text-align: left;
-  font-size: 13px;
-  color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: 0;
+    background: none;
+    border-radius: 8px;
+    padding: 7px 10px;
+    text-align: left;
+    font-size: 13px;
+    color: var(--ink);
 }
+
 .edmenuitem:hover {
-  background: var(--accent-soft);
+    background: var(--accent-soft);
 }
+
 .edmenuitem svg {
-  color: var(--cc, #5b8dff);
+    color: var(--cc, #5b8dff);
 }
+
 .edmenuitem.tip {
-  --cc: #2dd4bf;
+    --cc: #2dd4bf;
 }
+
 .edmenuitem.warning {
-  --cc: #f5a524;
+    --cc: #f5a524;
 }
+
 .edmenuitem.important {
-  --cc: #a78bfa;
+    --cc: #a78bfa;
 }
+
 .edmenuitem.success {
-  --cc: #22c55e;
+    --cc: #22c55e;
 }
+
 .edmenuitem.note {
-  --cc: #94a3b8;
+    --cc: #94a3b8;
 }
+
 .edpreview {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-  padding: 16px 18px;
-  overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--bg);
+    padding: 16px 18px;
+    overflow-x: auto;
 }
+
 .edpreview .md {
-  font-size: 15.5px;
+    font-size: 15.5px;
 }

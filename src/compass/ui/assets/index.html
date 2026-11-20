@@ -1,65 +1,110 @@
 <!doctype html>
 <html lang="[[lang]]" data-theme="dark">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compass</title>
-<!--FAVICON-->
-<style>/*CSS*/</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Compass</title>
+    <!--FAVICON-->
+    <style>/*CSS*/</style>
 </head>
 <body>
 <div class="app" id="app" data-view="list">
-  <aside id="side">
-    <div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass <span class="aitag" data-ai hidden><span class="ic" data-icon="spark" data-size="10"></span>AI</span></div><div class="tagline">[[tagline]]</div></div></div>
-    <button type="button" class="btn primary wide newbtn" id="new">[[new_note]]</button>
-    <h4><span>[[categories_h]]</span><a class="linkbtn" href="/settings#categories" title="[[manage_title]]">[[manage_categories]]<span class="ic" data-icon="settings" data-size="15"></span></a></h4>
-    <div class="catlist" id="catbar"></div>
-    <button type="button" class="moretags" id="catmore" hidden><span id="catmoretext"></span><span class="ic" data-icon="chevron-down" data-size="15"></span></button>
-    <h4><span>[[tags_h]]</span><a class="linkbtn" href="/settings#tags" title="[[tags_manage_title]]">[[manage_categories]]<span class="ic" data-icon="settings" data-size="15"></span></a></h4>
-    <div class="chips tagbar" id="tagbar"></div>
-    <button type="button" class="moretags" id="tagmore" hidden><span id="tagmoretext"></span><span class="ic" data-icon="chevron-down" data-size="15"></span></button>
-    <div class="sep"></div>
-    <h4><span>[[how_h]]</span></h4>
-    <ul class="legend muted">
-      <li><span class="ic" data-icon="search"></span><span>[[legend1]]</span></li>
-      <li><span class="ic" data-icon="zap"></span><span>[[legend2]]</span></li>
-      <li><span class="ic" data-icon="star"></span><span>[[legend3]]</span></li>
-    </ul>
-    <div class="spacer"></div>
-    <div class="sidepair"><a class="btn sidebtn" href="/settings"><span class="ic" data-icon="cog"></span>[[settings_title]]</a><button type="button" class="btn sidebtn" id="kbbtn" aria-label="[[sc_help]]" title="[[sc_help]]"><span class="ic" data-icon="keyboard"></span></button></div>
-    <form method="post" action="/logout"><button class="btn wide sidebtn"><span class="ic" data-icon="logout"></span>[[logout]]</button></form>
-  </aside>
-  <div class="scrim" id="scrim" hidden></div>
-  <main>
-    <div class="readbar" id="readbar">
-      <span class="lbl"><span class="ic" data-icon="book" data-size="16"></span>[[reading_mode]]</span>
-      <div class="rtools">
-        <button type="button" class="btn" id="r-smaller" aria-label="[[font_smaller]]" title="[[font_smaller]]">A−</button>
-        <button type="button" class="btn" id="r-larger" aria-label="[[font_larger]]" title="[[font_larger]]">A+</button>
-        <button type="button" class="btn icon" id="r-width" aria-label="[[width_toggle]]" title="[[width_toggle]]"><span class="ic" data-icon="move-h" data-size="16"></span></button>
-        <button type="button" class="btn" id="r-exit" aria-label="[[reading_exit]]" title="[[reading_exit]]"><kbd>Esc</kbd>[[reading_exit]]</button>
-      </div>
-    </div>
-    <div class="topbar">
-      <button type="button" class="btn icon menubtn" id="menu" aria-label="[[menu_open]]"><span class="ic" data-icon="menu"></span></button>
-      <div class="searchbar"><span class="ic" data-icon="search" data-size="20"></span><input id="q" placeholder="[[search_ph]]" autocomplete="off" autofocus><kbd id="shortcut">/</kbd><button type="button" class="btn aibtn askbtn" id="chatbtn" data-ai hidden aria-label="[[chat_btn]]" title="[[chat_btn]]"><span class="ic" data-icon="chat-compass" data-size="18"></span><span class="asklbl">[[chat_btn]]</span><span class="aitag"><span class="ic" data-icon="spark" data-size="9"></span>AI</span></button></div>
-    </div>
-    <div class="filters">
-      <button type="button" class="pill" id="f-all"><span class="ic" data-icon="layers" data-size="14"></span>[[category_all]]</button>
-      <button type="button" class="pill" id="f-clear"><span class="ic" data-icon="filter-x" data-size="14"></span>[[filter_clear]]</button>
-      <div class="hint"><span><kbd>↑</kbd><kbd>↓</kbd> [[hint_select]]</span><span><kbd>N</kbd> [[hint_new]]</span><span><kbd>Esc</kbd> [[hint_clear]]</span></div>
-    </div>
-    <div class="grid">
-      <div class="listcol">
-        <div class="listhead">
-          <div class="count" id="count"></div>
-          <label class="sortsel" id="sortbox" title="[[sort_label]]"><span class="ic" data-icon="sort" data-size="14"></span><select id="sort" aria-label="[[sort_label]]"></select></label>
+    <aside id="side">
+        <div class="logo">
+            <div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div>
+            <div>
+                <div>Compass <span class="aitag" data-ai hidden><span class="ic" data-icon="spark"
+                                                                      data-size="10"></span>AI</span></div>
+                <div class="tagline">[[tagline]]</div>
+            </div>
         </div>
-        <div class="results" id="results"></div>
-      </div>
-      <div class="detailcol" id="detail"></div>
-    </div>
-  </main>
+        <button type="button" class="btn primary wide newbtn" id="new">[[new_note]]</button>
+        <h4><span>[[categories_h]]</span><a class="linkbtn" href="/settings#categories" title="[[manage_title]]">[[manage_categories]]<span
+                class="ic" data-icon="settings" data-size="15"></span></a></h4>
+        <div class="catlist" id="catbar"></div>
+        <button type="button" class="moretags" id="catmore" hidden><span id="catmoretext"></span><span class="ic"
+                                                                                                       data-icon="chevron-down"
+                                                                                                       data-size="15"></span>
+        </button>
+        <h4><span>[[tags_h]]</span><a class="linkbtn" href="/settings#tags" title="[[tags_manage_title]]">[[manage_categories]]<span
+                class="ic" data-icon="settings" data-size="15"></span></a></h4>
+        <div class="chips tagbar" id="tagbar"></div>
+        <button type="button" class="moretags" id="tagmore" hidden><span id="tagmoretext"></span><span class="ic"
+                                                                                                       data-icon="chevron-down"
+                                                                                                       data-size="15"></span>
+        </button>
+        <div class="sep"></div>
+        <h4><span>[[how_h]]</span></h4>
+        <ul class="legend muted">
+            <li><span class="ic" data-icon="search"></span><span>[[legend1]]</span></li>
+            <li><span class="ic" data-icon="zap"></span><span>[[legend2]]</span></li>
+            <li><span class="ic" data-icon="star"></span><span>[[legend3]]</span></li>
+        </ul>
+        <div class="spacer"></div>
+        <div class="sidepair"><a class="btn sidebtn" href="/settings"><span class="ic" data-icon="cog"></span>[[settings_title]]</a>
+            <button type="button" class="btn sidebtn" id="kbbtn" aria-label="[[sc_help]]" title="[[sc_help]]"><span
+                    class="ic" data-icon="keyboard"></span></button>
+        </div>
+        <form method="post" action="/logout">
+            <button class="btn wide sidebtn"><span class="ic" data-icon="logout"></span>[[logout]]</button>
+        </form>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+    <main>
+        <div class="readbar" id="readbar">
+            <span class="lbl"><span class="ic" data-icon="book" data-size="16"></span>[[reading_mode]]</span>
+            <div class="rtools">
+                <button type="button" class="btn" id="r-smaller" aria-label="[[font_smaller]]" title="[[font_smaller]]">
+                    A−
+                </button>
+                <button type="button" class="btn" id="r-larger" aria-label="[[font_larger]]" title="[[font_larger]]">
+                    A+
+                </button>
+                <button type="button" class="btn icon" id="r-width" aria-label="[[width_toggle]]"
+                        title="[[width_toggle]]"><span class="ic" data-icon="move-h" data-size="16"></span></button>
+                <button type="button" class="btn" id="r-exit" aria-label="[[reading_exit]]" title="[[reading_exit]]">
+                    <kbd>Esc</kbd>[[reading_exit]]
+                </button>
+            </div>
+        </div>
+        <div class="topbar">
+            <button type="button" class="btn icon menubtn" id="menu" aria-label="[[menu_open]]"><span class="ic"
+                                                                                                      data-icon="menu"></span>
+            </button>
+            <div class="searchbar"><span class="ic" data-icon="search" data-size="20"></span><input id="q"
+                                                                                                    placeholder="[[search_ph]]"
+                                                                                                    autocomplete="off"
+                                                                                                    autofocus><kbd
+                    id="shortcut">/</kbd>
+                <button type="button" class="btn aibtn askbtn" id="chatbtn" data-ai hidden aria-label="[[chat_btn]]"
+                        title="[[chat_btn]]"><span class="ic" data-icon="chat-compass" data-size="18"></span><span
+                        class="asklbl">[[chat_btn]]</span><span class="aitag"><span class="ic" data-icon="spark"
+                                                                                    data-size="9"></span>AI</span>
+                </button>
+            </div>
+        </div>
+        <div class="filters">
+            <button type="button" class="pill" id="f-all"><span class="ic" data-icon="layers" data-size="14"></span>[[category_all]]
+            </button>
+            <button type="button" class="pill" id="f-clear"><span class="ic" data-icon="filter-x" data-size="14"></span>[[filter_clear]]
+            </button>
+            <div class="hint">
+                <span><kbd>↑</kbd><kbd>↓</kbd> [[hint_select]]</span><span><kbd>N</kbd> [[hint_new]]</span><span><kbd>Esc</kbd> [[hint_clear]]</span>
+            </div>
+        </div>
+        <div class="grid">
+            <div class="listcol">
+                <div class="listhead">
+                    <div class="count" id="count"></div>
+                    <label class="sortsel" id="sortbox" title="[[sort_label]]"><span class="ic" data-icon="sort"
+                                                                                     data-size="14"></span><select
+                            id="sort" aria-label="[[sort_label]]"></select></label>
+                </div>
+                <div class="results" id="results"></div>
+            </div>
+            <div class="detailcol" id="detail"></div>
+        </div>
+    </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>/*APP_JS*/</script>

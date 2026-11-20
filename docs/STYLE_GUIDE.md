@@ -27,11 +27,6 @@ modules that assemble the pages, and `ui/assets/` with the real CSS, JavaScript 
 `i18n.py` for the translations). The backend never builds HTML or CSS; `ui/` may import the backend only for plain data
 (`settings` defaults in `core.inject`). New UI modules go into `ui/`.
 
-**Formatting.** The JS and CSS in `ui/assets/` are formatted with Prettier (`.prettierrc`, width 120); the HTML files are not
-(they hold `[[key]]` and `<!--marker-->` placeholders). After editing, run
-`npx prettier@3.6.2 --write "src/compass/ui/assets/*.{js,css}"`. Prettier changes only whitespace, so a test must not look for
-compact CSS such as `prefers-reduced-motion:reduce`: write the assertion with the spaced form.
-
 The script section order in `ui/assets/app.js`: i18n + helpers, text/highlight helpers, icons, toast, state and
 server calls, skeleton, rendering, forms and the note panel, category management, import, wiring.
 State lives in one `state` object; render functions rebuild their part of the DOM from it.

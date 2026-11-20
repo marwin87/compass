@@ -1,26 +1,30 @@
 .pwbox {
-  position: relative;
+    position: relative;
 }
+
 .pwbox input {
-  padding-right: 44px;
+    padding-right: 44px;
 }
+
 .pwtoggle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 42px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  border-radius: 0 12px 12px 0;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 42px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    border-radius: 0 12px 12px 0;
 }
+
 .pwtoggle:hover {
-  color: var(--ink);
+    color: var(--ink);
 }
+
 .pwtoggle:focus-visible {
-  outline: 2px solid var(--accent-light);
-  outline-offset: -2px;
+    outline: 2px solid var(--accent-light);
+    outline-offset: -2px;
 }
