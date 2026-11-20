@@ -299,6 +299,22 @@ def steps(page: Page, url: str) -> None:
     page.locator("#ai").scroll_into_view_if_needed()
     shot(page, "ai-settings")
 
+    # the Trash: deleted notes wait there until they are restored or deleted for good
+    for title in (
+        "Zakupy na weekend",
+        "Pomysł: wspólna lista zakupów",
+        "Packing list (weekend)",
+    ):
+        found = page.request.get("/api/notes", params={"q": title}).json()
+        note = next(n for n in found if n["title"] == title)
+        assert page.request.delete(f"/api/notes/{note['id']}").status == 204
+    page.goto("/")
+    page.get_by_role("button", name=re.compile(r"^Trash")).click()
+    expect(
+        page.locator("#detail").get_by_role("button", name="Restore", exact=True)
+    ).to_be_visible()
+    shot(page, "trash")
+
 
 # ===== GENERIC RUNNER (do not edit when reusing) ============================================================
 def free_port() -> int:

@@ -127,6 +127,17 @@ const related = segmented(
     (v) => change("show_related", v, (x) => related.set(x)),
 );
 $("#ctl-related").append(related.el);
+const trashDays = segmented(
+    [
+        [7, tr("trash_n_days", {n: 7})],
+        [30, tr("trash_n_days", {n: 30})],
+        [90, tr("trash_n_days", {n: 90})],
+        [0, tr("trash_never")],
+    ],
+    SETTINGS.trash_days,
+    (v) => change("trash_days", v, (x) => trashDays.set(x)),
+);
+$("#ctl-trash-days").append(trashDays.el);
 
 // AI: the switch, the connection and where it points; the key itself lives in the server environment only
 const aiOn = segmented(

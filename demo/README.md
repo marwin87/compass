@@ -1,7 +1,7 @@
 # Demo data
 
 `compass-demo.json` is a ready-made Compass export file with 54 sample notes, their tags and categories
-(12 in all, e.g. Bazy danych, Programming, Zdrowie, Finance, Travel, Books, Pomysły, with Polish and English names mixed; every note has one).
+(13 in all, e.g. Bazy danych, Programming, Zdrowie, Finance, Travel, Books, Pomysły, with Polish and English names mixed; every note has one).
 
 - 43 plain-text notes (study notes, interview prep, health, finance, travel, books, ideas, a recipe, a shopping list, about 20 notes in English, the rest in Polish).
   They are deliberately **not** Markdown, to show that old notes still read the way they always did.
@@ -15,9 +15,13 @@
   - four shorter ones (*Testing: the pyramid and its traps*, *Plan treningowy na 4 tygodnie*, *Compound interest*, *Atomic Habits: the key ideas*) with callouts, lists and a table.
 
 Load it any time with **Settings → Backup → Import**. Import replaces everything in Compass
-with the file (after a confirmation), so it also works as a reset to the demo state and importing it
+with the file (after a confirmation; the Trash is emptied too), so it also works as a reset to the demo state and importing it
 again gives the same result. Export first if you have notes you want to keep.
 
 Things worth trying after the import: search `zlozonosc` (no Polish letters), `indkes` (a typo),
 `sql` (exact tag first, then titles), filter by the `rozmowa` tag, click a category in the side panel (manage them in Settings → Categories),
 and open a Markdown note in **Reading mode** (the book icon at the top right of the note).
+
+With AI switched on (Settings → AI features), click **Build index** once and open a note to see **Related notes** under it
+(*Szybkie notatki o SQL* and *B-drzewo od środka* are good ones to start from). Delete any note to try the **Trash** (side panel): restore it,
+delete it for good, or empty the Trash; importing the demo file again puts everything back.

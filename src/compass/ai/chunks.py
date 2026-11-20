@@ -89,7 +89,9 @@ def _stale(conn: sqlite3.Connection, name: str) -> list[tuple[int, str, str, str
         )
     }
     stale = []
-    for note_id, title, body in conn.execute("SELECT id, title, body FROM notes"):
+    for note_id, title, body in conn.execute(
+        "SELECT id, title, body FROM notes WHERE deleted_at IS NULL"
+    ):  # a note in the Trash is never embedded
         wanted = digest(title, body)
         if current.get(note_id) != (wanted, name, wanted, name):
             stale.append((note_id, title, body, wanted))
@@ -99,7 +101,9 @@ def _stale(conn: sqlite3.Connection, name: str) -> list[tuple[int, str, str, str
 def status(s: dict[str, object]) -> dict[str, int]:
     """How many notes there are and how many of them are indexed with the current text and model."""
     with session() as conn:
-        total = conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0]
+        total = conn.execute(
+            "SELECT COUNT(*) FROM notes WHERE deleted_at IS NULL"
+        ).fetchone()[0]
         stale = len(_stale(conn, ai.embed_model(s)))
     return {"total": total, "indexed": total - stale if ai.embed_model(s) else 0}
 
@@ -163,7 +167,8 @@ def search(
     unit = _unpack(_pack_vec(query))
     with session() as conn:
         rows = conn.execute(
-            "SELECT note_id, idx, text, vec FROM note_chunks WHERE model = ?",
+            "SELECT note_id, idx, text, vec FROM note_chunks WHERE model = ? "
+            "AND note_id IN (SELECT id FROM notes WHERE deleted_at IS NULL)",  # never the Trash
             (ai.embed_model(s),),
         ).fetchall()
     scored = [
@@ -189,7 +194,8 @@ def related(s: dict[str, object], note_id: int, k: int = RELATED) -> list[Relate
         return []
     with session() as conn:
         note = conn.execute(
-            "SELECT title, body FROM notes WHERE id = ?", (note_id,)
+            "SELECT title, body FROM notes WHERE id = ? AND deleted_at IS NULL",
+            (note_id,),
         ).fetchone()
         if note is None:
             return []
@@ -218,7 +224,7 @@ def related(s: dict[str, object], note_id: int, k: int = RELATED) -> list[Relate
     with session() as conn:
         titles = dict(
             conn.execute(
-                f"SELECT id, title FROM notes WHERE id IN ({','.join('?' * len(ids))})",
+                f"SELECT id, title FROM notes WHERE deleted_at IS NULL AND id IN ({','.join('?' * len(ids))})",
                 ids,
             )
         )

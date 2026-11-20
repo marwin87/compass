@@ -56,6 +56,9 @@ SPEC: dict[str, Setting] = {
     "show_related": Setting(
         True, _bool
     ),  # related notes under an open note (Appearance; only with AI on)
+    "trash_days": Setting(
+        0, _int_between(0, 365)
+    ),  # days a note stays in the Trash before it is deleted for good; 0 = never (the default)
     "ai_connection": Setting("openrouter", _choice("openrouter", "local")),
     "ai_address": Setting("", _str(200)),  # used by the local connection only
     "ai_model_openrouter": Setting(

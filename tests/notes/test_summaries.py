@@ -100,7 +100,9 @@ def test_it_goes_with_the_note_and_with_clear_all(
     summarize(authed, a)
     summarize(authed, b)
     authed.delete(f"/api/notes/{a}")
-    assert len(stored()) == 1  # cascaded with the note
+    assert len(stored()) == 2  # the summary stays with the note in the Trash
+    assert authed.delete(f"/api/trash/{a}").status_code == 204
+    assert len(stored()) == 1  # cascaded with the note once it is deleted for good
     assert authed.delete("/api/data").status_code == 204
     assert stored() == []
 

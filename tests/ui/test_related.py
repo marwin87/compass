@@ -41,7 +41,7 @@ def test_a_related_note_opens_without_touching_the_search() -> None:
     assert "openOutside(n.id)" in block and "openSource" not in block
     body = INDEX_HTML[
         INDEX_HTML.index("async function openOutside") : INDEX_HTML.index(
-            "function resetFilters"
+            "// --- the Trash"
         )
     ]
     assert "state.q" not in body and "state.sel" not in body and "load(" not in body

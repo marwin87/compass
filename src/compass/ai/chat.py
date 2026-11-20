@@ -113,7 +113,9 @@ def get(conversation_id: int) -> Thread | None:
             "WHERE conversation_id = ? ORDER BY id",
             (conversation_id,),
         ).fetchall()
-        alive = {r[0] for r in conn.execute("SELECT id FROM notes")}
+        alive = {
+            r[0] for r in conn.execute("SELECT id FROM notes WHERE deleted_at IS NULL")
+        }  # a note in the Trash counts as deleted (and links again once restored)
     messages = [
         Message(
             id=r[0],

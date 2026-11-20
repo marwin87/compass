@@ -16,6 +16,7 @@ DEFAULTS = {
     "ai_enabled": False,
     "ai_block_page": False,
     "show_related": True,
+    "trash_days": 0,
     "ai_connection": "openrouter",
     "ai_address": "",
     "ai_model_openrouter": "",

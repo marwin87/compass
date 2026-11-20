@@ -813,6 +813,44 @@ main {
     background: var(--accent-soft);
 }
 
+.trashlist {
+    margin-top: 6px;
+}
+
+.trashlist .cat > .ic {
+    margin-right: 8px;
+    flex: none;
+}
+
+.trashlist .cat > span:nth-child(2) {
+    flex: 1;
+    text-align: left;
+}
+
+.trashempty {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.sheet .trashrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.sheet .trashrow:not(.confirm) {
+    padding: 14px 22px 0;
+}
+
+.sheet .confirm.trashrow {
+    margin: 14px 22px 0; /* room on every side, so the box does not touch the frame of the card */
+}
+
+.sheet .trashrow .ic {
+    margin-right: 6px;
+}
+
 @media (max-width: 1200px) {
     .app {
         grid-template-columns: 220px minmax(0, 1fr);

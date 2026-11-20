@@ -15,6 +15,7 @@ SECTIONS = (
     "load",
     "shortcuts",
     "ai",
+    "trash",
     "backup",
     "danger",
     "about",

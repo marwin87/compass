@@ -23,6 +23,7 @@ _SECTIONS = (
     ("load", "load_h", "upload"),
     ("shortcuts", "settings_nav_shortcuts", "zap"),
     ("ai", "ai_h", "spark"),
+    ("trash", "trash_h", "trash"),
     ("backup", "data_backup_h", "database"),
     ("danger", "data_danger_h", "alert"),
     ("about", "settings_nav_about", "info"),

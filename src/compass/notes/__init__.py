@@ -2,12 +2,12 @@ import json
 import sqlite3
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel
 
-from compass.db import index_note, session, unindex_note
+from compass.db import index_note, now, session, unindex_note
 from compass.notes import categories, summaries
 from compass.search import fold, fuzzy_terms, rank_key, words
 
@@ -76,6 +76,12 @@ class ParsedNote:
     file_id: int | None = (
         None  # the id the note had in the file: conversations point at it
     )
+
+
+class TrashedNote(Note):
+    """A note in the Trash: its tags are the ones it had, `deleted_at` is when it was moved there."""
+
+    deleted_at: str
 
 
 class TagCount(BaseModel):
@@ -203,7 +209,8 @@ def create_many(
 def get_note(note_id: int) -> Note | None:
     with session() as conn:
         rows = conn.execute(
-            f"SELECT {COLUMNS} FROM notes n WHERE n.id = ?", (note_id,)
+            f"SELECT {COLUMNS} FROM notes n WHERE n.id = ? AND n.deleted_at IS NULL",
+            (note_id,),
         ).fetchall()
         found = _with_tags(conn, rows)
     return found[0] if found else None
@@ -265,7 +272,7 @@ def list_notes(
     tag_filter = _tag_filter(tags)
     with session() as conn:
         if not tokens:
-            conditions: list[str] = []
+            conditions = ["n.deleted_at IS NULL"]
             params: list[object] = []
             if tag_filter:
                 conditions.append(f"n.id IN ({tag_filter[0]})")
@@ -273,7 +280,7 @@ def list_notes(
             if category_id is not None:
                 conditions.append("n.category_id = ?")
                 params.append(category_id)
-            where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
+            where = f"WHERE {' AND '.join(conditions)} "
             if sort:
                 rows = conn.execute(
                     f"SELECT {COLUMNS} FROM notes n {where}", params
@@ -303,7 +310,8 @@ def list_notes(
             return []
         marks = ",".join("?" * len(ids))
         rows = conn.execute(
-            f"SELECT {COLUMNS} FROM notes n WHERE n.id IN ({marks})", ids
+            f"SELECT {COLUMNS} FROM notes n WHERE n.id IN ({marks}) AND n.deleted_at IS NULL",
+            ids,
         ).fetchall()
         candidates = _with_tags(conn, rows)
     if sort:
@@ -325,7 +333,7 @@ def export_all() -> list[Note]:
             "FROM notes n "
             "LEFT JOIN note_tags nt ON nt.note_id = n.id "
             "LEFT JOIN tags t ON t.id = nt.tag_id "
-            "GROUP BY n.id ORDER BY n.id DESC"
+            "WHERE n.deleted_at IS NULL GROUP BY n.id ORDER BY n.id DESC"
         ).fetchall()
     return [
         Note(
@@ -343,7 +351,10 @@ def export_all() -> list[Note]:
 def titles() -> list[str]:
     """The title of every note (an import uses them to warn about a note that already exists)."""
     with session() as conn:
-        return [r[0] for r in conn.execute("SELECT title FROM notes")]
+        return [
+            r[0]
+            for r in conn.execute("SELECT title FROM notes WHERE deleted_at IS NULL")
+        ]
 
 
 def list_tags() -> list[TagCount]:
@@ -367,7 +378,8 @@ def update_note(
     with session() as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
-            "SELECT created_at FROM notes WHERE id = ?", (note_id,)
+            "SELECT created_at FROM notes WHERE id = ? AND deleted_at IS NULL",
+            (note_id,),
         ).fetchone()
         if row is None:
             return None
@@ -390,16 +402,117 @@ def update_note(
 
 
 def delete_note(note_id: int) -> bool:
-    """Remove a note, its index entry and tags nobody uses any more."""
+    """Move a note to the Trash. Everything derived from it is dropped at once (search index, tag links,
+    vectors), so nothing, the AI included, can find it there; its tags are kept on the note to come
+    back with it. False: there is no such note (or it is already in the Trash)."""
     with session() as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute("SELECT id FROM notes WHERE id = ?", (note_id,)).fetchone()
+        row = conn.execute(
+            "SELECT id FROM notes WHERE id = ? AND deleted_at IS NULL", (note_id,)
+        ).fetchone()
         if row is None:
             return False
+        names = [
+            r[0]
+            for r in conn.execute(
+                "SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id "
+                "WHERE nt.note_id = ? ORDER BY t.name",
+                (note_id,),
+            )
+        ]
+        conn.execute(
+            "UPDATE notes SET deleted_at = ?, trash_tags = ? WHERE id = ?",
+            (now(), json.dumps(names), note_id),
+        )
         unindex_note(conn, note_id)
-        conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))  # cascades
+        conn.execute("DELETE FROM note_tags WHERE note_id = ?", (note_id,))
+        conn.execute("DELETE FROM note_chunks WHERE note_id = ?", (note_id,))
         _drop_unused_tags(conn)
     return True
+
+
+def list_trash(q: str = "") -> list[TrashedNote]:
+    """The notes in the Trash, the most recently deleted first; `q` keeps those holding all its words."""
+    with session() as conn:
+        rows = conn.execute(
+            "SELECT id, title, body, created_at, category_id, trash_tags, deleted_at FROM notes "
+            "WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, id DESC"
+        ).fetchall()
+    items = [
+        TrashedNote(
+            id=r[0],
+            title=r[1],
+            body=r[2],
+            created_at=r[3],
+            category_id=r[4],
+            tags=sorted(json.loads(r[5])),
+            deleted_at=r[6],
+        )
+        for r in rows
+    ]
+    tokens = words(q)
+    return [
+        n
+        for n in items
+        if all(t in fold(f"{n.title} {n.body} {' '.join(n.tags)}") for t in tokens)
+    ]
+
+
+def restore_note(note_id: int) -> Note | None:
+    """Take a note out of the Trash with its tags and put it back in the search index. Its vectors are
+    not rebuilt here (no model call): it counts as not indexed until the next index run. None: not in the Trash."""
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT title, body, trash_tags FROM notes WHERE id = ? AND deleted_at IS NOT NULL",
+            (note_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        tags = json.loads(row[2])
+        conn.execute(
+            "UPDATE notes SET deleted_at = NULL, trash_tags = '[]' WHERE id = ?",
+            (note_id,),
+        )
+        _save_tags(conn, note_id, tags)
+        index_note(conn, note_id, row[0], row[1], tags)
+    return get_note(note_id)
+
+
+def purge_note(note_id: int) -> bool:
+    """Delete a note in the Trash for good (its summary goes with it). False: not in the Trash."""
+    with session() as conn, conn:
+        cur = conn.execute(
+            "DELETE FROM notes WHERE id = ? AND deleted_at IS NOT NULL", (note_id,)
+        )
+    return cur.rowcount > 0
+
+
+def empty_trash() -> int:
+    """Delete everything in the Trash for good; returns how many notes that was."""
+    with session() as conn, conn:
+        return conn.execute("DELETE FROM notes WHERE deleted_at IS NOT NULL").rowcount
+
+
+def purge_expired(days: int) -> int:
+    """Delete the notes that have been in the Trash for more than `days` days (0: never)."""
+    if days <= 0:
+        return 0
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat(timespec="seconds")
+    with session() as conn, conn:
+        return conn.execute(
+            "DELETE FROM notes WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+            (cutoff,),
+        ).rowcount
+
+
+def trash_count() -> int:
+    with session() as conn:
+        return int(
+            conn.execute(
+                "SELECT COUNT(*) FROM notes WHERE deleted_at IS NOT NULL"
+            ).fetchone()[0]
+        )
 
 
 def replace_all(

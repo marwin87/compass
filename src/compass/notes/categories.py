@@ -45,7 +45,8 @@ def normalize(name: str) -> tuple[str, str]:
 
 def _count(conn: sqlite3.Connection, category_id: int) -> int:
     row = conn.execute(
-        "SELECT COUNT(*) FROM notes WHERE category_id = ?", (category_id,)
+        "SELECT COUNT(*) FROM notes WHERE category_id = ? AND deleted_at IS NULL",
+        (category_id,),
     ).fetchone()
     return int(row[0])
 
@@ -55,7 +56,7 @@ def list_categories() -> list[Category]:
     with session() as conn:
         rows = conn.execute(
             "SELECT c.id, c.name, c.key, c.is_default, COUNT(n.id) FROM categories c "
-            "LEFT JOIN notes n ON n.category_id = c.id GROUP BY c.id"
+            "LEFT JOIN notes n ON n.category_id = c.id AND n.deleted_at IS NULL GROUP BY c.id"
         ).fetchall()
     rows.sort(key=lambda r: (bool(r[3]), r[2]))
     return [Category(id=r[0], name=r[1], default=bool(r[3]), count=r[4]) for r in rows]
@@ -117,6 +118,10 @@ def delete(category_id: int) -> None:
         count = _count(conn, category_id)
         if count:
             raise CategoryError("not_empty", count=count)
+        conn.execute(  # what is left in this category is in the Trash: it comes back to the default one
+            "UPDATE notes SET category_id = ? WHERE category_id = ?",
+            (DEFAULT_CATEGORY_ID, category_id),
+        )
         conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
 
 

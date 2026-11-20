@@ -54,7 +54,7 @@ def save(note_id: int, text: str, source_hash: str) -> Summary | None:
 
 _SELECT = (
     "SELECT s.note_id, s.text, s.created_at, s.source_hash, n.title, n.body "
-    "FROM note_summaries s JOIN notes n ON n.id = s.note_id"
+    "FROM note_summaries s JOIN notes n ON n.id = s.note_id AND n.deleted_at IS NULL"
 )
 
 

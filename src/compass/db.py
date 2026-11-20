@@ -117,7 +117,7 @@ def _ensure_index(conn: sqlite3.Connection) -> None:
             rows = conn.execute(
                 "SELECT n.id, n.title, n.body, (SELECT group_concat(t.name, char(10)) "
                 "FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = n.id) "
-                "FROM notes n"
+                "FROM notes n WHERE n.deleted_at IS NULL"
             ).fetchall()
             for note_id, title, body, tags in rows:
                 index_note(conn, note_id, title, body, tags.split("\n") if tags else [])
@@ -158,6 +158,27 @@ def _ensure_categories(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _ensure_trash(conn: sqlite3.Connection) -> None:
+    """Add the Trash columns to `notes` once: `deleted_at` (set while a note is in the Trash) and
+    `trash_tags` (its tags, a JSON list, kept there because a trashed note has no tag links)."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(notes)")}
+    for name, definition in (
+        ("deleted_at", "TEXT"),
+        ("trash_tags", "TEXT NOT NULL DEFAULT '[]'"),
+    ):
+        if name in columns:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE notes ADD COLUMN {name} {definition}")
+        except sqlite3.OperationalError as problem:
+            if "duplicate column" not in str(
+                problem
+            ):  # another connection won the race
+                raise
+    conn.execute("CREATE INDEX IF NOT EXISTS notes_deleted ON notes(deleted_at)")
+    conn.commit()
+
+
 def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
@@ -174,6 +195,7 @@ def connect() -> sqlite3.Connection:
     if path not in _ready or not path.exists():  # a deleted file needs its schema again
         conn.executescript(SCHEMA)
         _ensure_categories(conn)
+        _ensure_trash(conn)  # before the index: it is built from the live notes only
         _ensure_index(conn)
         _ready.add(path)
     return conn

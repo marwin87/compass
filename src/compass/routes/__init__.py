@@ -2,11 +2,12 @@
 
 from fastapi import APIRouter
 
-from compass.routes import ai, categories, chats, notes, system, tags, transfer
+from compass.routes import ai, categories, chats, notes, system, tags, transfer, trash
 
 router = APIRouter()
 for part in (
     notes.router,
+    trash.router,
     tags.router,
     transfer.export_router,
     transfer.import_router,

@@ -113,6 +113,8 @@ const state = {
     sort: "",
     /** @type {any} a note opened from a link (a related note) that the current search does not list */
     outside: null,
+    trash: false, // the list shows the Trash (deleted notes) instead of the notes
+    trashCount: 0,
 };
 let seq = 0,
     timer;
@@ -240,10 +242,11 @@ async function load(keepDetail = false) {
     for (const t of state.sel) params.append("tag", t);
     if (state.category !== null) params.set("category_id", state.category);
     if (state.sort) params.set("sort", state.sort);
+    const url = state.trash ? "/api/trash?" + new URLSearchParams({q: state.q}) : "/api/notes?" + params;
     let list;
     loadingStarted();
     try {
-        const r = await api("/api/notes?" + params);
+        const r = await api(url);
         if (!r.ok) throw new Error("load");
         list = await r.json();
     } catch (e) {
@@ -259,6 +262,8 @@ async function load(keepDetail = false) {
     loaded = true;
     state.total = state.categories.reduce((sum, c) => sum + c.count, 0);
     state.list = list;
+    if (state.trash && !state.q) state.trashCount = list.length;
+    renderTrashEntry();
     const opened = state.outside && state.outside.id === state.cur; // shown although the search does not list it
     if (state.mode === "view" && !opened && !list.some((n) => n.id === state.cur)) state.cur = list.length ? list[0].id : null;
     renderList();
@@ -270,18 +275,21 @@ async function load(keepDetail = false) {
 }
 
 function toggleCategory(id) {
+    leaveTrash();
     state.category = state.category === id ? null : id;
     renderCategories();
     load();
 }
 
 function toggleTag(t) {
+    leaveTrash();
     state.sel.has(t) ? state.sel.delete(t) : state.sel.add(t);
     renderTagbar();
     load();
 }
 
 function openNew() {
+    if (leaveTrash()) load(true); // the list goes back to the notes; the form stays
     state.mode = "new";
     state.cur = null;
     setView("detail");
@@ -319,7 +327,217 @@ async function openOutside(id, refresh = false) {
     if (tile) tile.scrollIntoView({block: "nearest"});
 }
 
+// --- the Trash: deleted notes in the same list and panel (read only there). Opening a note from it never touches the
+// notes' search or filters; leaving it (a category, a tag, All, Esc, a new note, the chat) brings the notes back.
+function renderTrashEntry() {
+    $("#trashbtn").classList.toggle("on", state.trash);
+    $("#trashn").textContent = state.trashCount || "";
+    $("#trashempty").hidden = !(state.trash && state.trashCount > 0);
+    $("#sortbox").hidden = state.trash; // a sort order does not apply to the Trash
+}
+
+async function loadTrashCount() {
+    try {
+        const r = await api("/api/trash/count");
+        if (r.ok) state.trashCount = (await r.json()).count;
+    } catch (e) {
+        /* a convenience: without it the entry just shows no number */
+    }
+    renderTrashEntry();
+}
+
+function leaveTrash() {
+    if (!state.trash) return false;
+    state.trash = false;
+    renderTrashEntry();
+    return true;
+}
+
+function openTrash() {
+    exitReading();
+    openMenu(false);
+    state.trash = true;
+    state.mode = "view";
+    state.cur = null;
+    state.outside = null;
+    renderTagbar();
+    renderCategories();
+    renderTrashEntry();
+    setView("list");
+    load();
+}
+
+// After a restore or a delete for good: the counts, the lists and the list of the Trash itself follow.
+async function trashChanged(text, restored) {
+    state.cur = null;
+    setView("list");
+    state.mode = "view";
+    if (restored) {
+        await loadCategories();
+        await loadTags();
+    }
+    await loadTrashCount();
+    await load();
+    toast(text);
+}
+
+async function trashCall(path, method) {
+    try {
+        const r = await api(path, {method});
+        return r.ok || r.status === 404 ? r : null; // a 404 means it is already gone, which is what the user wanted
+    } catch (e) {
+        return null;
+    }
+}
+
+function trashEmptyConfirm() {
+    const fail = h("div", {class: "err"});
+    return h(
+        "div",
+        {class: "panel pad"},
+        h("h2", {}, tr("trash_h")),
+        h(
+            "div",
+            {class: "confirm"},
+            h("span", {}, tr("trash_confirm_empty", {n: state.trashCount})),
+            h(
+                "button",
+                {
+                    type: "button",
+                    class: "btn danger",
+                    onclick: async () => {
+                        if (await trashCall("/api/trash", "DELETE")) await trashChanged(tr("toast_trash_emptied"), false);
+                        else fail.textContent = tr("delete_failed");
+                    },
+                },
+                tr("trash_empty_yes"),
+            ),
+            h(
+                "button",
+                {
+                    type: "button",
+                    class: "btn",
+                    onclick: () => {
+                        state.mode = "view";
+                        renderList();
+                        renderDetail();
+                    },
+                },
+                tr("back"),
+            ),
+        ),
+        fail,
+    );
+}
+
+// A note in the Trash, read only. Restore puts it back (with its tags, searchable at once); deleting it for good asks once more.
+function trashPanel(note) {
+    const root = h("div", {class: "panel", "data-mode": "read"}); // "read" gives the card its dark hero background (white title) in both themes
+    let confirming = false,
+        msg = "";
+    const restore = async () => {
+        if (await trashCall("/api/trash/" + note.id + "/restore", "POST")) await trashChanged(tr("toast_restored"), true);
+        else {
+            msg = tr("restore_failed");
+            draw();
+        }
+    };
+    const purge = async () => {
+        if (await trashCall("/api/trash/" + note.id, "DELETE")) await trashChanged(tr("toast_purged"), false);
+        else {
+            msg = tr("delete_failed");
+            confirming = false;
+            draw();
+        }
+    };
+    const when =
+        tr("trash_deleted_on", {date: longDate(note.deleted_at)}) +
+        (note.days_left === null ? "" : " • " + tr("trash_days_left", {n: note.days_left}));
+    const draw = () => {
+        root.replaceChildren(
+            h(
+                "div",
+                {class: "hero"},
+                heroWave(),
+                h(
+                    "div",
+                    {class: "bar"},
+                    h(
+                        "div",
+                        {class: "left"},
+                        h(
+                            "button",
+                            {
+                                type: "button",
+                                class: "iconbtn back",
+                                "aria-label": tr("back"),
+                                onclick: () => setView("list"),
+                            },
+                            icon("chevron-left", 18),
+                        ),
+                        h("span", {class: "datebadge"}, icon("trash", 15), when),
+                    ),
+                ),
+                h("h2", {}, note.title),
+                h(
+                    "div",
+                    {class: "chips"},
+                    note.tags.map((t) => h("span", {class: "chip"}, "#" + t)),
+                ),
+            ),
+            h(
+                "div",
+                {class: "sheet"},
+                confirming
+                    ? h(
+                        "div",
+                        {class: "confirm trashrow"},
+                        h("span", {}, tr("trash_confirm_purge")),
+                        h("button", {type: "button", class: "btn danger", onclick: purge}, tr("trash_purge_yes")),
+                        h(
+                            "button",
+                            {
+                                type: "button",
+                                class: "btn",
+                                onclick: () => {
+                                    confirming = false;
+                                    draw();
+                                },
+                            },
+                            tr("back"),
+                        ),
+                    )
+                    : h(
+                        "div",
+                        {class: "trashrow"},
+                        h("button", {type: "button", class: "btn primary", onclick: restore}, icon("swap", 14), tr("trash_restore")),
+                        h(
+                            "button",
+                            {
+                                type: "button",
+                                class: "btn danger",
+                                onclick: () => {
+                                    msg = "";
+                                    confirming = true;
+                                    draw();
+                                },
+                            },
+                            icon("trash", 14),
+                            tr("trash_delete_forever"),
+                        ),
+                    ),
+                readerBody(note, []),
+                h("div", {class: "err"}, msg),
+            ),
+        );
+        setTimeout(() => watchToc(root), 0); // after the panel is in the page
+    };
+    draw();
+    return root;
+}
+
 function resetFilters(all) {
+    leaveTrash();
     state.sel.clear();
     state.category = null;
     if (all) {
@@ -334,7 +552,7 @@ function resetFilters(all) {
 
 // --- rendering
 function renderFilters() {
-    const none = state.sel.size === 0 && state.category === null;
+    const none = state.sel.size === 0 && state.category === null && !state.trash;
     $("#f-all").classList.toggle("on", none);
 }
 
@@ -352,12 +570,15 @@ function renderCategories() {
             h("span", {class: "n"}, count),
         );
     $("#catbar").replaceChildren(
-        entry(tr("category_all"), total, state.category === null, () => {
+        entry(tr("category_all"), total, state.category === null && !state.trash, () => {
+            leaveTrash();
             state.category = null;
             renderCategories();
             load();
         }),
-        ...state.categories.map((c) => entry(catLabel(c), c.count, state.category === c.id, () => toggleCategory(c.id))),
+        ...state.categories.map((c) =>
+            entry(catLabel(c), c.count, state.category === c.id && !state.trash, () => toggleCategory(c.id)),
+        ),
     );
     fitList("cat", CAT_PREVIEW + 1, catsOpen); // +1: the "All" entry
 }
@@ -424,8 +645,9 @@ function renderList() {
     const tk = tokens(),
         n = state.list.length;
     $("#results").classList.toggle("searching", !!state.q); // one line of text per card, two while searching so the match shows
-    $("#count").textContent =
-        n === 50
+    $("#count").textContent = state.trash
+        ? n + " " + T.count[new Intl.PluralRules(LANG).select(n)] + " • " + tr("trash_h")
+        : n === 50
             ? tr("top50")
             : n +
             " " +
@@ -451,7 +673,7 @@ function renderList() {
                             "div",
                             {class: "top"},
                             h("span", {class: "t"}, hlNodes(note.title, tk)),
-                            h("span", {class: "date"}, shortDate(note.created_at)),
+                            h("span", {class: "date"}, shortDate(state.trash ? note.deleted_at : note.created_at)),
                         ),
                         h("div", {class: "s"}, hlNodes(snippet(note.body), tk)),
                         h(
@@ -461,13 +683,15 @@ function renderList() {
                             note.tags.map((t) =>
                                 h(
                                     "span",
-                                    {
-                                        class: "chip mini" + (state.sel.has(t) ? " on" : ""),
-                                        onclick: (e) => {
-                                            e.stopPropagation();
-                                            toggleTag(t);
+                                    state.trash
+                                        ? {class: "chip mini"} // a note in the Trash: its tags are shown, not clickable
+                                        : {
+                                            class: "chip mini" + (state.sel.has(t) ? " on" : ""),
+                                            onclick: (e) => {
+                                                e.stopPropagation();
+                                                toggleTag(t);
+                                            },
                                         },
-                                    },
                                     "#" + t,
                                 ),
                             ),
@@ -476,13 +700,17 @@ function renderList() {
                     h("span", {class: "chev"}, icon("chevron-right", 16)),
                 ),
             )
-            : [h("div", {class: "empty"}, tr(none ? "empty_none" : "no_results"))]),
+            : [h("div", {class: "empty"}, tr(state.trash && !state.q ? "trash_empty_state" : none ? "empty_none" : "no_results"))]),
     );
 }
 
 let chat = null; // the chat panel, made on first use and kept: opening a source note must not lose the conversation
 function openChat() {
     if (!AI_READY) return;
+    if (leaveTrash()) {
+        load(true);
+        toast(tr("trash_leaving_for_chat"), "", 4500); // the chat never reads the Trash: say so instead of leaving silently
+    }
     chat = chat || makeChat({openNote: openSource, close: closeChat});
     exitReading();
     state.mode = "chat";
@@ -499,6 +727,7 @@ function closeChat() {
     renderDetail();
 } // the panel is kept: "Ask" brings the conversation back
 async function openSource(id, title) {
+    leaveTrash();
     // a note named in an answer: found through its title, so it is in the (limited) list
     state.q = title;
     $("#q").value = title;
@@ -514,6 +743,10 @@ async function openSource(id, title) {
 
 function renderDetail() {
     const d = $("#detail");
+    if (state.mode === "trashempty") {
+        d.replaceChildren(h("div", {class: "card"}, trashEmptyConfirm()));
+        return;
+    }
     if (state.mode === "chat") {
         d.replaceChildren(h("div", {class: "card chatcard"}, chat.el));
         return;
@@ -550,7 +783,13 @@ function renderDetail() {
     const n = state.list.find((x) => x.id === state.cur) || (state.outside && state.outside.id === state.cur ? state.outside : null);
     if (!n) exitReading();
     if (!n) {
-        d.replaceChildren(h("div", {class: "card"}, h("div", {class: "empty"}, tr("pick_or_add"))));
+        d.replaceChildren(
+            h("div", {class: "card"}, h("div", {class: "empty"}, tr(state.trash ? "trash_pick" : "pick_or_add"))),
+        );
+        return;
+    }
+    if (state.trash) {
+        d.replaceChildren(h("div", {class: "card"}, trashPanel(n)));
         return;
     }
     d.replaceChildren(
@@ -570,6 +809,7 @@ function renderDetail() {
                     setView("list");
                     await loadCategories();
                     await loadTags();
+                    await loadTrashCount();
                     await load();
                     toast(tr("toast_deleted"));
                 },
@@ -727,6 +967,20 @@ async function copyNote(note) {
         toast(tr("copy_failed"));
     }
 }
+
+// The decorative waves behind the title of a note panel.
+const heroWave = () =>
+    waveDefs(
+        svg(
+            [
+                ["defs", {}],
+                ["path", {d: "M0 250 C 110 215, 210 140, 290 78 S 380 8, 400 0 V250 Z", fill: "url(#wv1)"}],
+                ["path", {d: "M110 250 C 210 228, 300 170, 352 112 S 392 60, 400 52 V250 Z", fill: "url(#wv2)"}],
+                ["path", {d: "M230 250 C 300 238, 360 205, 400 165 V250 Z", fill: "url(#wv3)"}],
+            ],
+            {class: "wave", viewBox: "0 0 400 250", preserveAspectRatio: "xMaxYMid slice", "aria-hidden": "true"},
+        ),
+    );
 
 function notePanel(note, cb) {
     const root = h("div", {class: "panel"});
@@ -1136,28 +1390,7 @@ function notePanel(note, cb) {
                 h(
                     "div",
                     {class: "hero"},
-                    waveDefs(
-                        svg(
-                            [
-                                ["defs", {}],
-                                ["path", {
-                                    d: "M0 250 C 110 215, 210 140, 290 78 S 380 8, 400 0 V250 Z",
-                                    fill: "url(#wv1)"
-                                }],
-                                ["path", {
-                                    d: "M110 250 C 210 228, 300 170, 352 112 S 392 60, 400 52 V250 Z",
-                                    fill: "url(#wv2)"
-                                }],
-                                ["path", {d: "M230 250 C 300 238, 360 205, 400 165 V250 Z", fill: "url(#wv3)"}],
-                            ],
-                            {
-                                class: "wave",
-                                viewBox: "0 0 400 250",
-                                preserveAspectRatio: "xMaxYMid slice",
-                                "aria-hidden": "true"
-                            },
-                        ),
-                    ),
+                    heroWave(),
                     h(
                         "div",
                         {class: "bar"},
@@ -1379,11 +1612,19 @@ $("#q").addEventListener("input", () => {
     }, 100);
 });
 $("#new").addEventListener("click", openNew);
+$("#trashbtn").addEventListener("click", openTrash);
+$("#trashempty").addEventListener("click", () => {
+    state.mode = "trashempty";
+    setView("detail");
+    renderList();
+    renderDetail();
+});
 $("#chatbtn").addEventListener("click", () => {
     openMenu(false);
     openChat();
 });
 $("#f-all").addEventListener("click", () => {
+    leaveTrash();
     state.sel.clear();
     state.category = null;
     state.mode = "view";
@@ -1489,4 +1730,5 @@ document.addEventListener("keydown", (e) => {
 fillIcons();
 setAiReady(AI_READY);
 loadTags();
+loadTrashCount();
 loadCategories().then(() => load()); // categories first: the note's category badge and the total need them

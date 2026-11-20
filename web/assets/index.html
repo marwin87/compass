@@ -33,6 +33,10 @@
                                                                                                        data-icon="chevron-down"
                                                                                                        data-size="15"></span>
         </button>
+        <div class="catlist trashlist">
+            <button type="button" class="cat" id="trashbtn"><span class="ic" data-icon="trash" data-size="16"></span><span>[[trash_h]]</span><span
+                    class="n" id="trashn"></span></button>
+        </div>
         <div class="sep"></div>
         <h4><span>[[how_h]]</span></h4>
         <ul class="legend muted">
@@ -96,6 +100,7 @@
             <div class="listcol">
                 <div class="listhead">
                     <div class="count" id="count"></div>
+                    <button type="button" class="btn danger trashempty" id="trashempty" hidden>[[trash_empty_btn]]</button>
                     <label class="sortsel" id="sortbox" title="[[sort_label]]"><span class="ic" data-icon="sort"
                                                                                      data-size="14"></span><select
                             id="sort" aria-label="[[sort_label]]"></select></label>

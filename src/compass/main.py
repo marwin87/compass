@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from compass import auth, config, routes, settings
+from compass import auth, config, notes, routes, settings
 from compass.db import connect
 from compass.ui.i18n import COOKIE, pick_lang
 from compass.ui.page import render_index
@@ -17,6 +17,9 @@ SESSION_MAX_AGE = 30 * 24 * 3600
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     connect().close()
+    notes.purge_expired(
+        int(str(settings.current()["trash_days"]))
+    )  # the Trash empties itself
     yield
 
 

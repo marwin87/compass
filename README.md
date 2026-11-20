@@ -8,6 +8,7 @@
 - **Chat with your notes:** ask in plain language; the answer is written only from your notes and marks each statement with a numbered citation like `[1]`; the numbers match the **Sources** list under the answer, and clicking one opens that note. This is retrieval-augmented generation (RAG), described in [How the AI works](#how-the-ai-works).
 - **AI that stays optional:** translate a note PL↔EN, summarize it, see the notes closest to it in meaning, and turn a Word file, a PDF, a text file or an image (photo, screenshot, scan) into notes with a suggested category and tags. All of it is off by default; with AI off the app looks and works exactly as without it.
 - **Your models, your choice:** OpenRouter or a local, OpenAI-compatible server (Ollama, LM Studio). With a local model your notes never leave the machine.
+- **A Trash, not a delete button:** a deleted note waits in the Trash (side panel) until you restore it, delete it for good or the Trash empties itself after a set number of days. AI never sees what is in it.
 - **Fast, forgiving search:** results ranked by relevance (exact tag, then title, then body); typos and missing Polish letters are forgiven (`zlozonosc` finds "złożoność").
 
 Status: early development (see `context/foundation/roadmap.md` and `context/foundation/roadmap-ai.md`).
@@ -29,6 +30,20 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
       <sub><b>Notes: categories, tags, list and reader</b></sub>
     </td>
   </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/related-notes.png"><img src="docs/screenshots/related-notes.png" alt="Related notes under an open note" width="100%"></a><br>
+      <sub><b>Related notes: the closest two, the rest on request</b></sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/trash.png"><img src="docs/screenshots/trash.png" alt="The Trash with a deleted note" width="100%"></a><br>
+      <sub><b>Trash: restore a note or delete it for good</b></sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/screenshots/ai-summary.png"><img src="docs/screenshots/ai-summary.png" alt="AI summary of a long note" width="100%"></a><br>
+      <sub><b>AI summary above the note</b></sub>
+    </td>
+  </tr>
 </table>
 
 <details>
@@ -37,42 +52,32 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <a href="docs/screenshots/ai-summary.png"><img src="docs/screenshots/ai-summary.png" alt="AI summary of a long note" width="100%"></a><br>
-      <sub><b>AI summary above the note</b></sub>
-    </td>
-    <td align="center" valign="top" width="50%">
       <a href="docs/screenshots/ai-translate.png"><img src="docs/screenshots/ai-translate.png" alt="AI translation preview" width="100%"></a><br>
       <sub><b>AI translation PL↔EN</b></sub>
     </td>
-  </tr>
-  <tr>
     <td align="center" valign="top" width="50%">
       <a href="docs/screenshots/search.png"><img src="docs/screenshots/search.png" alt="Search forgiving a typo" width="100%"></a><br>
       <sub><b>Search forgives typos</b></sub>
     </td>
+  </tr>
+  <tr>
     <td align="center" valign="top" width="50%">
       <a href="docs/screenshots/editor.png"><img src="docs/screenshots/editor.png" alt="Note editor" width="100%"></a><br>
       <sub><b>Markdown editor with preview</b></sub>
     </td>
-  </tr>
-  <tr>
     <td align="center" valign="top" width="50%">
       <a href="docs/screenshots/settings.png"><img src="docs/screenshots/settings.png" alt="Settings" width="100%"></a><br>
       <sub><b>Settings</b></sub>
     </td>
+  </tr>
+  <tr>
     <td align="center" valign="top" width="50%">
       <a href="docs/screenshots/ai-settings.png"><img src="docs/screenshots/ai-settings.png" alt="Settings: AI features" width="100%"></a><br>
       <sub><b>Settings: AI features (optional, off by default)</b></sub>
     </td>
-  </tr>
-  <tr>
     <td align="center" valign="top" width="50%">
       <a href="docs/screenshots/shortcuts.png"><img src="docs/screenshots/shortcuts.png" alt="Keyboard shortcuts window" width="100%"></a><br>
       <sub><b>Keyboard shortcuts: press <kbd>?</kbd> anywhere</b></sub>
-    </td>
-    <td align="center" valign="top" width="50%">
-      <a href="docs/screenshots/related-notes.png"><img src="docs/screenshots/related-notes.png" alt="Related notes under an open note" width="100%"></a><br>
-      <sub><b>Related notes under a note: the closest two, the rest on request</b></sub>
     </td>
   </tr>
 </table>
@@ -104,7 +109,7 @@ cookie. Your notes, tags and search are not translated and work the same in both
 ## Settings
 
 The **Settings** page (`/settings`, from the side panel) has Appearance (theme, language, reading text size and
-width, default list order, and with AI on: block the page during AI work and show related notes), Categories and Tags (search, rename, merge, delete), Backup (export and import),
+width, default list order, and with AI on: block the page during AI work and show related notes), Categories and Tags (search, rename, merge, delete), Trash (how many days a deleted note stays there), Backup (export and import),
 Keyboard shortcuts (the same list opens anywhere with `?`; `T` flips the theme), a Danger zone (clear all data) and About (version, counts, database size and path). Preferences are stored on the server (`GET`/`PUT /api/settings`),
 so they follow you between browsers; the language is a cookie.
 
@@ -200,6 +205,22 @@ The merged list is cut to what a model can use: at most 8 notes, 2 chunks per no
 
 API: `GET/POST/DELETE /api/ai/index` (state, build as a stream, clear), `GET/POST /api/chats` (the list carries `updated_at` and `count`), `POST /api/chats/delete` (`{"ids": [...]}`, several at once), `PATCH/DELETE /api/chats/{id}`, `POST /api/chats/{id}/ask` (the stream).
 
+## Trash
+
+Deleting a note moves it to the **Trash** (the entry under Tags in the side panel, with a count). Open it to see what is
+there: the list works like the notes list (search inside it too) and a note opens read only with **Restore** (it comes back with
+its tags and is searchable at once) and **Delete for good** (asks first). **Empty Trash** deletes everything in it, also after a
+confirmation. By default a note stays there until you delete it for good or empty the Trash; Settings → Trash can make it go by itself after 7, 30 or 90 days.
+
+Search works inside the Trash while it is open (all your words must be in the note; no typo tolerance). **Ask** leaves the Trash and tells you so: the chat only ever answers from notes that are not in it.
+
+A note in the Trash is out of everything else: it is not in the list, search, tag and category counts, or the export (an import
+replaces it like all other data). AI does not see it either: the chat does not search or cite it, related notes neither suggest it nor
+are shown for it, and it is never sent to a model. Its vectors are dropped when it goes to the Trash, so after a restore it counts as
+not indexed until the next question in the chat or **Build index**; its summary stays with it. A category that has only trashed
+notes can be deleted; those notes come back in "Uncategorized". Over the API: `DELETE /api/notes/{id}` moves a note to the Trash,
+`GET /api/trash[?q=]`, `GET /api/trash/count`, `POST /api/trash/{id}/restore`, `DELETE /api/trash/{id}` and `DELETE /api/trash`.
+
 ## Tags
 
 Settings → Tags (also the "Zarządzaj" link next to TAGI in the side panel) manages tags across all notes at
@@ -219,7 +240,7 @@ file, `compass-export-<date>.json`, whatever the search box or tag filter curren
 ```
 
 Notes are listed newest first, tags alphabetically, in UTF-8. `category` is the category name, `null` for
-"Uncategorized". The format has no version number. The file holds all your notes in plain
+"Uncategorized". The Trash is not exported. The format has no version number. The file holds all your notes in plain
 text, so keep it as safe as the database.
 
 A note that has an AI summary (see below) carries it as one more field,
@@ -250,7 +271,7 @@ after you confirm. Nothing is skipped and importing the same file twice gives th
 
 ## Demo data
 
-`demo/compass-demo.json` is an export file with 54 sample notes in 12 categories, in Polish and English (see
+`demo/compass-demo.json` is an export file with 54 sample notes in 13 categories, in Polish and English (see
 `demo/README.md`). Load it with Settings → Backup → Import; it replaces everything, so export first if you have notes.
 
 ## Run with Docker
