@@ -6,7 +6,7 @@
 **Compass is an AI-powered** personal knowledge base that keeps all your notes in one place. Find anything in seconds with just a few keystrokes, or ask AI questions and get answers grounded in your own notes, with clear references to the sources it used. Each Compass instance is dedicated to a single user.
 
 - **Chat with your notes:** ask in plain language; the answer is written only from your notes and marks each statement with a numbered citation like `[1]`; the numbers match the **Sources** list under the answer, and clicking one opens that note. This is retrieval-augmented generation (RAG), described in [How the AI works](#how-the-ai-works).
-- **AI that stays optional:** translate a note PL↔EN, summarize it, and turn a Word file, a PDF, a text file or an image (photo, screenshot, scan) into notes with a suggested category and tags. All of it is off by default; with AI off the app looks and works exactly as without it.
+- **AI that stays optional:** translate a note PL↔EN, summarize it, see the notes closest to it in meaning, and turn a Word file, a PDF, a text file or an image (photo, screenshot, scan) into notes with a suggested category and tags. All of it is off by default; with AI off the app looks and works exactly as without it.
 - **Your models, your choice:** OpenRouter or a local, OpenAI-compatible server (Ollama, LM Studio). With a local model your notes never leave the machine.
 - **Fast, forgiving search:** results ranked by relevance (exact tag, then title, then body); typos and missing Polish letters are forgiven (`zlozonosc` finds "złożoność").
 
@@ -70,7 +70,10 @@ Status: early development (see `context/foundation/roadmap.md` and `context/foun
       <a href="docs/screenshots/shortcuts.png"><img src="docs/screenshots/shortcuts.png" alt="Keyboard shortcuts window" width="100%"></a><br>
       <sub><b>Keyboard shortcuts: press <kbd>?</kbd> anywhere</b></sub>
     </td>
-    <td width="50%"></td>
+    <td align="center" valign="top" width="50%">
+      <a href="docs/screenshots/related-notes.png"><img src="docs/screenshots/related-notes.png" alt="Related notes under an open note" width="100%"></a><br>
+      <sub><b>Related notes under a note: the closest two, the rest on request</b></sub>
+    </td>
   </tr>
 </table>
 
@@ -123,9 +126,11 @@ can be deleted).
   **Manage conversations** (the list icon in the chat header) shows all of them with message counts and last activity, selects
   many at once or everything older than 30 days, and deletes the selection after one confirmation.
   Every answer lists the notes it comes from; a note deleted later stays in the list marked as deleted.
-- **Related notes:** under an open note, the five notes closest in meaning (the first two, the other three after "Show more"). They come from the vectors already stored for the chat (the
-  mean of the note's chunks against everyone else's), so it makes **no model call**. It can be switched off in Settings → Appearance (on by default). It shows once the note is in the index (a
-  question in the chat or **Build index** in Settings) and its text has not changed since; until then the section is hidden.
+- **Related notes:** under an open note, the five notes closest in meaning: the first two, the other three after **Show more**.
+  A click opens that note and leaves your search, filters and list as they are (the list scrolls to its tile when it is there). They
+  come from the vectors already stored for the chat (the mean of the note's chunks against everyone else's), so it makes **no model
+  call**. It can be switched off in Settings → Appearance (on by default). It shows once the note is in the index (a question in the
+  chat or **Build index** in Settings) and its text has not changed since; until then the section is hidden.
 - **Summarize:** one click writes a short summary and key points above the note. It is kept next to the note (the note itself is
   never changed) and marked as outdated once you edit the note.
 - **Translate PL↔EN:** the translate button in a note opens a preview (the note is never changed). The direction

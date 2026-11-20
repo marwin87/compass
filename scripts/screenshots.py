@@ -101,11 +101,14 @@ CHAT_ANSWER = (
 
 
 def embedding(text: str) -> list[float]:
-    """A stand-in for an embedding model: words hashed into 128 buckets (same words, close vectors)."""
+    """A stand-in for an embedding model: words and their 5-letter stems hashed into 128 buckets (same words,
+    and Polish inflections of them, give close vectors)."""
     vector = [0.0] * 128
     for word in re.findall(r"\w+", text.lower()):
         if len(word) >= 3:
             vector[zlib.crc32(word.encode()) % 128] += 1.0
+        if len(word) >= 6:
+            vector[zlib.crc32(word[:5].encode()) % 128] += 1.0
     return vector
 
 
@@ -264,6 +267,11 @@ def steps(page: Page, url: str) -> None:
     expect(page.get_by_role("dialog")).to_be_visible()
     shot(page, "shortcuts")
     page.keyboard.press("Escape")
+
+    # related notes: under an open note, from the vectors the index already holds (no model call)
+    open_note(page, "Szybkie notatki o SQL")
+    expect(detail.get_by_text("Related notes", exact=True)).to_be_visible()
+    shot(page, "related-notes")
 
     # list with the side panel, then typo-tolerant search
     open_note(page, "Cheatsheet: Git i Docker")
