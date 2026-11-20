@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="[[lang]]" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[[settings_title]] · Compass</title>
+<!--FAVICON-->
+<style>/*CSS*/</style>
+</head>
+<body>
+<div class="sapp">
+  <aside class="snav">
+    <a class="slogo" href="/" aria-label="Compass"><div class="logo"><div class="dot"><span class="ic" data-icon="compass" data-size="22"></span></div><div><div>Compass <span class="aitag" data-ai hidden><span class="ic" data-icon="spark" data-size="10"></span>AI</span></div><div class="tagline">[[tagline]]</div></div></div></a>
+    <a class="btn primary newbtn sback" href="/"><span class="ic" data-icon="chevron-left" data-size="16"></span>[[settings_back]]</a>
+    <h1>[[settings_title]]</h1>
+    <nav id="snav" aria-label="[[settings_title]]">
+<!--NAV-->    </nav>
+    <form class="slogout" method="post" action="/logout"><button class="btn wide sidebtn"><span class="ic" data-icon="logout"></span>[[logout]]</button></form>
+  </aside>
+  <main class="scontent">
+    <section class="ssec" id="appearance">
+      <h2>[[settings_nav_appearance]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[set_theme]]</div><div class="sdesc">[[set_theme_desc]]</div></div><div class="sctl" id="ctl-theme"></div></div>
+        <div class="srow"><div><div class="sname">[[set_lang]]</div><div class="sdesc">[[set_lang_desc]]</div></div><div class="sctl" id="ctl-lang"></div></div>
+        <div class="srow"><div><div class="sname">[[set_reader_size]]</div><div class="sdesc">[[set_reader_size_desc]]</div></div><div class="sctl" id="ctl-size"></div></div>
+        <div class="srow"><div><div class="sname">[[set_reader_width]]</div><div class="sdesc">[[set_reader_width_desc]]</div></div><div class="sctl" id="ctl-width"></div></div>
+        <div class="srow"><div><div class="sname">[[set_sort]]</div><div class="sdesc">[[set_sort_desc]]</div></div><div class="sctl" id="ctl-sort"></div></div>
+        <div class="srow" data-ai hidden><div><div class="sname">[[set_ai_block]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></div><div class="sdesc">[[set_ai_block_desc]]</div></div><div class="sctl" id="ctl-ai-block"></div></div>
+      </div>
+    </section>
+    <section class="ssec" id="categories">
+      <h2>[[categories_h]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[manage_title]]</div><div class="sdesc">[[data_categories_desc]]</div></div></div>
+        <div class="catpad">
+          <div class="qrow"><input id="catnew" placeholder="[[category_new_ph]]" maxlength="60" autocomplete="off" aria-label="[[category_new_ph]]"><button type="button" class="btn primary" id="catadd">[[category_add]]</button></div>
+          <div class="err" id="catmsg" role="alert"></div>
+          <div class="listtools"><input id="catsearch" type="search" placeholder="[[categories_search_ph]]" aria-label="[[categories_search_ph]]" autocomplete="off"></div>
+          <ul class="mgrlist" id="catrows"></ul>
+        </div>
+      </div>
+    </section>
+    <section class="ssec" id="tags">
+      <h2>[[settings_nav_tags]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[tags_manage_title]]</div><div class="sdesc">[[tags_manage_desc]]</div></div></div>
+        <div class="catpad">
+          <div class="tagtools">
+            <input id="tagsearch" type="search" placeholder="[[tags_search_ph]]" aria-label="[[tags_search_ph]]" autocomplete="off">
+            <select id="tagsort" class="sselect" aria-label="[[tags_sort_count]] / [[tags_sort_name]]">
+              <option value="count">[[tags_sort_count]]</option>
+              <option value="name">[[tags_sort_name]]</option>
+            </select>
+          </div>
+          <div class="err" id="tagmsg" role="alert"></div>
+          <ul class="mgrlist" id="tagrows"></ul>
+          <div class="listhint muted" id="taghint"></div>
+        </div>
+      </div>
+    </section>
+    <section class="ssec" id="load" data-ai hidden>
+      <h2>[[load_h]] <span class="aitag"><span class="ic" data-icon="spark" data-size="10"></span>AI</span></h2>
+      <div class="scard aiframe">
+        <div class="srow"><div><div class="sname">[[word_import]]</div><div class="sdesc">[[word_import_desc]]</div></div>
+          <div class="sctl"><button type="button" class="btn" id="wordbtn"><span class="ic" data-icon="upload" data-size="16"></span>[[word_choose]]</button><input type="file" id="wordfile" accept=".docx,.txt,.md,.markdown,.pdf,.png,.jpg,.jpeg,.webp,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/pdf,image/png,image/jpeg,image/webp" hidden></div></div>
+      </div>
+      <div class="scard aiframe" id="wordreview" hidden aria-live="polite"></div>
+    </section>
+    <section class="ssec" id="shortcuts">
+      <h2>[[settings_nav_shortcuts]]</h2>
+      <div class="scard" id="shortcutlist"></div>
+    </section>
+    <section class="ssec" id="ai">
+      <h2>[[ai_h]]</h2>
+      <div class="scard aiframe">
+        <div class="srow"><div><div class="sname">[[set_ai_enabled]]</div><div class="sdesc">[[set_ai_enabled_desc]]</div></div><div class="sctl" id="ctl-ai-on"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_connection]]</div><div class="sdesc">[[set_ai_connection_desc]]</div></div><div class="sctl" id="ctl-ai-conn"></div></div>
+        <div class="srow" id="row-ai-addr"><div><div class="sname">[[set_ai_address]]</div><div class="sdesc">[[set_ai_address_desc]]</div></div><div class="sctl" id="ctl-ai-addr"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_model]]</div><div class="sdesc">[[set_ai_model_desc]]</div></div><div class="sctl" id="ctl-ai-model"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_embed]]</div><div class="sdesc">[[set_ai_embed_desc]]</div></div><div class="sctl" id="ctl-ai-embed"></div></div>
+        <div class="srow"><div><div class="sname">[[set_ai_vision]]</div><div class="sdesc">[[set_ai_vision_desc]]</div></div><div class="sctl" id="ctl-ai-vision"></div></div>
+        <div class="srow" id="row-ai-index" hidden><div><div class="sname">[[set_ai_index]]</div><div class="sdesc">[[set_ai_index_desc]]</div><div class="sdesc" id="ai-index-status" role="status"></div></div><div class="sctl" id="ctl-ai-index"></div></div>
+        <div class="srow"><div><div class="sname">[[ai_status_h]]</div><div class="sdesc" id="ai-status" role="status"></div></div></div>
+      </div>
+    </section>
+    <section class="ssec" id="backup">
+      <h2>[[data_backup_h]]</h2>
+      <div class="scard">
+        <div class="srow"><div><div class="sname">[[export]]</div><div class="sdesc">[[data_export_desc]]</div></div>
+          <div class="sctl"><a class="btn" id="exportlink" href="/api/export" download title="[[export_title]]"><span class="ic" data-icon="download" data-size="16"></span>[[export]]</a></div></div>
+        <div class="srow"><div><div class="sname">[[import]]</div><div class="sdesc">[[data_import_desc]]</div></div>
+          <div class="sctl"><button type="button" class="btn" id="import" title="[[import_title]]"><span class="ic" data-icon="upload" data-size="16"></span>[[import]]</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
+      </div>
+    </section>
+    <section class="ssec" id="danger">
+      <h2>[[data_danger_h]]</h2>
+      <div class="scard danger">
+        <div class="srow"><div><div class="sname">[[data_clear]]</div><div class="sdesc">[[data_clear_desc]]</div></div>
+          <div class="sctl"><button type="button" class="btn danger" id="clearbtn"><span class="ic" data-icon="trash" data-size="16"></span>[[data_clear]]</button></div></div>
+      </div>
+    </section>
+    <section class="ssec" id="about">
+      <h2>[[settings_nav_about]]</h2>
+      <div class="scard" id="aboutcard" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+<dialog id="importdialog" aria-labelledby="importdialog-h" aria-describedby="importdialog-text">
+  <div class="warnicon"><span class="ic" data-icon="alert" data-size="22"></span></div>
+  <h3 id="importdialog-h">[[import_confirm_title]]</h3>
+  <p class="muted" id="importdialog-text">[[import_ask]]</p>
+  <div class="fileline"><span class="ic" data-icon="file" data-size="16"></span><span id="importfilename"></span></div>
+  <div class="dlg-actions"><button type="button" class="btn" id="importno">[[cancel]]</button><button type="button" class="btn danger" id="importyes">[[import_replace]]</button></div>
+</dialog>
+<dialog id="cleardialog" aria-labelledby="cleardialog-h" aria-describedby="cleardialog-text">
+  <div class="warnicon"><span class="ic" data-icon="alert" data-size="22"></span></div>
+  <h3 id="cleardialog-h">[[clear_title]]</h3>
+  <p class="muted" id="cleardialog-text">[[clear_ask]]</p>
+  <div class="dlg-actions"><button type="button" class="btn" id="clearno">[[cancel]]</button><button type="button" class="btn danger" id="clearyes">[[clear_yes]]</button></div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+<script>
+/*CORE*/
+/*SETTINGS_JS*/
+</script>
+</body>
+</html>

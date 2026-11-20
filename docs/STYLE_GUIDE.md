@@ -9,24 +9,25 @@ The whole app UI is one server-rendered page, no build step and no framework.
 
 | Where | What |
 | --- | --- |
-| `src/compass/ui/core.py` | `CORE_JS`: the helpers both pages share (`tr`, `$`, `h`, icons, `toast`, `api`, `sk`, `SORT_LABELS`, `categoryError`, `saveSettings`) and `inject()`, which fills the I18N and SETTINGS constants and `data-theme` on the server |
+| `src/compass/ui/core.py` + `assets/core.js` | `CORE_JS`: the helpers both pages share (`tr`, `$`, `h`, icons, `toast`, `api`, `sk`, `SORT_LABELS`, `categoryError`, `saveSettings`) and `inject()`, which fills the I18N and SETTINGS constants and `data-theme` on the server |
 | `src/compass/settings.py` | the settings registry (`SPEC`: key, default, validator) stored in the `settings` table; `current()`, `update()` |
-| `src/compass/ui/settings_page.py` | the Settings page (`/settings`): Appearance, Data, Shortcuts, AI features, About |
-| `src/compass/ui/page.py` | `COMMON_CSS` (tokens, base, buttons, chips, forms, toast, login), `APP_CSS` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `INDEX_HTML` (markup + one `<script>`), `render_index(lang)` |
-| `src/compass/ui/reader.py` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
-| `src/compass/ui/editor.py` | the Markdown helper of the note forms: `EDITOR_PURE_JS` (pure text-editing functions, tested in Node), `EDITOR_UI_JS` (toolbar, callout menu, Write/Preview tabs), `EDITOR_CSS`. Embedded into `INDEX_HTML` at import time |
+| `src/compass/ui/settings_page.py` + `assets/settings.{html,css,js}` | the Settings page (`/settings`): Appearance, Data, Shortcuts, AI features, About. The markup, styles and script are the asset files; `settings_page.py` builds the section nav (`_SECTIONS`) and fills the markers (`<!--NAV-->`, `/*CSS*/`, `/*SETTINGS_JS*/`) |
+| `src/compass/ui/page.py` + `assets/` | the notes page. The text lives in real files: `assets/common.css` (tokens, base, buttons, chips, forms, toast, login), `assets/app.css` (layout, sidebar, list, cards, panel, dialog, skeleton, responsive), `assets/index.html` (markup) and `assets/app.js` (the page script). `page.py` reads them once (`ui.asset(name)`), fills the markers (`<!--FAVICON-->`, `/*CSS*/`, `/*APP_JS*/`, `/*CORE*/`...) and exposes `COMMON_CSS`, `INDEX_HTML`, `render_index(lang)`. Edit the files, not Python strings |
+| `src/compass/ui/reader.py` + `assets/reader.{pure,ui}.js`, `reader.css` | the note reader: `READER_PURE_JS` (Markdown parser + syntax highlighter, no DOM, tested in Node), `READER_UI_JS` (DOM builder, reading mode, table of contents), `READER_CSS`. Embedded into `INDEX_HTML` at import time |
+| `src/compass/ui/editor.py` + `assets/editor.{pure,ui}.js`, `editor.css` | the Markdown helper of the note forms: `EDITOR_PURE_JS` (pure text-editing functions, tested in Node), `EDITOR_UI_JS` (toolbar, callout menu, Write/Preview tabs), `EDITOR_CSS`. Embedded into `INDEX_HTML` at import time |
 | `src/compass/ai/__init__.py` | `status()`: the static check of the AI connection (configured? what is missing? do notes leave the machine?), served by `GET /api/ai/status`. The key (`OPENROUTER_API_KEY`) is read from the environment only, never a setting, never returned |
-| `src/compass/ui/chatpanel.py` | the chat with the notes: `CHAT_JS` (`makeChat`, the panel in the detail column) and `CHAT_CSS`. Embedded into `INDEX_HTML` at import time (`/*CHAT_UI*/`) |
+| `src/compass/ui/chatpanel.py` + `assets/chat.{js,css}` | the chat with the notes: `CHAT_JS` (`makeChat`, the panel in the detail column) and `CHAT_CSS`. Embedded into `INDEX_HTML` at import time (`/*CHAT_UI*/`) |
 | `src/compass/ui/i18n.py` | `STRINGS["pl"]` and `STRINGS["en"]`, `pick_lang` |
-| `src/compass/ui/login.py` | the login page (`render_login`); reuses `COMMON_CSS`, the tab icon and the language switch; its logo is the same as in the app (the compass icon drawn inline, name and `tagline`; `.tagline` and `.logo .dot svg` live in `COMMON_CSS` for that reason); the password field has an eye button (`.pwtoggle`, inline SVG, `aria-pressed`, labels `password_show`/`password_hide`) that shows and hides the typed password. The page loads no core script, so its icons are inline SVG (toggle them with `toggleAttribute("hidden")`: the `hidden` property does not exist on SVG elements) |
+| `src/compass/ui/login.py` + `assets/login.{html,css}`, `password.js` | the login page (`render_login`); reuses `COMMON_CSS`, the tab icon and the language switch; its logo is the same as in the app (the compass icon drawn inline, name and `tagline`; `.tagline` and `.logo .dot svg` live in `COMMON_CSS` for that reason); the password field has an eye button (`.pwtoggle`, inline SVG, `aria-pressed`, labels `password_show`/`password_hide`) that shows and hides the typed password. The page loads no core script, so its icons are inline SVG (toggle them with `toggleAttribute("hidden")`: the `hidden` property does not exist on SVG elements) |
 | `tests/ui/` | the UI tests (mirrors `src/compass/ui/`): `test_i18n.py` (key parity and usage guards), `test_page.py` (the notes page), `test_settings_page.py`, `test_login.py`, `test_reader.py` and `test_editor.py` (the pure JS, run in Node). Backend tests stay in `tests/` (one file per backend area). Helpers: `tests/ui/helpers.py` (`login_cookie`), `tests/ui/conftest.py` (`anon`) |
 
-**Package layout.** `src/compass/` is the backend (`main`, `api`, `auth`, `notes`, `categories`, `tags`, `transfer`,
-`settings`, `about`, `db`, `search`, `config`); `src/compass/ui/` is everything the browser receives (pages, CSS,
-JavaScript, translations). The backend never builds HTML or CSS; `ui/` may import the backend only for plain data
+**Package layout.** `src/compass/` is the backend (`main`, `routes/`, `api`, `auth`, `notes/`, `ai/`, `importing/`,
+`settings`, `about`, `db`, `search`, `config`); `src/compass/ui/` is everything the browser receives: thin Python
+modules that assemble the pages, and `ui/assets/` with the real CSS, JavaScript and HTML files they read (plus
+`i18n.py` for the translations). The backend never builds HTML or CSS; `ui/` may import the backend only for plain data
 (`settings` defaults in `core.inject`). New UI modules go into `ui/`.
 
-The script section order in `ui/page.py`: i18n + helpers, text/highlight helpers, icons, toast, state and
+The script section order in `ui/assets/app.js`: i18n + helpers, text/highlight helpers, icons, toast, state and
 server calls, skeleton, rendering, forms and the note panel, category management, import, wiring.
 State lives in one `state` object; render functions rebuild their part of the DOM from it.
 

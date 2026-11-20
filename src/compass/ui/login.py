@@ -4,6 +4,7 @@ language and, after a wrong password, the error text."""
 
 import html
 
+from compass.ui import asset
 from compass.ui.i18n import LANGS
 from compass.ui.page import COMMON_CSS, FAVICON_LINK, LANG_SWITCH_JS, fill
 
@@ -26,45 +27,19 @@ EYE_OFF = (
     + '<path d="M10.7 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.6 3.4M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/>'
     '<path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m2 2 20 20"/></svg>'
 )
-LOGIN_CSS = (
-    ".pwbox{position:relative}.pwbox input{padding-right:44px}"
-    ".pwtoggle{position:absolute;top:0;right:0;bottom:0;width:42px;display:grid;place-items:center;"
-    "border:0;background:none;color:var(--muted);border-radius:0 12px 12px 0}"
-    ".pwtoggle:hover{color:var(--ink)}.pwtoggle:focus-visible{outline:2px solid var(--accent-light);outline-offset:-2px}"
-)
-PASSWORD_JS = (
-    'var i=document.querySelector(".pwbox input"),b=document.querySelector(".pwtoggle");'
-    'b.addEventListener("click",function(){var show=i.type==="password";i.type=show?"text":"password";'
-    'b.setAttribute("aria-pressed",show);b.setAttribute("aria-label",b.dataset[show?"hide":"show"]);b.title=b.dataset[show?"hide":"show"];'
-    'b.firstElementChild.toggleAttribute("hidden",show);b.lastElementChild.toggleAttribute("hidden",!show);i.focus();});'
-)
+LOGIN_CSS = asset("login.css")
+PASSWORD_JS = asset("password.js")
 
 LOGIN_TEMPLATE = (
-    '<!doctype html><html lang="[[lang]]"><head><meta charset="utf-8">'
-    '<meta name="viewport" content="width=device-width, initial-scale=1">'
-    "<title>[[login_title]]</title>"
-    + FAVICON_LINK
-    + "<style>"
-    + COMMON_CSS
-    + LOGIN_CSS
-    + "</style></head><body>"
-    '<div class="login"><div style="width:min(380px,100%)">'
-    '<form class="card form" method="post" action="/login">'
-    '<div class="logo"><div class="dot">'
-    + COMPASS
-    + '</div><div><div>Compass</div><div class="tagline">[[tagline]]</div></div></div>'
-    '<p class="muted">[[login_intro]]</p>'
-    '<div class="pwbox"><input type="password" name="password" placeholder="[[password_ph]]" autofocus required>'
-    '<button type="button" class="pwtoggle" aria-pressed="false" aria-label="[[password_show]]" title="[[password_show]]" '
-    'data-show="[[password_show]]" data-hide="[[password_hide]]">'
-    + EYE_OPEN
-    + EYE_OFF.replace("<svg", "<svg hidden", 1)
-    + "</button></div>"
-    '<div class="err"><!--error--></div>'
-    '<button class="btn primary">[[login_btn]]</button></form>'
-    '<div class="langs" role="group" aria-label="[[lang_label]]" '
-    'style="justify-content:center;margin-top:14px"><!--langs--></div></div></div>'
-    "<script>" + LANG_SWITCH_JS + PASSWORD_JS + "</script></body></html>"
+    asset("login.html")
+    .replace("<!--FAVICON-->", FAVICON_LINK)
+    .replace("/*COMMON_CSS*/", COMMON_CSS)
+    .replace("/*LOGIN_CSS*/", LOGIN_CSS)
+    .replace("<!--COMPASS-->", COMPASS)
+    .replace("<!--EYE_OPEN-->", EYE_OPEN)
+    .replace("<!--EYE_OFF-->", EYE_OFF.replace("<svg", "<svg hidden", 1))
+    .replace("/*LANG_SWITCH_JS*/", LANG_SWITCH_JS)
+    .replace("/*PASSWORD_JS*/", PASSWORD_JS)
 )
 
 
