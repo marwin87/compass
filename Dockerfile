@@ -11,7 +11,8 @@ FROM python:3.12-slim-bookworm
 RUN useradd --system --uid 1000 --create-home app \
     && mkdir /data && chown app:app /data
 COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH" COMPASS_DB_PATH=/data/compass.db
+COPY web/assets /app/web/assets
+ENV PATH="/app/.venv/bin:$PATH" COMPASS_DB_PATH=/data/compass.db COMPASS_ASSETS_DIR=/app/web/assets
 USER app
 VOLUME /data
 EXPOSE 8011

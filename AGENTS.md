@@ -19,6 +19,8 @@
 - `src/compass/ui/`: everything the browser receives: pages (`page.py`, `settings_page.py`, `login.py`), shared
   script (`core.py`), the note reader and editor (`reader.py`, `editor.py`) and translations (`i18n.py`). The backend
   never builds HTML; frontend conventions: `@docs/STYLE_GUIDE.md`.
+- `web/assets/`: the CSS, JS and HTML of every page (real files, `src/compass/ui/*.py`
+  assemble them; a checkout finds them by itself, the Docker image sets `COMPASS_ASSETS_DIR`).
 - `tests/`: pytest, laid out like `src/compass/`: backend tests in `tests/notes/`, `tests/ai/` and
   `tests/importing/` (one file per area; app-level ones in `tests/`), UI tests in `tests/ui/` (see `docs/STYLE_GUIDE.md`); `demo/`: importable demo data; `context/`: PRD, roadmap and change plans.
 
