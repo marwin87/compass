@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from compass import api, auth, config, settings
+from compass import auth, config, routes, settings
 from compass.db import connect
 from compass.ui.i18n import COOKIE, pick_lang
 from compass.ui.page import render_index
@@ -24,16 +24,7 @@ def create_app() -> FastAPI:
     config.password()  # fail fast when the password is not configured
     app = FastAPI(title="Compass", lifespan=lifespan)
     app.include_router(auth.router)
-    app.include_router(api.router)
-    app.include_router(api.tags_router)
-    app.include_router(api.export_router)
-    app.include_router(api.import_router)
-    app.include_router(api.categories_router)
-    app.include_router(api.settings_router)
-    app.include_router(api.ai_router)
-    app.include_router(api.chat_router)
-    app.include_router(api.about_router)
-    app.include_router(api.data_router)
+    app.include_router(routes.router)
     # Added last = outermost: the session must be loaded before the guard runs.
     app.middleware("http")(auth.guard)
     app.add_middleware(

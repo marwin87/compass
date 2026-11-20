@@ -9,7 +9,7 @@
 
 ## Project Structure
 
-- `src/compass/`: the backend (FastAPI app: `main.py`, `api.py`, `auth.py`, `notes.py`, `categories.py`, `tags.py`,
+- `src/compass/`: the backend (FastAPI app: `main.py`, `routes/` (one module per HTTP resource), `api.py` (limits and error maps the routes share), `auth.py`, `notes.py`, `categories.py`, `tags.py`,
   `transfer.py`, `settings.py`, `about.py`, `db.py`, `search.py`, `config.py`).
 - `src/compass/ui/`: everything the browser receives: pages (`page.py`, `settings_page.py`, `login.py`), shared
   script (`core.py`), the note reader and editor (`reader.py`, `editor.py`) and translations (`i18n.py`). The backend
