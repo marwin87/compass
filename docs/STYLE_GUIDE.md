@@ -104,7 +104,8 @@ Dark is the default theme; the light theme is `:root[data-theme=light]`. The cho
   (`.on` when active, `.mini` on cards). Icon-only buttons need `aria-label` and `title`.
 - **Toast:** `toast(msg, kind, ms)`, kind `""`, `"ok"` or `"bad"`. Use it for results of actions (saved,
   deleted, import and export results, copy). Errors stay longer. Questions that need an answer
-  (confirmations) are inline, not toasts.
+  (confirmations) are inline, not toasts. Look: one `--c` per kind (accent / `--ok` / `--danger`) drives
+  the tinted background, border, left bar and glow, so it stands out from `--panel` in both themes.
 - **Destructive actions** (delete, overwrite, import-replace) always ask for a second, explicit confirmation.
   Delete and overwrite confirm inline in the note panel; the import (it replaces all data) uses a modal
   popup (`#importdialog`: warning icon, title, text, file name, Cancel focused first, red "Replace

@@ -675,17 +675,20 @@ dialog::backdrop {
 }
 
 .toast {
+    --c: var(--accent-light);
     position: fixed;
     bottom: 22px;
     left: 50%;
     transform: translateX(-50%) translateY(6px);
-    background: var(--raise);
+    background: color-mix(in srgb, var(--c) 14%, var(--panel));
     color: var(--ink);
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow);
-    padding: 9px 18px;
-    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
+    border-left: 4px solid var(--c);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28), 0 0 0 4px color-mix(in srgb, var(--c) 10%, transparent);
+    padding: 10px 18px;
+    border-radius: 12px;
     font-size: 13px;
+    font-weight: 500;
     opacity: 0;
     transition: opacity 0.2s ease-out,
     transform 0.2s ease-out;
@@ -699,13 +702,11 @@ dialog::backdrop {
 }
 
 .toast.ok {
-    border-color: rgba(34, 197, 94, 0.45);
-    color: var(--ok);
+    --c: var(--ok);
 }
 
 .toast.bad {
-    border-color: rgba(248, 113, 113, 0.5);
-    color: var(--danger);
+    --c: var(--danger);
 }
 
 .login {
