@@ -14,7 +14,7 @@ from array import array
 from collections.abc import Iterator
 
 from compass import ai
-from compass.db import connect
+from compass.db import session
 from compass.notes.summaries import digest
 
 CHUNK_CHARS = 1200
@@ -94,23 +94,16 @@ def _stale(conn: sqlite3.Connection, name: str) -> list[tuple[int, str, str, str
 
 def status(s: dict[str, object]) -> dict[str, int]:
     """How many notes there are and how many of them are indexed with the current text and model."""
-    conn = connect()
-    try:
+    with session() as conn:
         total = conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0]
         stale = len(_stale(conn, ai.embed_model(s)))
-    finally:
-        conn.close()
     return {"total": total, "indexed": total - stale if ai.embed_model(s) else 0}
 
 
 def clear() -> None:
     """Drop the whole index. It is derived data: the next question or "Build index" fills it again."""
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("DELETE FROM note_chunks")
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute("DELETE FROM note_chunks")
 
 
 def sync(s: dict[str, object], limit: int | None = None) -> Iterator[dict[str, object]]:
@@ -121,8 +114,7 @@ def sync(s: dict[str, object], limit: int | None = None) -> Iterator[dict[str, o
     name = ai.embed_model(s)
     if not name:
         raise ai.AIError("not_configured", "embedding model")
-    conn = connect()
-    try:
+    with session() as conn:
         todo = sorted(_stale(conn, name), reverse=True)[:limit]
         yield {"type": "start", "total": len(todo)}
         for done, (note_id, title, body, wanted) in enumerate(todo, 1):
@@ -155,8 +147,6 @@ def sync(s: dict[str, object], limit: int | None = None) -> Iterator[dict[str, o
                 pass
             yield {"type": "progress", "done": done, "total": len(todo)}
         yield {"type": "done"}
-    finally:
-        conn.close()
 
 
 def search(
@@ -166,14 +156,11 @@ def search(
     made by the current embedding model count. ponytail: brute force over every chunk (fine to about
     50 000); a vector extension if it ever gets slow."""
     unit = _unpack(_pack_vec(query))
-    conn = connect()
-    try:
+    with session() as conn:
         rows = conn.execute(
             "SELECT note_id, idx, text, vec FROM note_chunks WHERE model = ?",
             (ai.embed_model(s),),
         ).fetchall()
-    finally:
-        conn.close()
     scored = [
         (note_id, idx, text, math.sumprod(unit, vec))
         for note_id, idx, text, blob in rows

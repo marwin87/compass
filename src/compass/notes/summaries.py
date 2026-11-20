@@ -10,7 +10,7 @@ import sqlite3
 
 from pydantic import BaseModel
 
-from compass.db import connect, now
+from compass.db import now, session
 
 MAX_SUMMARY = 20000
 
@@ -44,14 +44,11 @@ def save(note_id: int, text: str, source_hash: str) -> Summary | None:
     """Keep a summary written from the note as `source_hash` describes it (the digest taken when the
     model was asked, so an edit made while it worked marks the summary stale). None: no such note."""
     created_at = now()
-    conn = connect()
     try:
-        with conn:
+        with session() as conn, conn:
             insert(conn, note_id, text, created_at, source_hash)
     except sqlite3.IntegrityError:  # the note was deleted meanwhile
         return None
-    finally:
-        conn.close()
     return get(note_id)
 
 
@@ -68,28 +65,18 @@ def _make(row: tuple[int, str, str, str, str, str]) -> Summary:
 
 
 def get(note_id: int) -> Summary | None:
-    conn = connect()
-    try:
+    with session() as conn:
         row = conn.execute(_SELECT + " WHERE s.note_id = ?", (note_id,)).fetchone()
-    finally:
-        conn.close()
     return None if row is None else _make(row)
 
 
 def all_by_note() -> dict[int, Summary]:
     """Every summary by note id (for the export file)."""
-    conn = connect()
-    try:
+    with session() as conn:
         rows = conn.execute(_SELECT).fetchall()
-    finally:
-        conn.close()
     return {r[0]: _make(r) for r in rows}
 
 
 def delete(note_id: int) -> None:
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("DELETE FROM note_summaries WHERE note_id = ?", (note_id,))
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute("DELETE FROM note_summaries WHERE note_id = ?", (note_id,))

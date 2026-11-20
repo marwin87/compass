@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from compass.db import connect, index_note, unindex_note
+from compass.db import index_note, session, unindex_note
 from compass.notes import categories, summaries
 from compass.search import fold, fuzzy_terms, rank_key, words
 
@@ -184,14 +184,8 @@ def _insert(
 def create_note(
     title: str, body: str, tags: Sequence[str] = (), category_id: int | None = None
 ) -> Note:
-    conn = connect()
-    try:
-        with conn:
-            return _insert(
-                conn, title, body, tags, categories.resolve(conn, category_id)
-            )
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        return _insert(conn, title, body, tags, categories.resolve(conn, category_id))
 
 
 def create_many(
@@ -200,25 +194,18 @@ def create_many(
     """Add several notes (title, body, tags, category name) in one transaction: all or none.
     A category name that does not exist yet creates the category; None or a reserved name means the
     default."""
-    conn = connect()
-    try:
-        with conn:
-            for title, body, tags, category in items:
-                _insert(conn, title, body, tags, categories.ensure(conn, category))
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        for title, body, tags, category in items:
+            _insert(conn, title, body, tags, categories.ensure(conn, category))
     return len(items)
 
 
 def get_note(note_id: int) -> Note | None:
-    conn = connect()
-    try:
+    with session() as conn:
         rows = conn.execute(
             f"SELECT {COLUMNS} FROM notes n WHERE n.id = ?", (note_id,)
         ).fetchall()
         found = _with_tags(conn, rows)
-    finally:
-        conn.close()
     return found[0] if found else None
 
 
@@ -276,8 +263,7 @@ def list_notes(
         raise ValueError(f"unknown sort: {sort}")
     tokens = words(q)
     tag_filter = _tag_filter(tags)
-    conn = connect()
-    try:
+    with session() as conn:
         if not tokens:
             conditions: list[str] = []
             params: list[object] = []
@@ -320,8 +306,6 @@ def list_notes(
             f"SELECT {COLUMNS} FROM notes n WHERE n.id IN ({marks})", ids
         ).fetchall()
         candidates = _with_tags(conn, rows)
-    finally:
-        conn.close()
     if sort:
         _sort_notes(candidates, sort)
     else:
@@ -334,8 +318,7 @@ def list_notes(
 
 def export_all() -> list[Note]:
     """Every note with its tags, newest first, in one consistent query (no limit, no ranking)."""
-    conn = connect()
-    try:
+    with session() as conn:
         rows = conn.execute(
             "SELECT n.id, n.title, n.body, n.created_at, n.category_id, "
             "group_concat(t.name, char(10)) "
@@ -344,8 +327,6 @@ def export_all() -> list[Note]:
             "LEFT JOIN tags t ON t.id = nt.tag_id "
             "GROUP BY n.id ORDER BY n.id DESC"
         ).fetchall()
-    finally:
-        conn.close()
     return [
         Note(
             id=r[0],
@@ -361,22 +342,16 @@ def export_all() -> list[Note]:
 
 def titles() -> list[str]:
     """The title of every note (an import uses them to warn about a note that already exists)."""
-    conn = connect()
-    try:
+    with session() as conn:
         return [r[0] for r in conn.execute("SELECT title FROM notes")]
-    finally:
-        conn.close()
 
 
 def list_tags() -> list[TagCount]:
-    conn = connect()
-    try:
+    with session() as conn:
         rows = conn.execute(
             "SELECT t.name, COUNT(*) AS c FROM note_tags nt "
             "JOIN tags t ON t.id = nt.tag_id GROUP BY t.id ORDER BY c DESC, t.name"
         ).fetchall()
-    finally:
-        conn.close()
     return [TagCount(name=r[0], count=r[1]) for r in rows]
 
 
@@ -389,25 +364,21 @@ def update_note(
 ) -> Note | None:
     """Replace title, body, tags and category (`None` = the default), keeping the index in step."""
     clean = normalize_tags(tags)
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                "SELECT created_at FROM notes WHERE id = ?", (note_id,)
-            ).fetchone()
-            if row is None:
-                return None
-            category = categories.resolve(conn, category_id)
-            conn.execute(
-                "UPDATE notes SET title = ?, body = ?, category_id = ? WHERE id = ?",
-                (title, body, category, note_id),
-            )
-            _save_tags(conn, note_id, clean)
-            _drop_unused_tags(conn)
-            index_note(conn, note_id, title, body, clean)
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT created_at FROM notes WHERE id = ?", (note_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        category = categories.resolve(conn, category_id)
+        conn.execute(
+            "UPDATE notes SET title = ?, body = ?, category_id = ? WHERE id = ?",
+            (title, body, category, note_id),
+        )
+        _save_tags(conn, note_id, clean)
+        _drop_unused_tags(conn)
+        index_note(conn, note_id, title, body, clean)
     return Note(
         id=note_id,
         title=title,
@@ -420,20 +391,14 @@ def update_note(
 
 def delete_note(note_id: int) -> bool:
     """Remove a note, its index entry and tags nobody uses any more."""
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                "SELECT id FROM notes WHERE id = ?", (note_id,)
-            ).fetchone()
-            if row is None:
-                return False
-            unindex_note(conn, note_id)
-            conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))  # cascades
-            _drop_unused_tags(conn)
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT id FROM notes WHERE id = ?", (note_id,)).fetchone()
+        if row is None:
+            return False
+        unindex_note(conn, note_id)
+        conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))  # cascades
+        _drop_unused_tags(conn)
     return True
 
 
@@ -452,61 +417,57 @@ def replace_all(
     # The file is newest first, so among equal times the later file position is the older note.
     ordered = [p for _, p in sorted(enumerate(items), key=lambda e: (e[1].when, -e[0]))]
     new_ids: dict[int, int] = {}  # id in the file -> id in the database
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("BEGIN IMMEDIATE")
-            conn.execute("DELETE FROM notes_fts")
-            conn.execute(
-                "DELETE FROM conversations"
-            )  # their sources would point at nothing
-            conn.execute("DELETE FROM note_tags")
-            conn.execute("DELETE FROM notes")
-            conn.execute("DELETE FROM tags")
-            conn.execute("DELETE FROM categories WHERE is_default = 0")
-            for name in category_names:
-                categories.ensure(conn, name)
-            for p in ordered:
-                cur = conn.execute(
-                    "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
-                    (
-                        p.title,
-                        p.body,
-                        p.created_at,
-                        categories.ensure(conn, p.category),
-                    ),
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute("DELETE FROM notes_fts")
+        conn.execute(
+            "DELETE FROM conversations"
+        )  # their sources would point at nothing
+        conn.execute("DELETE FROM note_tags")
+        conn.execute("DELETE FROM notes")
+        conn.execute("DELETE FROM tags")
+        conn.execute("DELETE FROM categories WHERE is_default = 0")
+        for name in category_names:
+            categories.ensure(conn, name)
+        for p in ordered:
+            cur = conn.execute(
+                "INSERT INTO notes(title, body, created_at, category_id) VALUES (?, ?, ?, ?)",
+                (
+                    p.title,
+                    p.body,
+                    p.created_at,
+                    categories.ensure(conn, p.category),
+                ),
+            )
+            note_id = cur.lastrowid
+            assert note_id is not None
+            if p.file_id is not None:
+                new_ids[p.file_id] = note_id
+            _save_tags(conn, note_id, p.tags)
+            index_note(conn, note_id, p.title, p.body, p.tags)
+            if (
+                p.summary
+            ):  # a stale one gets a digest nothing matches, so it stays stale
+                fresh = "" if p.summary.stale else summaries.digest(p.title, p.body)
+                summaries.insert(
+                    conn, note_id, p.summary.text, p.summary.created_at, fresh
                 )
-                note_id = cur.lastrowid
-                assert note_id is not None
-                if p.file_id is not None:
-                    new_ids[p.file_id] = note_id
-                _save_tags(conn, note_id, p.tags)
-                index_note(conn, note_id, p.title, p.body, p.tags)
-                if (
-                    p.summary
-                ):  # a stale one gets a digest nothing matches, so it stays stale
-                    fresh = "" if p.summary.stale else summaries.digest(p.title, p.body)
-                    summaries.insert(
-                        conn, note_id, p.summary.text, p.summary.created_at, fresh
-                    )
-            for c in conversations:
-                cid = conn.execute(
-                    "INSERT INTO conversations(title, created_at) VALUES (?, ?)",
-                    (c.title, c.created_at),
-                ).lastrowid
-                for m in c.messages:
-                    cited = [
-                        {
-                            "id": new_ids.get(s.note, 0) if s.note is not None else 0,
-                            "title": s.title,
-                        }
-                        for s in m.sources
-                    ]  # 0 is never a note id: the source shows as deleted
-                    conn.execute(
-                        "INSERT INTO chat_messages(conversation_id, role, text, sources, created_at) "
-                        "VALUES (?, ?, ?, ?, ?)",
-                        (cid, m.role, m.text, json.dumps(cited), m.created_at),
-                    )
-    finally:
-        conn.close()
+        for c in conversations:
+            cid = conn.execute(
+                "INSERT INTO conversations(title, created_at) VALUES (?, ?)",
+                (c.title, c.created_at),
+            ).lastrowid
+            for m in c.messages:
+                cited = [
+                    {
+                        "id": new_ids.get(s.note, 0) if s.note is not None else 0,
+                        "title": s.title,
+                    }
+                    for s in m.sources
+                ]  # 0 is never a note id: the source shows as deleted
+                conn.execute(
+                    "INSERT INTO chat_messages(conversation_id, role, text, sources, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (cid, m.role, m.text, json.dumps(cited), m.created_at),
+                )
     return len(ordered)

@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from collections.abc import Sequence
+from contextlib import AbstractContextManager, closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -161,12 +162,23 @@ def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+_ready: set[Path] = set()  # databases whose schema is already checked in this process
+
+
 def connect() -> sqlite3.Connection:
+    """A new connection. The schema is created and migrated once per database file per process."""
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA foreign_keys = ON")  # off by default; cascades need it
-    conn.executescript(SCHEMA)
-    _ensure_categories(conn)
-    _ensure_index(conn)
+    if path not in _ready or not path.exists():  # a deleted file needs its schema again
+        conn.executescript(SCHEMA)
+        _ensure_categories(conn)
+        _ensure_index(conn)
+        _ready.add(path)
     return conn
+
+
+def session() -> AbstractContextManager[sqlite3.Connection]:
+    """`with session() as conn:` closes the connection at the end; commit what must be kept."""
+    return closing(connect())

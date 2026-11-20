@@ -10,7 +10,7 @@ import sqlite3
 
 from pydantic import BaseModel
 
-from compass.db import DEFAULT_CATEGORY_ID, connect
+from compass.db import DEFAULT_CATEGORY_ID, session
 from compass.search import fold
 
 MAX_NAME = 40
@@ -52,87 +52,72 @@ def _count(conn: sqlite3.Connection, category_id: int) -> int:
 
 def list_categories() -> list[Category]:
     """Every category with its note count: alphabetical, the default last."""
-    conn = connect()
-    try:
+    with session() as conn:
         rows = conn.execute(
             "SELECT c.id, c.name, c.key, c.is_default, COUNT(n.id) FROM categories c "
             "LEFT JOIN notes n ON n.category_id = c.id GROUP BY c.id"
         ).fetchall()
-    finally:
-        conn.close()
     rows.sort(key=lambda r: (bool(r[3]), r[2]))
     return [Category(id=r[0], name=r[1], default=bool(r[3]), count=r[4]) for r in rows]
 
 
 def create(name: str) -> Category:
     clean, key = normalize(name)
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("BEGIN IMMEDIATE")
-            taken = conn.execute(
-                "SELECT id FROM categories WHERE key = ?", (key,)
-            ).fetchone()
-            if taken:
-                raise CategoryError("name_taken", id=taken[0])
-            cur = conn.execute(
-                "INSERT INTO categories(name, key) VALUES (?, ?)", (clean, key)
-            )
-            category_id = cur.lastrowid
-            assert category_id is not None
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        taken = conn.execute(
+            "SELECT id FROM categories WHERE key = ?", (key,)
+        ).fetchone()
+        if taken:
+            raise CategoryError("name_taken", id=taken[0])
+        cur = conn.execute(
+            "INSERT INTO categories(name, key) VALUES (?, ?)", (clean, key)
+        )
+        category_id = cur.lastrowid
+        assert category_id is not None
     return Category(id=category_id, name=clean, default=False, count=0)
 
 
 def rename(category_id: int, name: str) -> Category:
     clean, key = normalize(name)
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                "SELECT is_default FROM categories WHERE id = ?", (category_id,)
-            ).fetchone()
-            if row is None:
-                raise CategoryError("not_found")
-            if row[0]:
-                raise CategoryError("default_category")
-            taken = conn.execute(
-                "SELECT id FROM categories WHERE key = ? AND id != ?",
-                (key, category_id),
-            ).fetchone()
-            if taken:
-                raise CategoryError("name_taken", id=taken[0])
-            conn.execute(
-                "UPDATE categories SET name = ?, key = ? WHERE id = ?",
-                (clean, key, category_id),
-            )
-            count = _count(conn, category_id)
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT is_default FROM categories WHERE id = ?", (category_id,)
+        ).fetchone()
+        if row is None:
+            raise CategoryError("not_found")
+        if row[0]:
+            raise CategoryError("default_category")
+        taken = conn.execute(
+            "SELECT id FROM categories WHERE key = ? AND id != ?",
+            (key, category_id),
+        ).fetchone()
+        if taken:
+            raise CategoryError("name_taken", id=taken[0])
+        conn.execute(
+            "UPDATE categories SET name = ?, key = ? WHERE id = ?",
+            (clean, key, category_id),
+        )
+        count = _count(conn, category_id)
     return Category(id=category_id, name=clean, default=False, count=count)
 
 
 def delete(category_id: int) -> None:
     """Delete an empty, non-default category (a category with notes is never deleted)."""
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                "SELECT is_default FROM categories WHERE id = ?", (category_id,)
-            ).fetchone()
-            if row is None:
-                raise CategoryError("not_found")
-            if row[0]:
-                raise CategoryError("default_category")
-            count = _count(conn, category_id)
-            if count:
-                raise CategoryError("not_empty", count=count)
-            conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT is_default FROM categories WHERE id = ?", (category_id,)
+        ).fetchone()
+        if row is None:
+            raise CategoryError("not_found")
+        if row[0]:
+            raise CategoryError("default_category")
+        count = _count(conn, category_id)
+        if count:
+            raise CategoryError("not_empty", count=count)
+        conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
 
 
 def resolve(conn: sqlite3.Connection, category_id: int | None) -> int:

@@ -2,7 +2,7 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
-from compass.db import connect, db_path
+from compass.db import db_path, session
 
 
 def app_version() -> str:
@@ -13,8 +13,7 @@ def app_version() -> str:
 
 
 def about() -> dict[str, object]:
-    conn = connect()
-    try:
+    with session() as conn:
         counts = {
             name: int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
             for name, table in (
@@ -23,8 +22,6 @@ def about() -> dict[str, object]:
                 ("tags", "tags"),
             )
         }
-    finally:
-        conn.close()
     path = db_path()
     return {
         "version": app_version(),

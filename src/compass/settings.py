@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from compass import notes
-from compass.db import connect
+from compass.db import session
 
 
 class SettingError(Exception):
@@ -74,11 +74,8 @@ def defaults() -> dict[str, object]:
 
 def current() -> dict[str, object]:
     """Every known setting with its effective value."""
-    conn = connect()
-    try:
+    with session() as conn:
         rows = dict(conn.execute("SELECT key, value FROM settings").fetchall())
-    finally:
-        conn.close()
     result = defaults()
     for key, spec in SPEC.items():
         if key in rows:
@@ -98,15 +95,11 @@ def update(patch: dict[str, object]) -> dict[str, object]:
         if spec is None or not spec.valid(value):
             raise SettingError(key)
     if patch:
-        conn = connect()
-        try:
-            with conn:
-                for key, value in patch.items():
-                    conn.execute(
-                        "INSERT INTO settings(key, value) VALUES (?, ?) "
-                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                        (key, json.dumps(value)),
-                    )
-        finally:
-            conn.close()
+        with session() as conn, conn:
+            for key, value in patch.items():
+                conn.execute(
+                    "INSERT INTO settings(key, value) VALUES (?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, json.dumps(value)),
+                )
     return current()

@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from compass import ai, db
 from compass.ai import chunks, retrieval
-from compass.db import connect
+from compass.db import session
 
 log = logging.getLogger(
     "uvicorn.error"
@@ -78,29 +78,22 @@ class Thread(Conversation):
 
 
 def create() -> Conversation:
-    conn = connect()
-    try:
-        with conn:
-            now = db.now()
-            cur = conn.execute(
-                "INSERT INTO conversations(title, created_at) VALUES ('', ?)", (now,)
-            )
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        now = db.now()
+        cur = conn.execute(
+            "INSERT INTO conversations(title, created_at) VALUES ('', ?)", (now,)
+        )
     return Conversation(id=int(cur.lastrowid or 0), title="", created_at=now)
 
 
 def list_all() -> list[ChatListing]:
-    conn = connect()
-    try:
+    with session() as conn:
         rows = conn.execute(
             "SELECT c.id, c.title, c.created_at, "
             "COALESCE((SELECT MAX(created_at) FROM chat_messages WHERE conversation_id = c.id), c.created_at), "
             "(SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id) "
             "FROM conversations c ORDER BY c.id DESC"
         ).fetchall()
-    finally:
-        conn.close()
     return [
         ChatListing(id=r[0], title=r[1], created_at=r[2], updated_at=r[3], count=r[4])
         for r in rows
@@ -108,8 +101,7 @@ def list_all() -> list[ChatListing]:
 
 
 def get(conversation_id: int) -> Thread | None:
-    conn = connect()
-    try:
+    with session() as conn:
         head = conn.execute(
             "SELECT id, title, created_at FROM conversations WHERE id = ?",
             (conversation_id,),
@@ -122,8 +114,6 @@ def get(conversation_id: int) -> Thread | None:
             (conversation_id,),
         ).fetchall()
         alive = {r[0] for r in conn.execute("SELECT id FROM notes")}
-    finally:
-        conn.close()
     messages = [
         Message(
             id=r[0],
@@ -171,19 +161,15 @@ def export_all() -> list[dict[str, object]]:
 
 def rename(conversation_id: int, title: str) -> Conversation | None:
     """Give a conversation a name of the user's own (None: no such conversation)."""
-    conn = connect()
-    try:
-        with conn:
-            conn.execute(
-                "UPDATE conversations SET title = ? WHERE id = ?",
-                (title, conversation_id),
-            )
-            row = conn.execute(
-                "SELECT id, title, created_at FROM conversations WHERE id = ?",
-                (conversation_id,),
-            ).fetchone()
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        conn.execute(
+            "UPDATE conversations SET title = ? WHERE id = ?",
+            (title, conversation_id),
+        )
+        row = conn.execute(
+            "SELECT id, title, created_at FROM conversations WHERE id = ?",
+            (conversation_id,),
+        ).fetchone()
     return (
         None
         if row is None
@@ -192,27 +178,17 @@ def rename(conversation_id: int, title: str) -> Conversation | None:
 
 
 def delete(conversation_id: int) -> bool:
-    conn = connect()
-    try:
-        with conn:
-            cur = conn.execute(
-                "DELETE FROM conversations WHERE id = ?", (conversation_id,)
-            )
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        cur = conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
     return cur.rowcount > 0
 
 
 def delete_many(ids: list[int]) -> int:
     """Delete several conversations at once; returns how many existed."""
-    conn = connect()
-    try:
-        with conn:
-            cur = conn.executemany(
-                "DELETE FROM conversations WHERE id = ?", [(i,) for i in set(ids)]
-            )
-    finally:
-        conn.close()
+    with session() as conn, conn:
+        cur = conn.executemany(
+            "DELETE FROM conversations WHERE id = ?", [(i,) for i in set(ids)]
+        )
     return cur.rowcount
 
 
@@ -220,39 +196,35 @@ def _save(
     conversation_id: int, question: str, answer: str, sources: list[Source]
 ) -> int:
     """The question and its answer, together; the first question names the conversation."""
-    conn = connect()
-    try:
-        with conn:
-            conn.execute("BEGIN IMMEDIATE")
-            if (
-                conn.execute(
-                    "SELECT 1 FROM conversations WHERE id = ?", (conversation_id,)
-                ).fetchone()
-                is None
-            ):
-                return 0  # deleted while the model worked
-            now = db.now()
+    with session() as conn, conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if (
             conn.execute(
-                "UPDATE conversations SET title = ? WHERE id = ? AND title = ''",
-                (" ".join(question.split())[:TITLE_CHARS], conversation_id),
-            )
-            conn.execute(
-                "INSERT INTO chat_messages(conversation_id, role, text, created_at) "
-                "VALUES (?, 'user', ?, ?)",
-                (conversation_id, question, now),
-            )
-            cur = conn.execute(
-                "INSERT INTO chat_messages(conversation_id, role, text, sources, created_at) "
-                "VALUES (?, 'assistant', ?, ?, ?)",
-                (
-                    conversation_id,
-                    answer,
-                    json.dumps([s.model_dump(exclude={"deleted"}) for s in sources]),
-                    now,
-                ),
-            )
-    finally:
-        conn.close()
+                "SELECT 1 FROM conversations WHERE id = ?", (conversation_id,)
+            ).fetchone()
+            is None
+        ):
+            return 0  # deleted while the model worked
+        now = db.now()
+        conn.execute(
+            "UPDATE conversations SET title = ? WHERE id = ? AND title = ''",
+            (" ".join(question.split())[:TITLE_CHARS], conversation_id),
+        )
+        conn.execute(
+            "INSERT INTO chat_messages(conversation_id, role, text, created_at) "
+            "VALUES (?, 'user', ?, ?)",
+            (conversation_id, question, now),
+        )
+        cur = conn.execute(
+            "INSERT INTO chat_messages(conversation_id, role, text, sources, created_at) "
+            "VALUES (?, 'assistant', ?, ?, ?)",
+            (
+                conversation_id,
+                answer,
+                json.dumps([s.model_dump(exclude={"deleted"}) for s in sources]),
+                now,
+            ),
+        )
     return int(cur.lastrowid or 0)
 
 
