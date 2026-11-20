@@ -111,6 +111,8 @@ const state = {
     total: 0,
     reading: false,
     sort: "",
+    /** @type {any} a note opened from a link (a related note) that the current search does not list */
+    outside: null,
 };
 let seq = 0,
     timer;
@@ -257,7 +259,8 @@ async function load(keepDetail = false) {
     loaded = true;
     state.total = state.categories.reduce((sum, c) => sum + c.count, 0);
     state.list = list;
-    if (state.mode === "view" && !list.some((n) => n.id === state.cur)) state.cur = list.length ? list[0].id : null;
+    const opened = state.outside && state.outside.id === state.cur; // shown although the search does not list it
+    if (state.mode === "view" && !opened && !list.some((n) => n.id === state.cur)) state.cur = list.length ? list[0].id : null;
     renderList();
     if (reveal) {
         $("#results").classList.add("reveal");
@@ -292,6 +295,28 @@ function select(id) {
     setView("detail");
     renderList();
     renderDetail();
+}
+
+// Open a note named by a link (a related note) without touching the search: the list, the query and the chosen tags
+// stay as they are. A note the current search does not list is fetched and shown as it is (`state.outside`).
+async function openOutside(id, refresh = false) {
+    if (refresh || !state.list.some((n) => n.id === id)) {
+        try {
+            const r = await api("/api/notes/" + id);
+            if (!r.ok) return;
+            state.outside = await r.json();
+        } catch (e) {
+            return; // a convenience link: when the note cannot be fetched, nothing changes
+        }
+    }
+    if (refresh) return;
+    state.cur = id;
+    state.mode = "view";
+    setView("detail");
+    renderList();
+    renderDetail();
+    const tile = document.querySelector(".res.on"); // the chosen tile, when the list shows the note: bring it into view
+    if (tile) tile.scrollIntoView({block: "nearest"});
 }
 
 function resetFilters(all) {
@@ -522,7 +547,7 @@ function renderDetail() {
         );
         return;
     }
-    const n = state.list.find((x) => x.id === state.cur);
+    const n = state.list.find((x) => x.id === state.cur) || (state.outside && state.outside.id === state.cur ? state.outside : null);
     if (!n) exitReading();
     if (!n) {
         d.replaceChildren(h("div", {class: "card"}, h("div", {class: "empty"}, tr("pick_or_add"))));
@@ -536,6 +561,7 @@ function renderDetail() {
                 onChange: async () => {
                     await loadCategories();
                     await loadTags();
+                    if (state.outside && state.outside.id === state.cur) await openOutside(state.cur, true);
                     await load(true);
                     toast(tr("toast_saved"));
                 },
@@ -709,6 +735,8 @@ function notePanel(note, cb) {
         msg = "";
     let preview = null,
         sum = null,
+        rel = [], // the related notes ({id, title}), from the stored vectors; empty hides the section
+        relMore = false, // only the first RELATED_SHOWN are listed until the rest is expanded
         tjob = 0,
         sjob = 0,
         swapped = false; // preview: the translation, shown in place of the note: {state: "loading"|"done"|"error", text, msg}; swapped: the user turned its direction around; sum: the summary, shown above the note: {state, text, msg, collapsed}; the counters drop a late answer
@@ -916,6 +944,64 @@ function notePanel(note, cb) {
         } catch (e) {
             if (e.message !== "not authenticated") toast(tr("summary_delete_failed"), "bad", 4000);
         }
+    }
+
+    // Notes close in meaning, found from the vectors already stored (no model call); the server answers with
+    // nothing until the note is indexed, and then the section simply stays hidden.
+    async function loadRelated() {
+        if (!AI_READY || !SETTINGS.show_related) return;
+        try {
+            const r = await api("/api/notes/" + note.id + "/related");
+            if (!r.ok) return;
+            const d = await r.json();
+            if (d.length && mode === "read" && !preview) {
+                rel = d;
+                draw();
+            }
+        } catch (e) {
+            /* a convenience: without it the note simply shows no related notes */
+        }
+    }
+
+    const RELATED_SHOWN = 2;
+
+    function relatedBlock() {
+        const shown = relMore ? rel : rel.slice(0, RELATED_SHOWN);
+        return h(
+            "div",
+            {class: "sumwrap relwrap"},
+            h(
+                "div",
+                {class: "aiframe aisum related"},
+                h("div", {class: "aihd"}, icon("spark", 16), h("span", {}, tr("related_h"))),
+                h(
+                    "ul",
+                    {class: "rellist"},
+                    shown.map((n) =>
+                        h(
+                            "li",
+                            {},
+                            h("button", {type: "button", class: "rellink", onclick: () => openOutside(n.id)}, n.title),
+                        ),
+                    ),
+                ),
+                rel.length > RELATED_SHOWN
+                    ? h(
+                        "button",
+                        {
+                            type: "button",
+                            class: "btn relmore",
+                            "aria-expanded": relMore ? "true" : "false",
+                            onclick: () => {
+                                relMore = !relMore;
+                                draw();
+                            },
+                        },
+                        relMore ? tr("related_less") : tr("related_more", {n: rel.length - RELATED_SHOWN}),
+                    )
+                    : null,
+            ),
+        );
     }
 
     function summaryBlock(tk) {
@@ -1167,7 +1253,13 @@ function notePanel(note, cb) {
                     "div",
                     {class: "sheet"},
                     aiStrip(),
-                    preview ? translationBlock(tk) : [sum && AI_READY ? summaryBlock(tk) : null, readerBody(note, tk)],
+                    preview
+                        ? translationBlock(tk)
+                        : [
+                            sum && AI_READY ? summaryBlock(tk) : null,
+                            readerBody(note, tk),
+                            rel.length && AI_READY && SETTINGS.show_related ? relatedBlock() : null,
+                        ],
                     h("div", {class: "err"}, msg),
                 ),
             );
@@ -1239,6 +1331,7 @@ function notePanel(note, cb) {
 
     draw();
     loadSummary(); // a kept summary is shown at once
+    loadRelated();
     return root;
 }
 

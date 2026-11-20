@@ -777,6 +777,42 @@ main {
     padding: 0;
 }
 
+.relwrap {
+    padding-bottom: 22px;
+}
+
+.rellist {
+    list-style: none;
+    margin: 0;
+    padding: 6px 10px 10px;
+    display: grid;
+    gap: 2px;
+}
+
+.rellink {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.related .relmore {
+    margin: 0 10px 10px;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.rellink:hover,
+.rellink:focus-visible {
+    background: var(--accent-soft);
+}
+
 @media (max-width: 1200px) {
     .app {
         grid-template-columns: 220px minmax(0, 1fr);

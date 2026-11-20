@@ -53,6 +53,9 @@ SPEC: dict[str, Setting] = {
     "ai_block_page": Setting(
         False, _bool
     ),  # blur and block the page while an AI job runs (Appearance)
+    "show_related": Setting(
+        True, _bool
+    ),  # related notes under an open note (Appearance; only with AI on)
     "ai_connection": Setting("openrouter", _choice("openrouter", "local")),
     "ai_address": Setting("", _str(200)),  # used by the local connection only
     "ai_model_openrouter": Setting(

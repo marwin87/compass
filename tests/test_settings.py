@@ -15,6 +15,7 @@ DEFAULTS = {
     "sort": "",
     "ai_enabled": False,
     "ai_block_page": False,
+    "show_related": True,
     "ai_connection": "openrouter",
     "ai_address": "",
     "ai_model_openrouter": "",

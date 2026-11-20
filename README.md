@@ -101,7 +101,7 @@ cookie. Your notes, tags and search are not translated and work the same in both
 ## Settings
 
 The **Settings** page (`/settings`, from the side panel) has Appearance (theme, language, reading text size and
-width, default list order), Categories and Tags (search, rename, merge, delete), Backup (export and import),
+width, default list order, and with AI on: block the page during AI work and show related notes), Categories and Tags (search, rename, merge, delete), Backup (export and import),
 Keyboard shortcuts (the same list opens anywhere with `?`; `T` flips the theme), a Danger zone (clear all data) and About (version, counts, database size and path). Preferences are stored on the server (`GET`/`PUT /api/settings`),
 so they follow you between browsers; the language is a cookie.
 
@@ -123,6 +123,9 @@ can be deleted).
   **Manage conversations** (the list icon in the chat header) shows all of them with message counts and last activity, selects
   many at once or everything older than 30 days, and deletes the selection after one confirmation.
   Every answer lists the notes it comes from; a note deleted later stays in the list marked as deleted.
+- **Related notes:** under an open note, the five notes closest in meaning (the first two, the other three after "Show more"). They come from the vectors already stored for the chat (the
+  mean of the note's chunks against everyone else's), so it makes **no model call**. It can be switched off in Settings → Appearance (on by default). It shows once the note is in the index (a
+  question in the chat or **Build index** in Settings) and its text has not changed since; until then the section is hidden.
 - **Summarize:** one click writes a short summary and key points above the note. It is kept next to the note (the note itself is
   never changed) and marked as outdated once you edit the note.
 - **Translate PL↔EN:** the translate button in a note opens a preview (the note is never changed). The direction

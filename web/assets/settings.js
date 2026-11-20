@@ -118,6 +118,15 @@ const aiBlock = segmented(
     (v) => change("ai_block_page", v, (x) => aiBlock.set(x)),
 );
 $("#ctl-ai-block").append(aiBlock.el);
+const related = segmented(
+    [
+        [true, tr("ai_on")],
+        [false, tr("ai_off")],
+    ],
+    SETTINGS.show_related,
+    (v) => change("show_related", v, (x) => related.set(x)),
+);
+$("#ctl-related").append(related.el);
 
 // AI: the switch, the connection and where it points; the key itself lives in the server environment only
 const aiOn = segmented(

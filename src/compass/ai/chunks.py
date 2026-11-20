@@ -13,12 +13,16 @@ import sqlite3
 from array import array
 from collections.abc import Iterator
 
+from pydantic import BaseModel
+
 from compass import ai
 from compass.db import session
 from compass.notes.summaries import digest
 
 CHUNK_CHARS = 1200
 BATCH = 32  # chunks per embeddings call
+RELATED = 5  # notes shown as related
+RELATED_POOL = 50  # chunks looked at to find them (a note's own chunks come first)
 FENCE = re.compile(r"^\s*(```|~~~)")
 HEADING = re.compile(r"^#{1,6}\s")
 
@@ -169,3 +173,53 @@ def search(
     ]
     scored.sort(key=lambda r: r[3], reverse=True)
     return scored[:k]
+
+
+class RelatedNote(BaseModel):
+    id: int
+    title: str
+
+
+def related(s: dict[str, object], note_id: int, k: int = RELATED) -> list[RelatedNote]:
+    """The `k` notes closest in meaning to `note_id`, best first. No model call: the note's own stored
+    vectors (their mean) are matched against everyone else's. Empty when there is no embedding model,
+    or the note is not indexed with its current text and model (the section then simply stays hidden)."""
+    name = ai.embed_model(s)
+    if not name:
+        return []
+    with session() as conn:
+        note = conn.execute(
+            "SELECT title, body FROM notes WHERE id = ?", (note_id,)
+        ).fetchone()
+        if note is None:
+            return []
+        wanted = digest(*note)
+        have = conn.execute(
+            "SELECT MIN(source_hash), MIN(model), MAX(source_hash), MAX(model) "
+            "FROM note_chunks WHERE note_id = ?",
+            (note_id,),
+        ).fetchone()
+        if tuple(have) != (wanted, name, wanted, name):
+            return []
+        own = [
+            _unpack(blob)
+            for (blob,) in conn.execute(
+                "SELECT vec FROM note_chunks WHERE note_id = ?", (note_id,)
+            )
+        ]
+    centre = [sum(column) for column in zip(*own, strict=True)]
+    nearest: dict[int, None] = {}  # insertion order = best first
+    for other, _idx, _text, _score in search(s, centre, RELATED_POOL):
+        if other != note_id:
+            nearest.setdefault(other)
+    ids = list(nearest)[:k]
+    if not ids:
+        return []
+    with session() as conn:
+        titles = dict(
+            conn.execute(
+                f"SELECT id, title FROM notes WHERE id IN ({','.join('?' * len(ids))})",
+                ids,
+            )
+        )
+    return [RelatedNote(id=i, title=titles[i]) for i in ids if i in titles]

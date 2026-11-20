@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from compass import ai, api, db, notes, settings
+from compass.ai import chunks
 from compass.notes import categories, summaries
 
 router = APIRouter(prefix="/api/notes")
@@ -109,6 +110,13 @@ def summarize(note_id: int) -> summaries.Summary:
     if saved is None:
         raise api.not_found("Note")
     return saved
+
+
+@router.get("/{note_id}/related")
+def read_related(note_id: int) -> list[chunks.RelatedNote]:
+    """Notes close in meaning to this one, from the stored vectors (no model call); empty until the note is
+    indexed. A plain `def`: runs in the threadpool."""
+    return chunks.related(settings.current(), note_id)
 
 
 @router.get("/{note_id}/summary")
