@@ -153,8 +153,9 @@ def search(
     s: dict[str, object], query: list[float], k: int
 ) -> list[tuple[int, int, str, float]]:
     """The `k` chunks closest to `query` as (note id, chunk number, text, cosine), best first. Only chunks
-    made by the current embedding model count. ponytail: brute force over every chunk (fine to about
-    50 000); a vector extension if it ever gets slow."""
+    made by the current embedding model count. ponytail: brute force over every chunk (measured: about
+    0.15-0.25 s at 10 000 chunks, 0.8-1.3 s at 50 000; fine to about 20 000). If it gets slow, keep the
+    unpacked vectors in memory before reaching for a vector extension."""
     unit = _unpack(_pack_vec(query))
     with session() as conn:
         rows = conn.execute(
