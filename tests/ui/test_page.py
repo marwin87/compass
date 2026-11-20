@@ -110,7 +110,7 @@ def test_redesigned_page_controls_exist_in_both_languages(anon: TestClient) -> N
 def test_skeleton_loading_is_built_in_and_respects_reduced_motion() -> None:
     assert "skeletonCard" in INDEX_HTML and "skeletonPanel" in INDEX_HTML
     assert (
-        "prefers-reduced-motion:reduce" in INDEX_HTML
+        "prefers-reduced-motion: reduce" in INDEX_HTML
     )  # shimmer stops for those users
     assert "spinner" not in INDEX_HTML.lower()
 
