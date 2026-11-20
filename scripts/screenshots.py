@@ -42,14 +42,14 @@ from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import httpx
+import httpx2 as httpx
 from playwright.sync_api import Page, expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 
 # ===== A. CONFIG (edit) ==================================================================================
 OUT_DIR = ROOT / "docs" / "screenshots"
-VIEWPORT = {"width": 1280, "height": 800}
+VIEWPORT = {"width": 1280, "height": 960}
 LOCALE = "en-US"  # the browser language; many apps pick their UI language from it
 COLOR_SCHEME = "dark"  # "dark" | "light"; for apps that follow the OS theme
 PASSWORD = "screenshots"  # the login used below (steps/seed), set through ENV when the app needs one
