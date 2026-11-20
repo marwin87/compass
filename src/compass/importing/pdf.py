@@ -78,18 +78,11 @@ def _pictures(page: object) -> list[bytes]:
     return out
 
 
-def extract(raw: bytes, limit: int, read: Read | None = None) -> list[Block]:
-    """The text blocks of a PDF, one per page that has any. `read` reads a picture with the vision model
-    (None: no vision model, pictures are not read). Raises BadFile: `not_pdf`, `encrypted`, `too_large`
-    (more than `limit` characters, found without reading the rest), `too_many_images` (more than
-    MAX_PICTURES pictures to read), `no_vision` (only pictures, and no vision model) or `empty` (no text).
-    Raises ai.AIError through `read`."""
-    if b"%PDF-" not in raw[:1024]:
-        raise BadFile("not_pdf")
+def _read_pages(raw: bytes, limit: int) -> tuple[list[str], dict[int, list[bytes]]]:
+    """The text of each page, and the pictures of the pages without text (page -> pictures).
+    Raises BadFile: `encrypted`, `too_large` or `not_pdf`."""
     pages: list[str] = []
-    pictures: dict[
-        int, list[bytes]
-    ] = {}  # page -> its pictures, for pages without text
+    pictures: dict[int, list[bytes]] = {}
     try:
         reader = PdfReader(io.BytesIO(raw))
         if reader.is_encrypted and not reader.decrypt(""):
@@ -112,14 +105,33 @@ def extract(raw: bytes, limit: int, read: Read | None = None) -> list[Block]:
         raise BadFile("encrypted") from None
     except (PyPdfError, ValueError, KeyError, TypeError, OSError, RecursionError):
         raise BadFile("not_pdf") from None
+    return pages, pictures
+
+
+def _read_pictures(
+    pages: list[str], pictures: dict[int, list[bytes]], read: Read
+) -> None:
+    """Add the text `read` finds in the pictures to their pages. Raises BadFile `too_many_images`."""
+    if sum(len(p) for p in pictures.values()) > MAX_PICTURES:
+        raise BadFile("too_many_images")
+    flat = [(n, p) for n, found in pictures.items() for p in found]
+    with ThreadPoolExecutor(READERS) as pool:
+        texts = list(pool.map(lambda item: read(item[1], "image/jpeg"), flat))
+    for (n, _), text in zip(flat, texts, strict=True):
+        pages[n] = f"{pages[n]}\n\n{text}".strip()
+
+
+def extract(raw: bytes, limit: int, read: Read | None = None) -> list[Block]:
+    """The text blocks of a PDF, one per page that has any. `read` reads a picture with the vision model
+    (None: no vision model, pictures are not read). Raises BadFile: `not_pdf`, `encrypted`, `too_large`
+    (more than `limit` characters, found without reading the rest), `too_many_images` (more than
+    MAX_PICTURES pictures to read), `no_vision` (only pictures, and no vision model) or `empty` (no text).
+    Raises ai.AIError through `read`."""
+    if b"%PDF-" not in raw[:1024]:
+        raise BadFile("not_pdf")
+    pages, pictures = _read_pages(raw, limit)
     if pictures and read is not None:
-        if sum(len(p) for p in pictures.values()) > MAX_PICTURES:
-            raise BadFile("too_many_images")
-        flat = [(n, p) for n, found in pictures.items() for p in found]
-        with ThreadPoolExecutor(READERS) as pool:
-            texts = list(pool.map(lambda item: read(item[1], "image/jpeg"), flat))
-        for (n, _), text in zip(flat, texts, strict=True):
-            pages[n] = f"{pages[n]}\n\n{text}".strip()
+        _read_pictures(pages, pictures, read)
     blocks = [
         Block(0, text.strip()) for text in _without_repeats(pages) if text.strip()
     ]
