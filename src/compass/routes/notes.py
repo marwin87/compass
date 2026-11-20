@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from compass import ai, api, db, notes, settings
@@ -72,7 +72,7 @@ def search(
 def read(note_id: int) -> notes.Note:
     note = notes.get_note(note_id)
     if note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise api.not_found("Note")
     return note
 
 
@@ -83,7 +83,7 @@ def translate(
     """A preview of the note body translated into `to`; nothing is saved. A plain `def`: runs in the threadpool."""
     note = notes.get_note(note_id)
     if note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise api.not_found("Note")
     try:
         return {"lang": to, "text": ai.translate(note.body, settings.current(), to)}
     except ai.AIError as problem:
@@ -97,7 +97,7 @@ def summarize(note_id: int) -> summaries.Summary:
     A plain `def`: runs in the threadpool."""
     note = notes.get_note(note_id)
     if note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise api.not_found("Note")
     try:
         text = ai.summarize(note.title, note.body, settings.current())
     except ai.AIError as problem:
@@ -107,7 +107,7 @@ def summarize(note_id: int) -> summaries.Summary:
     # The digest is of the note as it was sent: an edit made while the model worked makes this stale.
     saved = summaries.save(note.id, text, summaries.digest(note.title, note.body))
     if saved is None:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise api.not_found("Note")
     return saved
 
 
@@ -131,11 +131,11 @@ def update(note_id: int, data: NoteIn) -> notes.Note:
     except categories.CategoryError as problem:
         raise api.category_error(problem) from None
     if note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise api.not_found("Note")
     return note
 
 
 @router.delete("/{note_id}", status_code=204)
 def delete(note_id: int) -> None:
     if not notes.delete_note(note_id):
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise api.not_found("Note")

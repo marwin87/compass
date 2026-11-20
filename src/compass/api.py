@@ -32,6 +32,10 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024  # a phone photo is a few MB; no resizing her
 MAX_BULK = 500  # notes per bulk save
 
 
+def not_found(what: str) -> HTTPException:
+    return HTTPException(status_code=404, detail=f"{what} not found")
+
+
 def category_error(problem: categories.CategoryError) -> HTTPException:
     return HTTPException(
         status_code=CATEGORY_STATUS.get(problem.code, 400),

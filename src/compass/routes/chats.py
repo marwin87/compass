@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field, StringConstraints
 from starlette.responses import StreamingResponse
 
@@ -33,7 +33,7 @@ def create_chat() -> chat.Conversation:
 def read_chat(chat_id: int) -> chat.Thread:
     thread = chat.get(chat_id)
     if thread is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise api.not_found("Conversation")
     return thread
 
 
@@ -48,14 +48,14 @@ def rename_chat(chat_id: int, data: ChatTitle) -> chat.Conversation:
     """Rename a conversation (the first question names it until then)."""
     renamed = chat.rename(chat_id, data.title)
     if renamed is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise api.not_found("Conversation")
     return renamed
 
 
 @router.delete("/{chat_id}", status_code=204)
 def delete_chat(chat_id: int) -> None:
     if not chat.delete(chat_id):
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise api.not_found("Conversation")
 
 
 class ChatIds(BaseModel):
@@ -76,7 +76,7 @@ def ask_chat(chat_id: int, data: Question) -> StreamingResponse:
     A plain `def`: the first events (retrieval) run in the threadpool before the response starts."""
     current = settings.current()
     if chat.get(chat_id) is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise api.not_found("Conversation")
     try:
         ai.ready(current)
     except ai.AIError as problem:
