@@ -36,7 +36,7 @@ const themeSeg = segmented(
         }),
 );
 $("#ctl-theme").append(themeSeg.el);
-document.addEventListener("themechange", (e) => themeSeg.set(e.detail)); // the T key changed it
+document.addEventListener("themechange", (/** @type {CustomEvent} */ e) => themeSeg.set(e.detail)); // the T key changed it
 
 const langSeg = segmented(
     [
@@ -1174,7 +1174,7 @@ loadTags();
 // Navigation: the link of the section being read is highlighted. A section near the end of the page cannot be
 // scrolled to the top, so a clicked link keeps the highlight until the user scrolls by hand.
 const NAV = [...document.querySelectorAll("#snav a")],
-    SECS = NAV.map((a) => document.getElementById(a.dataset.sec));
+    SECS = NAV.map((/** @type {HTMLElement} */ a) => document.getElementById(a.dataset.sec));
 let navQueued = false,
     navLock = null;
 const showNav = (cur) => NAV.forEach((a, i) => a.classList.toggle("on", i === cur));
@@ -1205,7 +1205,7 @@ const unlockNav = () => {
 ["wheel", "touchmove", "keydown", "mousedown"].forEach((ev) =>
     addEventListener(
         ev,
-        (e) => {
+        (/** @type {any} */ e) => {
             if (!(e.target.closest && e.target.closest("#snav"))) unlockNav();
         },
         {passive: true},

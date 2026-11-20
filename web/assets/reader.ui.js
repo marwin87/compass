@@ -225,7 +225,7 @@ function readerBody(note, tk, lang) {
 
 function syncReadButton() {
     // the book icon in the note header is a toggle: lit while reading
-    document.querySelectorAll(".readtoggle").forEach((b) => {
+    document.querySelectorAll(".readtoggle").forEach((/** @type {HTMLElement} */ b) => {
         b.classList.toggle("on", state.reading);
         b.setAttribute("aria-pressed", state.reading ? "true" : "false");
         b.title = tr(state.reading ? "reading_exit" : "reading_mode");
@@ -240,7 +240,7 @@ function enterReading() {
     openMenu(false);
     $("#app").classList.add("reading");
     syncReadButton();
-    document.querySelectorAll(".toc").forEach((d) => {
+    document.querySelectorAll(".toc").forEach((/** @type {HTMLDetailsElement} */ d) => {
         d.open = true;
     });
     $("#detail").scrollTo({top: 0});
@@ -251,7 +251,7 @@ function exitReading() {
     state.reading = false;
     $("#app").classList.remove("reading");
     syncReadButton();
-    document.querySelectorAll(".toc").forEach((d) => {
+    document.querySelectorAll(".toc").forEach((/** @type {HTMLDetailsElement} */ d) => {
         d.open = false;
     });
 }

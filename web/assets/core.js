@@ -2,8 +2,10 @@
 const LANG = I18N.lang,
     T = I18N.strings;
 const tr = (key, vars = {}) => T[key].replace(/\{(\w+)\}/g, (_, k) => vars[k]);
+/** @param {string} s @returns {any} the first match; the code relies on the element being there */
 const $ = (s) => document.querySelector(s);
 
+/** @param {string} tag @param {Record<string, any> | null} [props] @param {any[]} kids @returns {any} */
 function h(tag, props, ...kids) {
     const el = document.createElement(tag);
     for (const [k, v] of Object.entries(props || {})) {
@@ -229,10 +231,6 @@ const ICONS = {
         ["path", {d: "M18 6 6 18"}],
         ["path", {d: "m6 6 12 12"}],
     ],
-    plus: [
-        ["path", {d: "M5 12h14"}],
-        ["path", {d: "M12 5v14"}],
-    ],
     "chevron-right": [["path", {d: "m9 18 6-6-6-6"}]],
     "chevron-left": [["path", {d: "m15 18-6-6 6-6"}]],
     "chevron-down": [["path", {d: "m6 9 6 6 6-6"}]],
@@ -345,9 +343,9 @@ function waveDefs(s) {
             [1, c2, a2],
         ]) {
             const st = document.createElementNS(SVGNS, "stop");
-            st.setAttribute("offset", o);
-            st.setAttribute("stop-color", c);
-            st.setAttribute("stop-opacity", a);
+            st.setAttribute("offset", String(o));
+            st.setAttribute("stop-color", String(c));
+            st.setAttribute("stop-opacity", String(a));
             g.append(st);
         }
         defs.append(g);
@@ -381,7 +379,7 @@ const icon = (name, size = 18) =>
 const fillIcons = (root = document) =>
     root
         .querySelectorAll("[data-icon]")
-        .forEach((el) => el.replaceChildren(icon(el.dataset.icon, +el.dataset.size || 18)));
+        .forEach((/** @type {HTMLElement} */ el) => el.replaceChildren(icon(el.dataset.icon, +el.dataset.size || 18)));
 
 function toast(msg, kind = "", ms = 1800) {
     // kind: "", "ok" or "bad"; errors stay longer
@@ -434,7 +432,7 @@ const noteLang = (text) => {
 const translateLabel = (to) => tr(to === "en" ? "translate_pl_en" : "translate_en_pl");
 // AI components: every one carries `data-ai` and starts `hidden`; it shows only while AI is enabled AND configured (AI_READY).
 const setAiReady = (on) =>
-    document.querySelectorAll("[data-ai]").forEach((el) => {
+    document.querySelectorAll("[data-ai]").forEach((/** @type {HTMLElement} */ el) => {
         el.hidden = !on;
     });
 // The rule for every AI job: while it runs, with the setting `ai_block_page` on, the page is blurred and inactive
@@ -526,7 +524,7 @@ document.addEventListener("keydown", (e) => {
     if ((e.key !== "t" && e.key !== "T") || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
     if (
         /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) ||
-        document.activeElement.isContentEditable ||
+        /** @type {HTMLElement} */ (document.activeElement).isContentEditable ||
         document.querySelector("dialog[open]") ||
         aiBlocked()
     )
@@ -536,6 +534,7 @@ document.addEventListener("keydown", (e) => {
 });
 // --- keyboard shortcuts: one list for the Settings section and the "?" window (also opened by the sidebar icon on the notes page)
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+/** @type {[string[], string][]} */
 const SHORTCUTS = [
     [["/"], "sc_search"],
     [[MAC ? "⌘" : "Ctrl", "K"], "sc_search_any"],
@@ -606,7 +605,7 @@ function showShortcuts() {
 
 document.addEventListener("keydown", (e) => {
     if (e.key !== "?" || e.ctrlKey || e.metaKey || e.altKey) return;
-    const a = document.activeElement,
+    const a = /** @type {HTMLInputElement} */ (document.activeElement),
         emptySearch = a.id === "q" && !a.value; // the search box has focus on load: a "?" as its first character opens the window
     if ((/INPUT|TEXTAREA|SELECT/.test(a.tagName) && !emptySearch) || a.isContentEditable || aiBlocked()) return;
     e.preventDefault();

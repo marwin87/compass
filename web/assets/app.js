@@ -76,6 +76,7 @@ function readTags(v) {
     return {tags, error};
 }
 
+/** @type {[RegExp, string][]} */
 const TOPICS = [
     [/rozmow|interview|soft/, "message"],
     [/\bgit\b/, "branch"],

@@ -27,6 +27,13 @@ modules that assemble the pages, and `web/assets/` with the real CSS, JavaScript
 `i18n.py` for the translations). The backend never builds HTML or CSS; `ui/` may import the backend only for plain data
 (`settings` defaults in `core.inject`). New UI modules go into `ui/`.
 
+**Types.** The JS is type-checked with TypeScript's `checkJs` (no build, no emitted files): `web/tsconfig.json` covers the notes
+page (`web/assets/*.js`), `web/tsconfig.settings.json` the Settings page (`core.js`, `settings.js`, `password.js`; the two pages
+declare the same top-level names, so they cannot be one program). Run both with
+`npx -p typescript@5.8.3 tsc -p web/tsconfig.json` and `... -p web/tsconfig.settings.json`; both must print nothing. The constants the
+server writes into a page (`I18N`, `SETTINGS`, `AI_READY`) are declared in `web/types/globals.d.ts`. Annotate with JSDoc comments
+(`/** @type {HTMLElement} */`); never change the code only to satisfy the checker.
+
 The script section order in `web/assets/app.js`: i18n + helpers, text/highlight helpers, icons, toast, state and
 server calls, skeleton, rendering, forms and the note panel, category management, import, wiring.
 State lives in one `state` object; render functions rebuild their part of the DOM from it.

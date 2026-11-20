@@ -1,0 +1,5 @@
+{
+    "extends": "./tsconfig.json",
+    "include": ["assets/core.js", "assets/settings.js", "assets/password.js", "types/*.d.ts"],
+    "exclude": []
+}
